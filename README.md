@@ -30,9 +30,8 @@ Follow these steps to get the application running locally for development and te
 -   Node.js and npm (or yarn/pnpm)
 -   Python 3.11+
 -   **`GEMINI_API_KEY`**: The backend agent requires a Google Gemini API key.
-    1.  Navigate to the `backend/` directory.
-    2.  Create a file named `.env` by copying the `backend/.env.example` file.
-    3.  Open the `.env` file and add your Gemini API key: `GEMINI_API_KEY="YOUR_ACTUAL_API_KEY"`
+    1.  Create a file named `.env` in the project root by copying the `.env.example` file.
+    2.  Open the `.env` file and add your Gemini API key: `GEMINI_API_KEY="YOUR_ACTUAL_API_KEY"`
 
 **2. Install Dependencies:**
 
@@ -117,4 +116,23 @@ Open your browser and navigate to `http://localhost:8123/app/` to see the applic
 
 ## License
 
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details. 
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+## Tools
+
+This project includes a collection of utility scripts located in the `scripts` directory. These tools are managed and executed via the root `Makefile`.
+
+### List Models
+
+This tool fetches the list of available models from the Google Generative AI API and saves them to `logs/models.log`.
+
+**Prerequisites:**
+
+-   Ensure the `GEMINI_API_KEY` environment variable is set.
+
+**Usage:**
+
+Run the following command from the project root directory:
+    ```bash
+    make list-models
+    ``` 

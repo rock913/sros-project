@@ -29,6 +29,7 @@ services:
       interval: 5s
   langgraph-api:
     image: gemini-fullstack-langgraph
+    build: .
     container_name: langgraph-api
     ports:
       - "8123:8000"

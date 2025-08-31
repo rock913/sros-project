@@ -1,3 +1,8 @@
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 .PHONY: help dev-frontend dev-backend dev
 
 help:
@@ -17,4 +22,8 @@ dev-backend:
 # Run frontend and backend concurrently
 dev:
 	@echo "Starting both frontend and backend development servers..."
-	@make dev-frontend & make dev-backend 
+	@make dev-frontend & make dev-backend
+
+list-models:
+	@echo "Listing models..."
+	@./scripts/list-models.sh 
