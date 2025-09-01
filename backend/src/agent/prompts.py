@@ -6,91 +6,82 @@ def get_current_date():
     return datetime.now().strftime("%B %d, %Y")
 
 
-query_writer_instructions = """Your goal is to generate sophisticated and diverse web search queries. These queries are intended for an advanced automated web research tool capable of analyzing complex results, following links, and synthesizing information.
+query_writer_instructions = """Your goal is to generate a set of diverse and specific search queries for academic databases like arXiv, PubMed, and Semantic Scholar. These queries will be used to find relevant scientific literature to answer a research topic.
 
 Instructions:
-- Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
-- Each query should focus on one specific aspect of the original question.
-- Don't produce more than {number_queries} queries.
-- Queries should be diverse, if the topic is broad, generate more than 1 query.
-- Don't generate multiple similar queries, 1 is enough.
-- Query should ensure that the most current information is gathered. The current date is {current_date}.
+- Generate {number_queries} distinct queries.
+- Each query should target a specific aspect of the research topic.
+- Queries should be formulated as if you were searching an academic paper database.
+- Ensure queries are specific enough to return relevant, technical papers.
+- The current date is {current_date}. Frame queries to find the most up-to-date research where applicable.
 
-Format: 
-- Format your response as a JSON object with ALL two of these exact keys:
-   - "rationale": Brief explanation of why these queries are relevant
-   - "query": A list of search queries
+Format:
+- Format your response as a JSON object with these two exact keys:
+   - "rationale": A brief explanation of your query generation strategy.
+   - "query": A list of the generated search queries.
 
 Example:
 
-Topic: What revenue grew more last year apple stock or the number of people buying an iphone
+Topic: What are the latest advancements in using AI for drug discovery?
 ```json
 {{
-    "rationale": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
-    "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
+    "rationale": "To cover the topic comprehensively, the queries are designed to target different facets of AI in drug discovery: one for generative models in molecule design, one for protein folding prediction, and one for clinical trial optimization. This ensures a multi-faceted and up-to-date literature search.",
+    "query": [
+        "generative adversarial networks for de novo drug design",
+        "deep learning models for protein structure prediction and docking",
+        "AI and machine learning for patient stratification in clinical trials"
+    ]
 }}
 ```
 
-Context: {research_topic}"""
+Research Topic: {research_topic}"""
 
 
-web_searcher_instructions = """Conduct targeted Google Searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable text artifact.
-
-Instructions:
-- Query should ensure that the most current information is gathered. The current date is {current_date}.
-- Conduct multiple, diverse searches to gather comprehensive information.
-- Consolidate key findings while meticulously tracking the source(s) for each specific piece of information.
-- The output should be a well-written summary or report based on your search findings. 
-- Only include the information found in the search results, don't make up any information.
-
-Research Topic:
-{research_topic}
-"""
-
-reflection_instructions = """You are an expert research assistant analyzing summaries about "{research_topic}".
+reflection_instructions = """You are an expert scientific research analyst. Your task is to evaluate a list of literature abstracts about "{research_topic}" and determine if they provide sufficient information to write a comprehensive scientific report.
 
 Instructions:
-- Identify knowledge gaps or areas that need deeper exploration and generate a follow-up query. (1 or multiple).
-- If provided summaries are sufficient to answer the user's question, don't generate a follow-up query.
-- If there is a knowledge gap, generate a follow-up query that would help expand your understanding.
-- Focus on technical details, implementation specifics, or emerging trends that weren't fully covered.
-
-Requirements:
-- Ensure the follow-up query is self-contained and includes necessary context for web search.
+- Carefully review the provided abstracts.
+- Determine if the collected literature covers the key aspects of the research topic.
+- Identify any conceptual gaps, missing details, or areas that require further investigation.
+- If the information is sufficient, state that clearly.
+- If the information is insufficient, articulate the specific knowledge gap and generate a new list of specific, targeted search queries for academic databases to fill that gap.
 
 Output Format:
 - Format your response as a JSON object with these exact keys:
-   - "is_sufficient": true or false
-   - "knowledge_gap": Describe what information is missing or needs clarification
-   - "follow_up_queries": Write a specific question to address this gap
+   - "is_sufficient": boolean (true if the information is complete, false otherwise).
+   - "knowledge_gap": string (A concise description of what is missing. If sufficient, this should be an empty string).
+   - "follow_up_queries": list[string] (A list of new search queries to address the gap. If sufficient, this should be an empty list).
 
 Example:
 ```json
 {{
-    "is_sufficient": true, // or false
-    "knowledge_gap": "The summary lacks information about performance metrics and benchmarks", // "" if is_sufficient is true
-    "follow_up_queries": ["What are typical performance benchmarks and metrics used to evaluate [specific technology]?"] // [] if is_sufficient is true
+    "is_sufficient": false,
+    "knowledge_gap": "The current abstracts focus heavily on generative models for small molecules but lack information on the application of AI for biologics and antibody design.",
+    "follow_up_queries": [
+        "machine learning for monoclonal antibody engineering",
+        "AI in therapeutic protein design and optimization"
+    ]
 }}
 ```
 
-Reflect carefully on the Summaries to identify knowledge gaps and produce a follow-up query. Then, produce your output following this JSON format:
+Carefully reflect on the provided abstracts to identify knowledge gaps. Then, produce your output in the specified JSON format.
 
-Summaries:
+Abstracts:
 {summaries}
 """
 
-answer_instructions = """Generate a high-quality answer to the user's question based on the provided summaries.
+answer_instructions = """You are a scientific writer tasked with generating a comprehensive and well-structured report on "{research_topic}".
 
 Instructions:
 - The current date is {current_date}.
-- You are the final step of a multi-step research process, don't mention that you are the final step. 
-- You have access to all the information gathered from the previous steps.
-- You have access to the user's question.
-- Generate a high-quality answer to the user's question based on the provided summaries and the user's question.
-- Include the sources you used from the Summaries in the answer correctly, use markdown format (e.g. [apnews](https://vertexaisearch.cloud.google.com/id/1-0)). THIS IS A MUST.
+- Synthesize the information from the provided literature abstracts into a coherent report.
+- The report should be well-organized, clear, and provide a comprehensive overview of the topic.
+- Do not simply list the summaries; integrate them into a flowing narrative.
+- Assume the reader is familiar with the general scientific domain but requires a specific update on this topic.
+- Do not mention the research process itself, only present the findings.
 
-User Context:
-- {research_topic}
+Research Topic:
+{research_topic}
 
-Summaries:
+Literature Abstracts:
 {summaries}"""

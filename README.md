@@ -62,49 +62,87 @@ _Alternatively, you can run the backend and frontend development servers separat
 
 ## How the Backend Agent Works (High-Level)
 
-The core of the backend is a LangGraph agent defined in `backend/src/agent/graph.py`. It follows these steps:
+The core of the backend is a LangGraph agent defined in `backend/src/agent/graph.py`. It now follows a sophisticated four-stage workflow designed for automated research:
 
-<img src="./agent.png" title="Agent Flow" alt="Agent Flow" width="50%">
-
-1.  **Generate Initial Queries:** Based on your input, it generates a set of initial search queries using a Gemini model.
-2.  **Web Research:** For each query, it uses the Gemini model with the Google Search API to find relevant web pages.
-3.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the search results to determine if the information is sufficient or if there are knowledge gaps. It uses a Gemini model for this reflection process.
-4.  **Iterative Refinement:** If gaps are found or the information is insufficient, it generates follow-up queries and repeats the web research and reflection steps (up to a configured maximum number of loops).
-5.  **Finalize Answer:** Once the research is deemed sufficient, the agent synthesizes the gathered information into a coherent answer, including citations from the web sources, using a Gemini model.
-
-## CLI Example
-
-For quick one-off questions you can execute the agent from the command line. The
-script `backend/examples/cli_research.py` runs the LangGraph agent and prints the
-final answer:
-
-```bash
-cd backend
-python examples/cli_research.py "What are the latest trends in renewable energy?"
+```mermaid
+graph TD
+    A[Start] --> B{1. Generate Initial Queries};
+    B --> C{2. Execute Searches (Arxiv, etc.)};
+    C --> D{3. Reflection & Refinement};
+    D -- Insufficient --> C;
+    D -- Sufficient --> E{4. Automated Resource Management};
+    E --> F{5. RAG-based Knowledge Synthesis};
+    F --> G{6. Automated Report Generation};
+    G --> H[End];
 ```
 
+1.  **Intelligent Literature Discovery & Reflection:**
+    -   The agent takes a research topic and generates a set of initial search queries.
+    -   It executes these queries against academic search APIs (like Arxiv).
+    -   Crucially, it then enters a **reflection loop**. The agent analyzes the search results to see if they are sufficient.
+    -   If there are knowledge gaps, it generates new queries and re-runs the search. This loop continues until the information is comprehensive or a maximum number of iterations is reached.
 
-## Deployment
+2.  **Automated Resource Management:**
+    -   Once the literature search is complete, the agent finds DOIs (Digital Object Identifiers) in the collected abstracts.
+    -   It uses the Unpaywall API to find open-access PDF versions of the papers.
+    -   It then uses the Zotero API to automatically create a library entry for each paper, attaching the PDF if found.
 
-In production, the backend server serves the optimized static frontend build. LangGraph requires a Redis instance and a Postgres database. Redis is used as a pub-sub broker to enable streaming real time output from background runs. Postgres is used to store assistants, threads, runs, persist thread state and long term memory, and to manage the state of the background task queue with 'exactly once' semantics. For more details on how to deploy the backend server, take a look at the [LangGraph Documentation](https://langchain-ai.github.io/langgraph/concepts/deployment_options/). Below is an example of how to build a Docker image that includes the optimized frontend build and the backend server and run it via `docker-compose`.
+3.  **RAG-based Knowledge Synthesis:**
+    -   The agent downloads the full text from the discovered PDF URLs.
+    -   It extracts the text, splits it into manageable chunks, and generates vector embeddings for each chunk using a Gemini model.
+    -   These chunks and their embeddings are stored in a PostgreSQL database with the `pgvector` extension, creating a powerful Retrieval-Augmented Generation (RAG) knowledge base.
 
-_Note: For the docker-compose.yml example you need a LangSmith API key, you can get one from [LangSmith](https://smith.langchain.com/settings)._
+4.  **Automated Report Generation:**
+    -   Finally, the agent uses the synthesized knowledge in the RAG database to generate a comprehensive report that answers the initial research topic, complete with citations.
 
-_Note: If you are not running the docker-compose.yml example or exposing the backend server to the public internet, you should update the `apiUrl` in the `frontend/src/App.tsx` file to your host. Currently the `apiUrl` is set to `http://localhost:8123` for docker-compose or `http://localhost:2024` for development._
+## Project Upgrade Plan: Towards an Automated Research Platform
 
-**1. Build the Docker Image:**
+This project is undergoing a significant upgrade to transform it from a demo into a powerful, VS Code-native automated research platform. The development is divided into three phases.
 
-   Run the following command from the **project root directory**:
-   ```bash
-   docker build -t gemini-fullstack-langgraph -f Dockerfile .
-   ```
-**2. Run the Production Server:**
+### Phase 1: Backend Foundation and Core Agent (Complete)
 
-   ```bash
-   GEMINI_API_KEY=<your_gemini_api_key> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
-   ```
+This foundational phase has been completed. We have built a robust, "headless" AI agent that is callable via an API and fully implements the four-stage research workflow described above.
 
-Open your browser and navigate to `http://localhost:8123/app/` to see the application. The API will be available at `http://localhost:8123`.
+**Key deliverables from this phase:**
+-   **Functional FastAPI Server:** The backend is served via FastAPI.
+-   **PostgreSQL + pgvector DB:** A PostgreSQL database with the `pgvector` extension is integrated for RAG.
+-   **Four-Stage LangGraph Agent:** The core agent logic is implemented in `backend/src/agent/graph.py`.
+-   **Integrated Tooling:** The agent uses `arxiv`, `unpaywall`, `pyzotero`, and `litellm` to perform its tasks.
+-   **Containerized Environment:** The entire backend stack can be run using Docker Compose.
+
+### Phase 2: VS Code Skeleton and Static Display (In Progress)
+
+The next phase focuses on building the user-facing component of the platform: a VS Code extension. The goal is to create a "read-only" view of the research process.
+
+**Detailed Plan:**
+1.  **Develop the basic VS Code Extension:**
+    -   Set up a new TypeScript project for the extension.
+    -   Implement the three-panel layout as described in the technical documentation:
+        -   **Left Panel (Research Asset Library):** A TreeView to display research resources (papers, notes).
+        -   **Center Panel (Dynamic Manuscript):** The main editor, where the final report will be shown.
+        -   **Right Panel (AI Control Panel):** A Webview to show the agent's status and thinking process.
+2.  **API Integration (Read-Only):**
+    -   The extension will call the backend API to fetch the status and results of a completed research task.
+    -   The data will be used to populate the three panels (e.g., list of papers in the asset library, final report in the editor, agent logs in the control panel).
+3.  **Static Visualization:**
+    -   The primary goal is to prove that the frontend can successfully connect to and display data from the backend. All interactions that trigger new runs will be handled via API tools (like Insomnia or curl) for now.
+
+### Phase 3: Real-time Interaction and Dynamic Collaboration (Future)
+
+The final phase will bring the platform to life by enabling full, real-time, two-way communication between the user and the agent.
+
+**Detailed Plan:**
+1.  **WebSocket Integration:**
+    -   Implement WebSocket communication between the VS Code extension and the FastAPI backend.
+    -   This will allow the agent to stream its "thoughts" and progress to the AI Control Panel in real-time.
+2.  **Interactive Controls:**
+    -   Build the UI components in the AI Control Panel (using React and the VS Code Webview UI Toolkit) that allow the user to:
+        -   Start new research tasks with a natural language prompt.
+        -   Observe the agent's progress.
+        -   Implement "human-in-the-loop" (HITL) decision points, where the agent pauses and asks for user input before proceeding.
+3.  **Dynamic Document Editing:**
+    -   The agent will be able to directly edit the Markdown file in the center panel using the VS Code Workspace API. This will allow the agent to collaboratively write the report with the user.
+
 
 ## Technologies Used
 

@@ -18,6 +18,16 @@ dependencies = [
     "langgraph-api",
     "fastapi",
     "google-genai",
+    "SQLAlchemy",
+    "psycopg2-binary",
+    "pgvector",
+    "litellm",
+    "langchain-community",
+    "arxiv",
+    "pymupdf",
+    "unpywall",
+    "pyzotero",
+    "requests",
 ]
 
 
