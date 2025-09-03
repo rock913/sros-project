@@ -1,0 +1,22 @@
+{
+  "name": "Gemini Fullstack LangGraph",
+  "dockerComposeFile": [
+    "../docker-compose-dev.yml"
+  ],
+  "service": "langgraph-api",
+  "workspaceFolder": "/deps",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "Google.gemini-vscode"
+        // Add other extensions you find useful, e.g., for linting, formatting
+      ]
+    }
+  },
+  // Forward the port for the FastAPI application
+  "forwardPorts": [8123],
+  // Command to run after the container is created (e.g., install poetry dependencies)
+  "postCreateCommand": "cd /deps/backend && PYTHONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -e ."
+}

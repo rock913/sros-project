@@ -27,6 +27,10 @@ RUN apt-get update && apt-get install -y curl && \
 ENV PATH="/root/.local/bin:$PATH"
 # -- End of UV installation --
 
+# -- Install specific grpcio versions to avoid event loop issues --
+RUN uv pip install --system grpcio==1.60.0 grpcio-status==1.60.0
+# -- End of grpcio installation --
+
 # -- Copy built frontend from builder stage --
 # The app.py expects the frontend build to be at ../frontend/dist relative to its own location.
 # If app.py is at /deps/backend/src/agent/app.py, then ../frontend/dist resolves to /deps/frontend/dist.

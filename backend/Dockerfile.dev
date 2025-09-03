@@ -1,0 +1,28 @@
+# Use the same base image as the main Dockerfile for consistency
+FROM docker.io/langchain/langgraph-api:3.11
+
+# Set working directory
+WORKDIR /deps
+
+# -- Install UV --
+# First install curl, then install UV using the standalone installer
+RUN apt-get update && apt-get install -y curl && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV PATH="/root/.local/bin:$PATH"
+# -- End of UV installation --
+
+# Create backend directory
+RUN mkdir -p /deps/backend
+
+# -- Adding local package . --
+ADD backend/ /deps/backend
+
+# Install project dependencies, including dev dependencies
+RUN cd /deps/backend && PYTHONDONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -e .
+
+# Expose the port FastAPI runs on
+EXPOSE 8000
+
+# Default command to keep the container alive for development
+CMD ["tail", "-f", "/dev/null"]

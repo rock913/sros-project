@@ -1,7 +1,8 @@
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_community.tools import ArxivQueryRun, PubmedQueryRun, SemanticScholarQueryRun
+from langchain_community.tools import ArxivQueryRun, PubmedQueryRun
+# from langchain_community.tools.semanticscholar.tool import SemanticScholarQueryRun
 from langchain.tools import tool
 from unpywall import Unpywall
 from pyzotero import zotero
@@ -10,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Unpaywall configuration
-Unpywall.init(os.getenv("UNPAYWALL_EMAIL"))
 
 class SearchQueryList(BaseModel):
     query: List[str] = Field(
@@ -43,7 +43,7 @@ class ResearchResult(BaseModel):
 # Tools
 arxiv_tool = ArxivQueryRun()
 pubmed_tool = PubmedQueryRun()
-semantic_scholar_tool = SemanticScholarQueryRun()
+# semantic_scholar_tool = SemanticScholarQueryRun()
 
 @tool
 def unpaywall_tool(doi: str) -> str:

@@ -21,7 +21,7 @@ from agent.prompts import (
     answer_instructions,
 )
 from agent.state import AgentState
-from agent.database import get_db, Document
+from agent.database import get_db_connection, Document
 
 load_dotenv()
 
@@ -31,7 +31,8 @@ GEMINI_EMBEDDING_MODEL = "models/embedding-001"
 
 # Initialize tools and services
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL, api_key=GEMINI_API_KEY)
 
 # Nodes
 def generate_initial_queries(state: AgentState, config: RunnableConfig) -> AgentState:
@@ -47,6 +48,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
         model="gemini/gemini-1.5-flash",
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": SearchQueryList.model_json_schema()},
+        api_key=GEMINI_API_KEY
     )
     search_queries = SearchQueryList.model_validate_json(response.choices[0].message.content).query
     print(f"Generated initial queries: {search_queries}")
@@ -83,6 +85,7 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
         model="gemini/gemini-1.5-pro",
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": Reflection.model_json_schema()},
+        api_key=GEMINI_API_KEY
     )
     reflection_result = Reflection.model_validate_json(response.choices[0].message.content)
     print(f"Reflection: Sufficient? {reflection_result.is_sufficient}. Gap: {reflection_result.knowledge_gap}")
@@ -128,35 +131,36 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
 def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 3: Chunks, embeds, and stores knowledge in a vector DB."""
     print("---NODE: rag_based_knowledge_synthesis---")
-    db = next(get_db())
-    pdf_urls = state.get("literature_full_text", [])
-    for url in pdf_urls:
-        try:
-            print(f"Processing PDF: {url}")
-            response = requests.get(url)
-            response.raise_for_status()
-            # Open PDF from memory
-            doc = fitz.open(stream=response.content, filetype="pdf")
-            full_text = ""
-            for page in doc:
-                full_text += page.get_text()
-            doc.close()
-            
-            # 2. Chunk the text
-            chunks = text_splitter.split_text(full_text)
-            
-            # 3. Generate embeddings
-            chunk_embeddings = embeddings.embed_documents(chunks)
-            
-            # 4. Store in DB
-            for chunk, embedding in zip(chunks, chunk_embeddings):
-                document = Document(content=chunk, embedding=embedding)
-                db.add(document)
-            db.commit()
-            print(f"Successfully processed and stored {len(chunks)} chunks for {url}")
+    db = get_db_connection()
+    try:
+        pdf_urls = state.get("literature_full_text", [])
+        for url in pdf_urls:
+            try:
+                print(f"Processing PDF: {url}")
+                response = requests.get(url)
+                response.raise_for_status()
+                # Open PDF from memory
+                doc = fitz.open(stream=response.content, filetype="pdf")
+                full_text = ""
+                for page in doc:
+                    full_text += page.get_text()
+                doc.close()
+                
+                # 2. Chunk the text
+                chunks = text_splitter.split_text(full_text)
+                
+                # 3. Generate embeddings
+                chunk_embeddings = embeddings.embed_documents(chunks)
+                
+                # 4. Store in DB
+                for chunk, embedding in zip(chunks, chunk_embeddings):
+                    document = Document(content=chunk, embedding=embedding)
+                    db.add(document)
+                db.commit()
+                print(f"Successfully processed and stored {len(chunks)} chunks for {url}")
 
-        except Exception as e:
-            print(f"Failed to process PDF at {url}. Error: {e}")
+            except Exception as e:
+                print(f"Failed to process PDF at {url}. Error: {e}")
     finally:
         db.close()
     return {}
@@ -165,7 +169,7 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
     """Stage 4: Generates the final report based on the synthesized knowledge."""
     print("---NODE: automated_report_generation---")
     # This is a simplified RAG retrieval. A real implementation would be more sophisticated.
-    db = next(get_db())
+    db = get_db_connection()
     try:
         all_docs = db.query(Document).all()
         rag_context = "\n---\n".join([doc.content for doc in all_docs])
@@ -180,6 +184,7 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
     response = completion(
         model="gemini/gemini-1.5-flash",
         messages=[{"content": prompt, "role": "user"}],
+        api_key=GEMINI_API_KEY
     )
     report = response.choices[0].message.content
     return {"report": report, "messages": [AIMessage(content=report)]}

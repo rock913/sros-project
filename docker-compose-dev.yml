@@ -20,13 +20,17 @@ services:
     volumes:
       - langgraph-data:/var/lib/postgresql/data
   langgraph-api:
-    image: gemini-fullstack-langgraph
-    build: .
+    image: gemini-fullstack-langgraph-quickstart/langgraph-api:dev
+    # Use the Dockerfile.dev in the backend directory for development
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile.dev
     container_name: langgraph-api
     ports:
       - "8123:8000"
     volumes:
-      - ./backend:/deps/backend
+      # Mount the full project for live updates
+      - .:/deps
     depends_on:
       langgraph-redis:
         condition: service_healthy
@@ -38,3 +42,5 @@ services:
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
       REDIS_URI: redis://langgraph-redis:6379
       POSTGRES_URI: postgresql://postgres:postgres@langgraph-postgres:5432/postgres
+    # Keep the container running for development
+    command: tail -f /dev/null
