@@ -19,6 +19,8 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - langgraph-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
   langgraph-api:
     image: gemini-fullstack-langgraph
     build: .

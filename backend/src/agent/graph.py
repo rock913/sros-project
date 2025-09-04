@@ -7,7 +7,6 @@ from agent.tools_and_schemas import SearchQueryList, Reflection, arxiv_tool, unp
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph, END, START
-from langgraph.types import Send
 from langchain_core.runnables import RunnableConfig
 from litellm import completion
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -59,11 +58,23 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
         "literature_abstracts": [],
     }
 
-def execute_searches(state: AgentState, config: RunnableConfig):
-    """Executes parallel searches for the given queries."""
+def execute_searches(state: AgentState, config: RunnableConfig) -> AgentState:
+    """Executes parallel searches for the given queries and aggregates results."""
     print(f"---NODE: execute_searches (Loop {state.get('research_loop_count', 0) + 1})---")
     search_queries = state["search_queries"]
-    return [Send("run_single_search", {"query": query}) for query in search_queries]
+    all_abstract_contents = state.get("literature_abstracts", [])
+    for query in search_queries:
+        print(f"---TOOL: Running search for query: '{query}'---")
+        # arxiv_tool.invoke returns a dictionary like {"documents": [doc1, doc2]}
+        arxiv_response = arxiv_tool.invoke(query)
+        # Ensure arxiv_response is a dictionary and has 'documents' key
+        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:
+            for doc in arxiv_response["documents"]:
+                all_abstract_contents.append(doc.page_content)
+        else:
+            all_abstract_contents.append(str(arxiv_response))
+
+    return {"literature_abstracts": all_abstract_contents}
 
 def run_single_search(state: AgentState, config: RunnableConfig):
     """Runs a single academic search and returns the results."""
@@ -75,7 +86,10 @@ def run_single_search(state: AgentState, config: RunnableConfig):
 def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> AgentState:
     """Reflects on the gathered abstracts and decides if more research is needed."""
     print("---NODE: reflection_and_refinement---")
-    all_abstracts = "\n---\n".join(state["literature_abstracts"])
+    print(f"Type of state['literature_abstracts']: {type(state['literature_abstracts'])}")
+    print(f"Content of state['literature_abstracts']: {state['literature_abstracts']}")
+
+    all_abstracts = "\n---\n".join([str(a) for a in state["literature_abstracts"]])
     prompt = reflection_instructions.format(
         current_date=get_current_date(),
         research_topic=state["research_topic"],
@@ -194,7 +208,6 @@ builder = StateGraph(AgentState)
 
 builder.add_node("generate_initial_queries", generate_initial_queries)
 builder.add_node("execute_searches", execute_searches)
-builder.add_node("run_single_search", run_single_search)
 builder.add_node("reflection_and_refinement", reflection_and_refinement)
 builder.add_node("automated_resource_management", automated_resource_management)
 builder.add_node("rag_based_knowledge_synthesis", rag_based_knowledge_synthesis)
@@ -203,10 +216,7 @@ builder.add_node("automated_report_generation", automated_report_generation)
 # Build the graph edges
 builder.add_edge(START, "generate_initial_queries")
 builder.add_edge("generate_initial_queries", "execute_searches")
-
-# The `execute_searches` node uses `Send` to spawn parallel `run_single_search` calls.
-# The results are implicitly gathered and passed to the next node.
-builder.add_edge("run_single_search", "reflection_and_refinement")
+builder.add_edge("execute_searches", "reflection_and_refinement")
 
 builder.add_conditional_edges(
     "reflection_and_refinement",

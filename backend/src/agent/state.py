@@ -1,4 +1,5 @@
-from typing import List, TypedDict
+from typing import List, TypedDict, Any, Annotated
+import operator
 from langchain_core.messages import BaseMessage
 
 class AgentState(TypedDict):
@@ -6,7 +7,7 @@ class AgentState(TypedDict):
     research_topic: str
     search_queries: List[str]
     # The results of the search queries
-    literature_abstracts: List[str]
+    literature_abstracts: Annotated[List[Any], operator.add]
     # The full text of the literature
     literature_full_text: List[str]
     is_sufficient: bool

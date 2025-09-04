@@ -1,5 +1,7 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, Text, String
+import uuid
+from sqlalchemy import create_engine, Column, Text, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pgvector.sqlalchemy import Vector
 from dotenv import load_dotenv
@@ -15,9 +17,9 @@ Base = declarative_base()
 
 class Document(Base):
     __tablename__ = "documents"
-    id = Column(String, primary_key=True, index=True) # Changed to String for custom IDs
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(1024)) # Assuming Gemini embedding size of 1024
+    embedding = Column(Vector(1024))
 
 def get_db_connection():
     db = SessionLocal()
@@ -27,25 +29,17 @@ def get_db_connection():
         db.close()
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
     with engine.connect() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         connection.commit()
+    Base.metadata.create_all(bind=engine)
 
-def upsert_documents(documents: list):
+def insert_documents(documents: list):
     db = SessionLocal()
     try:
         for doc_data in documents:
-            # Check if document with this ID already exists
-            existing_doc = db.query(Document).filter(Document.id == doc_data["id"]).first()
-            if existing_doc:
-                # Update existing document
-                existing_doc.content = doc_data["text"]
-                existing_doc.embedding = doc_data["embedding"]
-            else:
-                # Create new document
-                new_doc = Document(id=doc_data["id"], content=doc_data["text"], embedding=doc_data["embedding"])
-                db.add(new_doc)
+            doc_obj = Document(content=doc_data["text"], embedding=doc_data["embedding"])
+            db.add(doc_obj)
         db.commit()
     except Exception as e:
         db.rollback()

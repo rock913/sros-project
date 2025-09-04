@@ -47,10 +47,10 @@ pubmed_tool = PubmedQueryRun()
 
 @tool
 def unpaywall_tool(doi: str) -> str:
-    """Searches Unpaywall for a given DOI to find open-access versions of a research paper."""
+    """Searches Unpywall for a given DOI to find open-access versions of a research paper."""
     try:
         paper = Unpywall.doi(dois=[doi])
-        if paper['is_oa'].iloc[0]:
+        if not paper.empty and paper['is_oa'].iloc[0]:
             oa_status = paper['oa_status'].iloc[0]
             best_oa_url = paper['best_oa_location.url'].iloc[0]
             return f"Open access version found! Status: {oa_status}. URL: {best_oa_url}"

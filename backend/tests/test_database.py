@@ -1,31 +1,39 @@
 import pytest
 import os
-from testcontainers.postgres import PostgresContainer
 from sqlalchemy import create_engine, text
-from agent.database import get_db_connection, init_db, upsert_documents, query_documents, Document, Base
+from agent.database import get_db_connection, init_db, insert_documents, query_documents, Document, Base, SessionLocal
+from dotenv import load_dotenv
 
-# Use a fixture to manage the PostgreSQL test container
-@pytest.fixture(scope="module")
-def postgres_container():
-    with PostgresContainer("postgres:16-alpine") as postgres:
-        os.environ["DATABASE_URL"] = postgres.get_connection_url()
-        yield postgres
-    del os.environ["DATABASE_URL"]
+# Load environment variables from .env file
+load_dotenv()
 
-@pytest.fixture(scope="function")
-def db_session(postgres_container):
-    # Initialize the database schema for each test function
+# Use a fixture to manage the database setup and teardown for the entire module
+@pytest.fixture(scope="module", autouse=True)
+def setup_database():
+    # Check if the DATABASE_URL is set
+    database_url = os.getenv("POSTGRES_URI")
+    if not database_url:
+        pytest.fail("POSTGRES_URI environment variable not set. Please create a .env file with the variable.")
+
+    # Initialize the database schema once for the module
     init_db()
-    # Get a new connection for the test
-    session = get_db_connection()
-    yield session
-    # Clean up the database after each test
-    session.close()
-    engine = create_engine(os.environ["DATABASE_URL"])
+    yield
+    # Clean up the database after all tests in the module have run
+    engine = create_engine(database_url)
     with engine.connect() as connection:
         # Drop all tables defined in Base.metadata
         Base.metadata.drop_all(bind=engine)
         connection.commit()
+
+@pytest.fixture(scope="function")
+def db_session():
+    # Get a new connection for the test
+    session = SessionLocal()
+    yield session
+    # Clean up the database after each test
+    session.query(Document).delete()
+    session.commit()
+    session.close()
 
 def test_init_db(db_session):
     # Check if the documents table exists
@@ -40,30 +48,17 @@ def test_init_db(db_session):
     ).scalar()
     assert result is True
 
-def test_upsert_and_query_documents(db_session):
-    # Test upserting documents
-    doc1 = {"id": "doc1", "text": "This is a test document about AI.", "embedding": [0.1]*1024}
-    doc2 = {"id": "doc2", "text": "Another document on machine learning.", "embedding": [0.4]*1024}
+def test_simple_insert_and_query(db_session):
+    doc1 = {"text": "This is a test document about AI.", "embedding": [0.1]*1024}
+    doc2 = {"text": "Another document on machine learning.", "embedding": [0.4]*1024}
     
-    upsert_documents([doc1, doc2])
+    insert_documents([doc1, doc2])
 
-    # Test querying documents
     query_embedding = [0.1]*1024
     results = query_documents(query_embedding, k=1)
     
     assert len(results) == 1
-    assert results[0].id == "doc1"
     assert results[0].content == "This is a test document about AI."
-
-    # Test upserting an existing document (update)
-    doc1_updated = {"id": "doc1", "text": "Updated test document about AI.", "embedding": [0.7]*1024}
-    upsert_documents([doc1_updated])
-
-    results_updated = query_documents([0.7]*1024, k=1)
-    assert len(results_updated) == 1
-    assert results_updated[0].id == "doc1"
-    assert results_updated[0].content == "Updated test document about AI."
-    assert results_updated[0].embedding == [0.7]*1024
 
 def test_query_documents_no_results(db_session):
     query_embedding = [0.9]*1024
@@ -71,16 +66,16 @@ def test_query_documents_no_results(db_session):
     assert len(results) == 0
 
 def test_query_documents_multiple_results(db_session):
-    doc1 = {"id": "doc1", "text": "Apple is a fruit.", "embedding": [0.1]*1024}
-    doc2 = {"id": "doc2", "text": "Orange is a fruit.", "embedding": [0.15]*1024}
-    doc3 = {"id": "doc3", "text": "Banana is a fruit.", "embedding": [0.2]*1024}
+    doc1 = {"text": "Apple is a fruit.", "embedding": [0.1]*1024}
+    doc2 = {"text": "Orange is a fruit.", "embedding": [0.15]*1024}
+    doc3 = {"text": "Banana is a fruit.", "embedding": [0.2]*1024}
     
-    upsert_documents([doc1, doc2, doc3])
+    insert_documents([doc1, doc2, doc3])
 
     query_embedding = [0.1]*1024
     results = query_documents(query_embedding, k=3)
     
     assert len(results) == 3
-    assert results[0].id == "doc1"
-    assert results[1].id == "doc2"
-    assert results[2].id == "doc3"
+    # The order is not guaranteed, so we check if the contents are correct
+    result_contents = {r.content for r in results}
+    assert result_contents == {"Apple is a fruit.", "Orange is a fruit.", "Banana is a fruit."}
