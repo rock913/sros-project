@@ -3,11 +3,11 @@
 # Default target executed when no arguments are given to make.
 all: help
 
-# Define a variable for the test file path.
-TEST_FILE ?= tests/unit_tests/
+# Define a variable for the test file path. Defaults to all tests.
+TEST_FILE ?= tests/
 
 test:
-	uv run --with-editable . pytest $(TEST_FILE)
+	POSTGRES_URI="postgresql://postgres:postgres@langgraph-postgres:5432/postgres" uv run --with-editable . pytest $(TEST_FILE)
 
 test_watch:
 	uv run --with-editable . ptw --snapshot-update --now . -- -vv tests/unit_tests

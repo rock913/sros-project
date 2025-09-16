@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import os
 from sqlalchemy import create_engine
+from langchain_core.messages import HumanMessage
 from agent.graph import graph
 from agent.database import init_db, Document, Base, SessionLocal
 from dotenv import load_dotenv
@@ -75,7 +76,7 @@ def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mo
     mock_embed_documents.return_value = [[0.1]*1024, [0.2]*1024] # Mock embeddings
 
     # Define the initial state
-    initial_state = {"messages": [MagicMock(content="test topic")]}
+    initial_state = {"messages": [HumanMessage(content="test topic")]}
 
     # Invoke the graph
     final_state = graph.invoke(initial_state)
@@ -107,7 +108,7 @@ def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_s
     ]
     mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
 
-    initial_state = {"messages": [MagicMock(content="test topic")]}
+    initial_state = {"messages": [HumanMessage(content="test topic")]}
 
     with patch('agent.graph.unpaywall_tool') as mock_unpaywall_tool_instance, \
          patch('agent.graph.zotero_tool') as mock_zotero_tool_instance, \
@@ -141,7 +142,7 @@ def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_request
     mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
     mock_unpaywall_tool_instance.invoke.return_value = "No open access version found for this DOI."
 
-    initial_state = {"messages": [MagicMock(content="test topic")]}
+    initial_state = {"messages": [HumanMessage(content="test topic")]}
     final_state = graph.invoke(initial_state)
 
     assert mock_unpaywall_tool_instance.invoke.call_count == 2
@@ -169,7 +170,7 @@ def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock_reque
     mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
 
-    initial_state = {"messages": [MagicMock(content="test topic")]}
+    initial_state = {"messages": [HumanMessage(content="test topic")]}
     final_state = graph.invoke(initial_state)
 
     assert mock_requests_get.call_count == 2
@@ -200,7 +201,7 @@ def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_requests_ge
     mock_requests_get.return_value.content = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj\n4 0 obj<</Length 55>>stream\nBT /F1 24 Tf 100 700 Td (Hello World!) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000059 00000 n\n0000000111 00000 n\n0000000200 00000 n\ntrailer<</Size 5/Root 1 0 R>>startxref\n300\n%%EOF"
     mock_embed_documents.return_value = [[0.1]*1024]
 
-    initial_state = {"messages": [MagicMock(content="test topic")]}
+    initial_state = {"messages": [HumanMessage(content="test topic")]}
     final_state = graph.invoke(initial_state)
 
     assert mock_zotero_tool_instance.invoke.call_count == 2

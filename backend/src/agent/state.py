@@ -1,16 +1,16 @@
 from typing import List, TypedDict, Any, Annotated
 import operator
-from langchain_core.messages import BaseMessage
+from langgraph.graph import add_messages
 
 class AgentState(TypedDict):
-    messages: List[BaseMessage]
+    messages: Annotated[list, add_messages]
     research_topic: str
-    search_queries: List[str]
+    search_queries: Annotated[List[str], operator.add]
     # The results of the search queries
     literature_abstracts: Annotated[List[Any], operator.add]
     # The full text of the literature
     literature_full_text: List[str]
     is_sufficient: bool
     knowledge_gap: str
-    report: str
     research_loop_count: int
+    report: str

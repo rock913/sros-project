@@ -2,3 +2,6 @@ pytest
 pytest-mock
 pytest-asyncio
 testcontainers[postgresql]
+
+pytest-bdd
+websockets

@@ -91,11 +91,12 @@ def test_reflection_and_refinement_integration(db_session):
     with patch('agent.graph.completion') as mock_litellm_completion:
         mock_litellm_completion.return_value = MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))])
         # Simulate previous step's output
-        initial_state = AgentState(
+                initial_state = AgentState(
+            messages=[HumanMessage(content="Impact of AI on climate change")],
             research_topic="Impact of AI on climate change",
             literature_abstracts=[
-                {"documents": [{"page_content": "AI can help analyze climate data."}]}
-                ,{"documents": [{"page_content": "Machine learning models predict weather patterns."}]}
+                {"documents": [{"page_content": "AI can help analyze climate data."}]},
+                {"documents": [{"page_content": "Machine learning models predict weather patterns."}]}
             ],
             research_loop_count=0
         )
@@ -139,7 +140,8 @@ def test_automated_report_generation_integration(db_session):
 
 # --- Integration Tests for Embedding Generation ---
 
-def test_rag_based_knowledge_synthesis_integration(db_session):
+@pytest.mark.asyncio
+async def test_rag_based_knowledge_synthesis_integration(db_session):
     """Tests the rag_based_knowledge_synthesis node with actual embedding generation."""
     with patch('agent.graph.embeddings') as mock_embeddings:
         mock_embeddings.embed_documents.return_value = [[0.1]*1024]
@@ -156,7 +158,7 @@ def test_rag_based_knowledge_synthesis_integration(db_session):
                 literature_full_text=["http://example.com/mock_paper.pdf"]
             )
             
-            rag_based_knowledge_synthesis(initial_state, {})
+            await rag_based_knowledge_synthesis(initial_state, {})
             
             # Verify documents are stored in the database with embeddings
             session = db_session
@@ -166,12 +168,14 @@ def test_rag_based_knowledge_synthesis_integration(db_session):
             assert all(isinstance(doc.embedding, np.ndarray) for doc in docs_in_db)
             assert all(len(doc.embedding) > 0 for doc in docs_in_db) # Embeddings should not be empty
 
+
 # --- Optional: Full Graph Integration Test (less mocking) ---
 # This test will run the entire graph, but still mock external tools like arxiv, unpaywall, zotero
 # to avoid hitting their rate limits or requiring complex setup. 
 # The focus here is on the flow and the LLM/embedding steps.
 
-def test_full_graph_integration_flow(db_session):
+@pytest.mark.asyncio
+async def test_full_graph_integration_flow(db_session):
     """Tests the full graph flow with actual LLM and embedding calls."""
     with patch('agent.graph.completion') as mock_litellm_completion,         patch('agent.graph.embeddings') as mock_embeddings,         patch('requests.get') as mock_requests_get,         patch('agent.graph.arxiv_tool') as mock_arxiv,         patch('agent.graph.unpaywall_tool') as mock_unpaywall,         patch('agent.graph.zotero_tool') as mock_zotero:
 
@@ -222,7 +226,7 @@ def test_full_graph_integration_flow(db_session):
 
         initial_state = {"messages": [HumanMessage(content="Briefly explain quantum computing.")]}
         
-        final_state = graph_to_test.invoke(initial_state)
+        final_state = await graph_to_test.ainvoke(initial_state)
 
         assert "report" in final_state
         assert isinstance(final_state["report"], str)
@@ -235,3 +239,4 @@ def test_full_graph_integration_flow(db_session):
         assert all(isinstance(doc.content, str) for doc in docs_in_db)
         assert all(isinstance(doc.embedding, np.ndarray) for doc in docs_in_db)
         assert all(len(doc.embedding) > 0 for doc in docs_in_db)
+

@@ -18,5 +18,5 @@
   // Forward the port for the FastAPI application
   "forwardPorts": [8123],
   // Command to run after the container is created (e.g., install poetry dependencies)
-  "postCreateCommand": "cd /deps/backend && PYTHONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -e ."
+  "postCreateCommand": "cd /deps/backend && PYTHONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv install --system -e ."
 }

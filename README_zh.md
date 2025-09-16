@@ -60,6 +60,29 @@ make dev
 
 _或者，您可以分别运行后端和前端开发服务器。对于后端，在 `backend/` 目录中打开一个终端并运行 `langgraph dev`。后端 API 将在 `http://127.0.0.1:2024` 上可用。它还将在浏览器中打开一个指向 LangGraph UI 的窗口。对于前端，在 `frontend/` 目录中打开一个终端并运行 `npm run dev`。前端将在 `http://localhost:5173` 上可用。_
 
+**4. 测试后端:**
+
+当后端服务启动并运行后（无论是通过 `make dev` 还是 Docker Compose），您可以运行一个端到端的测试脚本来验证研究代理的全部功能。
+
+该项目包含一个测试脚本，它会自动执行整个工作流程：创建助理、创建线程、启动运行、轮询直到任务完成，并最终打印出生成的报告。
+
+**先决条件:**
+
+- 您的系统中必须安装 `jq`。它是一个轻量级的命令行 JSON 处理器。
+- 后端服务必须处于运行状态。
+
+**用法:**
+
+首先，赋予脚本可执行权限：
+```bash
+chmod +x scripts/test_research_agent.sh
+```
+
+然后，运行测试脚本：
+```bash
+./scripts/test_research_agent.sh
+```
+
 ## 后端代理工作原理 (高级)
 
 后端的核心是 `backend/src/agent/graph.py` 中定义的 LangGraph 代理。它现在遵循一个为自动化研究设计的复杂的四阶段工作流：

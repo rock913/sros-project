@@ -60,6 +60,31 @@ This will run the backend and frontend development servers.    Open your browser
 
 _Alternatively, you can run the backend and frontend development servers separately. For the backend, open a terminal in the `backend/` directory and run `langgraph dev`. The backend API will be available at `http://127.0.0.1:2024`. It will also open a browser window to the LangGraph UI. For the frontend, open a terminal in the `frontend/` directory and run `npm run dev`. The frontend will be available at `http://localhost:5173`._
 
+
+**4. Testing the Backend:**
+
+Once the backend services are running (either via `make dev` or Docker Compose), you can run an end-to-end test to verify the research agent's functionality.
+
+The project includes a test script that automates the entire workflow: creating an assistant, creating a thread, starting a run, polling for completion, and printing the final report.
+
+**Prerequisites:**
+
+- `jq` must be installed on your system. It's a lightweight command-line JSON processor.
+- The backend services must be running.
+
+**Usage:**
+
+First, make the script executable:
+```bash
+chmod +x scripts/test_research_agent.sh
+```
+
+Then, run the test:
+```bash
+./scripts/test_research_agent.sh
+```
+
+
 ## How the Backend Agent Works (High-Level)
 
 The core of the backend is a LangGraph agent defined in `backend/src/agent/graph.py`. It now follows a sophisticated four-stage workflow designed for automated research:
@@ -151,6 +176,16 @@ The final phase will bring the platform to life by enabling full, real-time, two
 - [Shadcn UI](https://ui.shadcn.com/) - For components.
 - [LangGraph](https://github.com/langchain-ai/langgraph) - For building the backend research agent.
 - [Google Gemini](https://ai.google.dev/models/gemini) - LLM for query generation, reflection, and answer synthesis.
+
+## Testing
+
+To run the test suite, ensure the development Docker containers are running (e.g., via `docker-compose -f docker-compose-dev.yml up -d`). The tests require the `langgraph-postgres` database service to be active.
+
+Execute the following command from the project's root directory:
+
+```bash
+cd backend && POSTGRES_URI="postgresql://postgres:postgres@langgraph-postgres:5432/postgres" uv run --with-editable . pytest
+```
 
 ## License
 

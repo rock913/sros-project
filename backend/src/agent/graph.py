@@ -1,25 +1,34 @@
 import os
 import re
+import asyncio
 import requests
-import fitz  # PyMuPDF
 from typing import List
-from agent.tools_and_schemas import SearchQueryList, Reflection, arxiv_tool, unpaywall_tool, zotero_tool
+from sqlalchemy import text
+
+import fitz  # PyMuPDF
 from dotenv import load_dotenv
-from langchain_core.messages import AIMessage
-from langgraph.graph import StateGraph, END, START
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from litellm import completion
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
-
+from agent.tools_and_schemas import (
+    SearchQueryList,
+    Reflection,
+    arxiv_tool,
+    unpaywall_tool,
+    zotero_tool,
+)
 from agent.prompts import (
     get_current_date,
     query_writer_instructions,
     reflection_instructions,
     answer_instructions,
 )
-from agent.state import AgentState
+from agent.utils import get_research_topic
+from langgraph.graph import StateGraph, END, START
+from langgraph.types import Send
+from agent.state import AgentState 
 from agent.database import get_db_connection, Document
 
 load_dotenv()
@@ -31,13 +40,21 @@ GEMINI_EMBEDDING_MODEL = "models/embedding-001"
 # Initialize tools and services
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL, api_key=GEMINI_API_KEY)
+embeddings = None # Lazy initialization to avoid event loop issues on startup
+
+def create_db_and_tables():
+    """Initializes the database and creates tables if they don't exist."""
+    db = get_db_connection()
+    with db.begin() as conn:
+        # Enable the pgvector extension
+        db.execute(text('CREATE EXTENSION IF NOT EXISTS vector;'))
+        Document.metadata.create_all(bind=conn)
 
 # Nodes
 def generate_initial_queries(state: AgentState, config: RunnableConfig) -> AgentState:
     """Generates the initial set of search queries based on the research topic."""
-    print("---NODE: generate_initial_queries---")
-    research_topic = state['messages'][-1].content
+    print("---NODE: generate_initial_queries---")    
+    research_topic = get_research_topic(state["messages"])
     prompt = query_writer_instructions.format(
         current_date=get_current_date(),
         research_topic=research_topic,
@@ -51,12 +68,19 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
     )
     search_queries = SearchQueryList.model_validate_json(response.choices[0].message.content).query
     print(f"Generated initial queries: {search_queries}")
-    return {
-        "research_topic": research_topic,
-        "search_queries": search_queries,
-        "research_loop_count": 0,
-        "literature_abstracts": [],
-    }
+    return {"search_queries": search_queries, "research_topic": research_topic}
+
+
+def continue_to_web_research(state: AgentState):
+    """
+    Conditional edge to start parallel searches.
+    This is used to spawn n number of web research nodes, one for each search query.
+    """
+    print("---EDGE: continue_to_web_research---")
+    # This returns a list of Send objects. Each Send object specifies the node
+    # to call and the data to pass to it. This is the correct way to fan-out.
+    return [Send("execute_searches", {"search_queries": [q]}) for q in state["search_queries"]]
+
 
 def execute_searches(state: AgentState, config: RunnableConfig) -> AgentState:
     """Executes parallel searches for the given queries and aggregates results."""
@@ -64,16 +88,10 @@ def execute_searches(state: AgentState, config: RunnableConfig) -> AgentState:
     search_queries = state["search_queries"]
     all_abstract_contents = state.get("literature_abstracts", [])
     for query in search_queries:
-        print(f"---TOOL: Running search for query: '{query}'---")
-        # arxiv_tool.invoke returns a dictionary like {"documents": [doc1, doc2]}
-        arxiv_response = arxiv_tool.invoke(query)
-        # Ensure arxiv_response is a dictionary and has 'documents' key
-        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:
-            for doc in arxiv_response["documents"]:
-                all_abstract_contents.append(doc.page_content)
-        else:
-            all_abstract_contents.append(str(arxiv_response))
-
+        print(f"---TOOL: Running search for query: '{query}'---")        
+        arxiv_response = arxiv_tool.invoke(query)        
+        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:            
+            all_abstract_contents.extend([doc.page_content for doc in arxiv_response["documents"]])
     return {"literature_abstracts": all_abstract_contents}
 
 def run_single_search(state: AgentState, config: RunnableConfig):
@@ -86,17 +104,14 @@ def run_single_search(state: AgentState, config: RunnableConfig):
 def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> AgentState:
     """Reflects on the gathered abstracts and decides if more research is needed."""
     print("---NODE: reflection_and_refinement---")
-    print(f"Type of state['literature_abstracts']: {type(state['literature_abstracts'])}")
-    print(f"Content of state['literature_abstracts']: {state['literature_abstracts']}")
-
     all_abstracts = "\n---\n".join([str(a) for a in state["literature_abstracts"]])
     prompt = reflection_instructions.format(
         current_date=get_current_date(),
-        research_topic=state["research_topic"],
+        research_topic=get_research_topic(state["messages"]),
         summaries=all_abstracts,
     )
     response = completion(
-        model="gemini/gemini-1.5-pro",
+        model="gemini/gemini-1.5-flash",
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": Reflection.model_json_schema()},
         api_key=GEMINI_API_KEY
@@ -110,15 +125,15 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
         "research_loop_count": state.get("research_loop_count", 0) + 1,
     }
 
-def should_continue_searching(state: AgentState) -> str:
+def should_continue_searching(state: AgentState):
     """Conditional edge to decide whether to continue the research loop."""
     print("---EDGE: should_continue_searching---")
-    if state["is_sufficient"] or state.get("research_loop_count", 0) >= MAX_RESEARCH_LOOPS:
+    if state.get("is_sufficient") or state.get("research_loop_count", 0) >= MAX_RESEARCH_LOOPS:
         print("Conclusion: Research is sufficient or max loops reached.")
         return "automated_resource_management"
     else:
-        print("Conclusion: Research is insufficient. Looping back.")
-        return "execute_searches"
+        print("Conclusion: Research is insufficient. Looping back for more searches.")
+        return [Send("execute_searches", {"search_queries": [q]}) for q in state["search_queries"] if q]
 
 def automated_resource_management(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 2: Fetches full-text resources and adds them to Zotero."""
@@ -142,12 +157,23 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
             print("No DOI found in abstract.")
     return {"literature_full_text": literature_full_text_urls} # Pass URLs to next step
 
-def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfig) -> AgentState:
+async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 3: Chunks, embeds, and stores knowledge in a vector DB."""
     print("---NODE: rag_based_knowledge_synthesis---")
-    db = get_db_connection()
-    try:
-        pdf_urls = state.get("literature_full_text", [])
+    global embeddings
+    
+    # Initialize embeddings within an async context if not already done
+    if embeddings is None:
+        print("Initializing embeddings service...")
+        embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL, api_key=GEMINI_API_KEY)
+    
+    # Ensure the database and tables are created
+    create_db_and_tables()
+
+    # Wrap synchronous DB and requests calls in asyncio.to_thread
+    def process_pdfs_sync():
+        db = get_db_connection()
+        pdf_urls = state.get("literature_full_text", []) or []
         for url in pdf_urls:
             try:
                 print(f"Processing PDF: {url}")
@@ -175,24 +201,31 @@ def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfig) -> 
 
             except Exception as e:
                 print(f"Failed to process PDF at {url}. Error: {e}")
-    finally:
-        db.close()
+            finally:
+                db.close()
+
+    await asyncio.to_thread(process_pdfs_sync)
     return {}
 
 def automated_report_generation(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 4: Generates the final report based on the synthesized knowledge."""
     print("---NODE: automated_report_generation---")
+    # Ensure the database and tables are created before querying
+    create_db_and_tables()
+
     # This is a simplified RAG retrieval. A real implementation would be more sophisticated.
     db = get_db_connection()
     try:
-        all_docs = db.query(Document).all()
+        # Use a session to query
+        with db.Session() as session:
+            all_docs = session.query(Document).all()
         rag_context = "\n---\n".join([doc.content for doc in all_docs])
     finally:
         db.close()
 
     prompt = answer_instructions.format(
         current_date=get_current_date(),
-        research_topic=state["research_topic"],
+        research_topic=get_research_topic(state["messages"]),
         summaries=rag_context, # Use the context from the DB
     )
     response = completion(
@@ -207,7 +240,7 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
 builder = StateGraph(AgentState)
 
 builder.add_node("generate_initial_queries", generate_initial_queries)
-builder.add_node("execute_searches", execute_searches)
+builder.add_node("execute_searches", execute_searches) # This will now be the parallel node
 builder.add_node("reflection_and_refinement", reflection_and_refinement)
 builder.add_node("automated_resource_management", automated_resource_management)
 builder.add_node("rag_based_knowledge_synthesis", rag_based_knowledge_synthesis)
@@ -215,16 +248,17 @@ builder.add_node("automated_report_generation", automated_report_generation)
 
 # Build the graph edges
 builder.add_edge(START, "generate_initial_queries")
-builder.add_edge("generate_initial_queries", "execute_searches")
+
+# This creates the parallel branching.
+builder.add_conditional_edges(
+    "generate_initial_queries",
+    continue_to_web_research
+)
 builder.add_edge("execute_searches", "reflection_and_refinement")
 
 builder.add_conditional_edges(
     "reflection_and_refinement",
     should_continue_searching,
-    {
-        "execute_searches": "execute_searches",
-        "automated_resource_management": "automated_resource_management",
-    },
 )
 
 builder.add_edge("automated_resource_management", "rag_based_knowledge_synthesis")
