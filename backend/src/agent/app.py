@@ -3,9 +3,15 @@ import pathlib
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 
+from agent.database import init_db
+
 # Define the FastAPI app
 app = FastAPI()
 
+@app.on_event("startup")
+def on_startup():
+    """Initializes the database when the application starts."""
+    init_db()
 
 def create_frontend_router(build_dir="../frontend/dist"):
     """Creates a router to serve the React frontend.

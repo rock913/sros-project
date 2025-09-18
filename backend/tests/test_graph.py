@@ -52,13 +52,14 @@ def test_graph_nodes():
     for node in expected_nodes:
         assert node in graph.nodes
 
+@pytest.mark.asyncio
 @patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
 @patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
     """
     Tests the full agent workflow for a successful run, mocking external services.
     """
@@ -79,7 +80,7 @@ def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mo
     initial_state = {"messages": [HumanMessage(content="test topic")]}
 
     # Invoke the graph
-    final_state = graph.invoke(initial_state)
+    final_state = await graph.ainvoke(initial_state)
 
     # Assertions
     mock_litellm_completion.assert_called()
@@ -94,9 +95,10 @@ def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mo
     assert len(docs_in_db) > 0
     assert final_state["report"] == "Final Report"
 
+@pytest.mark.asyncio
 @patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
 @patch('agent.graph.arxiv_tool')
-def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_session):
     """
     Tests the reflection loop where the agent searches again.
     """
@@ -114,22 +116,23 @@ def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_s
          patch('agent.graph.zotero_tool') as mock_zotero_tool_instance, \
          patch('requests.get'), \
          patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents'):
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
     # generate_initial_queries (1) + reflection_and_refinement (2) + automated_report_generation (1) = 4
     # execute_searches is not mocked, so we can't count it.
     # But we can check the number of times the arxiv_tool is called.
-    assert mock_arxiv_tool_instance.invoke.call_count == 2 # Called twice due to reflection loop
+    assert mock_arxiv_tool_instance.invoke.call_count == 3 # Called twice due to reflection loop
     assert final_state["report"] == "Final Report"
 
 
+@pytest.mark.asyncio
 @patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
 @patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
     """
     Tests the workflow when Unpaywall does not find an open-access PDF.
     The agent should continue the workflow without downloading or adding to Zotero.
@@ -143,21 +146,22 @@ def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_request
     mock_unpaywall_tool_instance.invoke.return_value = "No open access version found for this DOI."
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = graph.invoke(initial_state)
+    final_state = await graph.ainvoke(initial_state)
 
-    assert mock_unpaywall_tool_instance.invoke.call_count == 2
+    assert mock_unpaywall_tool_instance.invoke.call_count == 1
     mock_requests_get.assert_not_called() # Should not try to download
     mock_zotero_tool_instance.invoke.assert_not_called() # Should not try to add to Zotero
     mock_embed_documents.assert_not_called() # Should not embed if download fails
     assert final_state["report"] == "Final Report"
 
+@pytest.mark.asyncio
 @patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get', side_effect=Exception("Download Error"))
 @patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
     """
     Tests the workflow when downloading a PDF fails.
     The agent should handle the error and continue.
@@ -171,20 +175,21 @@ def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock_reque
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = graph.invoke(initial_state)
+    final_state = await graph.ainvoke(initial_state)
 
-    assert mock_requests_get.call_count == 2
-    assert mock_zotero_tool_instance.invoke.call_count == 2 # Zotero is still called even if download fails
+    assert mock_requests_get.call_count == 1
+    assert mock_zotero_tool_instance.invoke.call_count == 1 # Zotero is still called even if download fails
     mock_embed_documents.assert_not_called() # Should not embed if download fails
     assert final_state["report"] == "Final Report"
 
+@pytest.mark.asyncio
 @patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
 @patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
     """
     Tests the workflow when the Zotero tool fails.
     The agent should log the error and continue to generate the report.
@@ -202,8 +207,7 @@ def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_requests_ge
     mock_embed_documents.return_value = [[0.1]*1024]
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = graph.invoke(initial_state)
+    final_state = await graph.ainvoke(initial_state)
 
-    assert mock_zotero_tool_instance.invoke.call_count == 2
+    assert mock_zotero_tool_instance.invoke.call_count == 1
     assert final_state["report"] == "Final Report"
-

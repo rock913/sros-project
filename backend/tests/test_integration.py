@@ -91,7 +91,7 @@ def test_reflection_and_refinement_integration(db_session):
     with patch('agent.graph.completion') as mock_litellm_completion:
         mock_litellm_completion.return_value = MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))])
         # Simulate previous step's output
-                initial_state = AgentState(
+        initial_state = AgentState(
             messages=[HumanMessage(content="Impact of AI on climate change")],
             research_topic="Impact of AI on climate change",
             literature_abstracts=[
@@ -124,6 +124,7 @@ def test_automated_report_generation_integration(db_session):
         session.commit()
 
         initial_state = AgentState(
+            messages=[HumanMessage(content="Impact of AI on climate change")],
             research_topic="Impact of AI on climate change",
             literature_abstracts=[], # Not directly used by this node, but part of state
             literature_full_text=[], # Not directly used by this node, but part of state

@@ -42,14 +42,6 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 embeddings = None # Lazy initialization to avoid event loop issues on startup
 
-def create_db_and_tables():
-    """Initializes the database and creates tables if they don't exist."""
-    db = get_db_connection()
-    with db.begin() as conn:
-        # Enable the pgvector extension
-        db.execute(text('CREATE EXTENSION IF NOT EXISTS vector;'))
-        Document.metadata.create_all(bind=conn)
-
 # Nodes
 def generate_initial_queries(state: AgentState, config: RunnableConfig) -> AgentState:
     """Generates the initial set of search queries based on the research topic."""
@@ -90,7 +82,7 @@ def execute_searches(state: AgentState, config: RunnableConfig) -> AgentState:
     for query in search_queries:
         print(f"---TOOL: Running search for query: '{query}'---")        
         arxiv_response = arxiv_tool.invoke(query)        
-        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:            
+        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:
             all_abstract_contents.extend([doc.page_content for doc in arxiv_response["documents"]])
     return {"literature_abstracts": all_abstract_contents}
 
@@ -167,9 +159,6 @@ async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfi
         print("Initializing embeddings service...")
         embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL, api_key=GEMINI_API_KEY)
     
-    # Ensure the database and tables are created
-    create_db_and_tables()
-
     # Wrap synchronous DB and requests calls in asyncio.to_thread
     def process_pdfs_sync():
         db = get_db_connection()
@@ -210,15 +199,12 @@ async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfi
 def automated_report_generation(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 4: Generates the final report based on the synthesized knowledge."""
     print("---NODE: automated_report_generation---")
-    # Ensure the database and tables are created before querying
-    create_db_and_tables()
 
     # This is a simplified RAG retrieval. A real implementation would be more sophisticated.
     db = get_db_connection()
     try:
-        # Use a session to query
-        with db.Session() as session:
-            all_docs = session.query(Document).all()
+        # Use the session to query
+        all_docs = db.query(Document).all()
         rag_context = "\n---\n".join([doc.content for doc in all_docs])
     finally:
         db.close()
@@ -235,6 +221,7 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
     )
     report = response.choices[0].message.content
     return {"report": report, "messages": [AIMessage(content=report)]}
+
 
 # Define the graph
 builder = StateGraph(AgentState)

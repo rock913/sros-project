@@ -35,7 +35,18 @@ dependencies = [
 
 
 [project.optional-dependencies]
-dev = ["mypy>=1.11.1", "ruff>=0.6.1"]
+dev = [
+    "mypy>=1.11.1", 
+    "ruff>=0.6.1",
+    "pytest>=8.3.5",
+    "pytest-mock",
+    "pytest-asyncio",
+    "pytest-bdd",
+    "testcontainers[postgresql]>=4.0.0",
+    "websockets",
+    "langgraph-cli[inmem]>=0.1.71",
+    "psycopg2-binary"
+]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
@@ -64,11 +75,3 @@ lint.ignore = [
 "tests/*" = ["D", "UP"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[dependency-groups]
-dev = [
-    "langgraph-cli[inmem]>=0.1.71",
-    "pytest>=8.3.5",
-    "testcontainers[postgresql]>=4.0.0",
-    "psycopg2-binary",
-]
