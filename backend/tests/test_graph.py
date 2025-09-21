@@ -121,7 +121,7 @@ async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion
     # generate_initial_queries (1) + reflection_and_refinement (2) + automated_report_generation (1) = 4
     # execute_searches is not mocked, so we can't count it.
     # But we can check the number of times the arxiv_tool is called.
-    assert mock_arxiv_tool_instance.invoke.call_count == 3 # Called twice due to reflection loop
+    assert mock_arxiv_tool_instance.invoke.call_count == 2 # Called twice due to reflection loop
     assert final_state["report"] == "Final Report"
 
 

@@ -1,6 +1,6 @@
 import argparse
 import asyncio
-from langgraph_sdk import RemoteRunnable
+from langserve.client import RemoteRunnable
 
 async def main():
     """
@@ -18,14 +18,14 @@ async def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=2024, # Default port from docker-compose-dev.yml
+        default=8121, # Default port from docker-compose-dev.yml
         help="The port of the backend service.",
     )
     args = parser.parse_args()
 
     # The `langgraph dev` command serves the graph from the `agent.graph` module.
     # By default, it's exposed at an endpoint named after the module.
-    agent_url = f"http://localhost:{args.port}/agent"
+    agent_url = f"http://localhost:{args.port}/research_agent"
 
     print(f"--- Connecting to agent at: {agent_url} ---")
     agent = RemoteRunnable(agent_url)

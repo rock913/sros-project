@@ -8,23 +8,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Use a fixture to manage the database setup and teardown for the entire module
-@pytest.fixture(scope="module", autouse=True)
-def setup_database():
-    # Check if the DATABASE_URL is set
-    database_url = os.getenv("POSTGRES_URI")
-    if not database_url:
-        pytest.fail("POSTGRES_URI environment variable not set. Please create a .env file with the variable.")
-
-    # Initialize the database schema once for the module
-    init_db()
-    yield
-    # Clean up the database after all tests in the module have run
-    engine = create_engine(database_url)
-    with engine.connect() as connection:
-        # Drop all tables defined in Base.metadata
-        Base.metadata.drop_all(bind=engine)
-        connection.commit()
-
 @pytest.fixture(scope="function")
 def db_session():
     # Get a new connection for the test

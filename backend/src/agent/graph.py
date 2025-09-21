@@ -110,10 +110,16 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
     )
     reflection_result = Reflection.model_validate_json(response.choices[0].message.content)
     print(f"Reflection: Sufficient? {reflection_result.is_sufficient}. Gap: {reflection_result.knowledge_gap}")
+    
+    # Clear search queries if sufficient, otherwise use follow-up queries
+    search_queries_to_return = []
+    if not reflection_result.is_sufficient:
+        search_queries_to_return = reflection_result.follow_up_queries or []
+
     return {
         "is_sufficient": reflection_result.is_sufficient,
         "knowledge_gap": reflection_result.knowledge_gap,
-        "search_queries": reflection_result.follow_up_queries or [],
+        "search_queries": search_queries_to_return,
         "research_loop_count": state.get("research_loop_count", 0) + 1,
     }
 

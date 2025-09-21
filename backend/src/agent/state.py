@@ -5,7 +5,7 @@ from langgraph.graph import add_messages
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     research_topic: str
-    search_queries: Annotated[List[str], operator.add]
+    search_queries: List[str]
     # The results of the search queries
     literature_abstracts: Annotated[List[Any], operator.add]
     # The full text of the literature

@@ -1,51 +1,48 @@
-# mypy: disable - error - code = "no-untyped-def,misc"
-import pathlib
-from fastapi import FastAPI, Response
-from fastapi.staticfiles import StaticFiles
+from langserve import add_routes
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
-from agent.database import init_db
+from agent.graph import graph
+from agent.database import create_db_and_tables
 
-# Define the FastAPI app
-app = FastAPI()
+# 1. Initialize the FastAPI app
+app = FastAPI(
+    title="Autonomous Research Agent API",
+    description="An API for an autonomous research agent powered by LangGraph and Gemini.",
+    version="1.0.0",
+)
 
+# 2. Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# 3. Add the research agent to the app
+add_routes(app, graph, path="/research_agent")
+
+
+# 4. WebSocket endpoint for connection management
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Handles WebSocket connections for real-time updates."""
+    await websocket.accept()
+    try:
+        while True:
+            # You can implement bi-directional communication here if needed
+            await websocket.receive_text()
+            await websocket.send_text("Message received")
+    except WebSocketDisconnect:
+        print("Client disconnected")
+
+
+# 5. Add a startup event to initialize the database
 @app.on_event("startup")
 def on_startup():
     """Initializes the database when the application starts."""
-    init_db()
-
-def create_frontend_router(build_dir="../frontend/dist"):
-    """Creates a router to serve the React frontend.
-
-    Args:
-        build_dir: Path to the React build directory relative to this file.
-
-    Returns:
-        A Starlette application serving the frontend.
-    """
-    build_path = pathlib.Path(__file__).parent.parent.parent / build_dir
-
-    if not build_path.is_dir() or not (build_path / "index.html").is_file():
-        print(
-            f"WARN: Frontend build directory not found or incomplete at {build_path}. Serving frontend will likely fail."
-        )
-        # Return a dummy router if build isn't ready
-        from starlette.routing import Route
-
-        async def dummy_frontend(request):
-            return Response(
-                "Frontend not built. Run 'npm run build' in the frontend directory.",
-                media_type="text/plain",
-                status_code=503,
-            )
-
-        return Route("/{path:path}", endpoint=dummy_frontend)
-
-    return StaticFiles(directory=build_path, html=True)
-
-
-# Mount the frontend under /app to not conflict with the LangGraph API routes
-app.mount(
-    "/app",
-    create_frontend_router(),
-    name="frontend",
-)
+    print("--- Initializing database ---")
+    create_db_and_tables()
+    print("--- Database initialized ---")

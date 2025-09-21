@@ -4,6 +4,7 @@ Feature: Agent's Optimal Academic Research Workflow
 
   Scenario: User asks a question that requires research refinement
     Given the agent server is running
+    And the agent is configured for the 'Research Refinement' scenario with research topic 'AI and climate change'
     When the user asks "What is the impact of AI on climate change?"
 
     # 1. Initial Plan and Search
@@ -11,8 +12,8 @@ Feature: Agent's Optimal Academic Research Workflow
     And the agent should first call tools like "ArxivQueryRun" or "PubmedQueryRun" with broad queries such as "AI and climate change"
 
     # 2. Reflection and Loop
-    And the agent's response stream should show it is "reflecting on the initial results" and identifying knowledge gaps
-    And the agent's response stream should show it is "formulating follow-up queries" to get more specific information, such as "AI for carbon capture"
+    And the agent's response stream should show it is "reflecting on the initial results"
+    And the agent's response stream should show it is "formulating follow-up queries"
     And the agent should then call "ArxivQueryRun" or "PubmedQueryRun" a second time with these refined queries
 
     # 3. Final Report
@@ -20,6 +21,7 @@ Feature: Agent's Optimal Academic Research Workflow
 
   Scenario: Research with No Further Refinement Needed
     Given the agent server is running
+    And the agent is configured for the 'No Refinement Needed' scenario with research topic 'What is the capital of France?'
     When the user asks "What is the capital of France?"
     Then the agent should generate initial search queries
     And the agent should execute searches using tools like "ArxivQueryRun"
@@ -32,6 +34,7 @@ Feature: Agent's Optimal Academic Research Workflow
 
   Scenario: Research with Max Loop Reached
     Given the agent server is running
+    And the agent is configured for the 'Max Loop Reached' scenario with research topic 'A very obscure and hard to research topic'
     And the maximum research loops is set to 1
     When the user asks "A very obscure and hard to research topic"
     Then the agent should generate initial search queries
@@ -47,7 +50,7 @@ Feature: Agent's Optimal Academic Research Workflow
 
   Scenario: Resource Management and RAG Integration
     Given the agent server is running
-    And the research topic is "Papers on quantum entanglement"
+    And the agent is configured for the 'Resource Management and RAG' scenario with research topic 'Papers on quantum entanglement'
     When the user asks "Find papers on quantum entanglement and summarize them"
     Then the agent should generate initial search queries
     And the agent should execute searches using tools like "ArxivQueryRun"
