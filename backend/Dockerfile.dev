@@ -46,7 +46,7 @@ ADD backend/ /deps/backend
 RUN uv pip install --system pip setuptools wheel
 # Install dependencies with UV, respecting constraints
 RUN cd /deps/backend && \
-    PYTHONDONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -c /api/constraints.txt -e .
+    PYTHONDONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -e .
 # -- End of local dependencies install --
 ENV LANGGRAPH_HTTP='{"app": "/deps/backend/src/agent/app.py:app"}'
 ENV LANGSERVE_GRAPHS='{"agent": "/deps/backend/src/agent/graph.py:graph"}'

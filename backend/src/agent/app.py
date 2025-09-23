@@ -3,7 +3,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent.graph import graph
-from agent.database import create_db_and_tables
+from agent.database import init_db
 
 # 1. Initialize the FastAPI app
 app = FastAPI(
@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 # 3. Add the research agent to the app
-add_routes(app, graph, path="/research_agent")
+add_routes(app, graph, path="/graph")
 
 
 # 4. WebSocket endpoint for connection management
@@ -44,5 +44,5 @@ async def websocket_endpoint(websocket: WebSocket):
 def on_startup():
     """Initializes the database when the application starts."""
     print("--- Initializing database ---")
-    create_db_and_tables()
+    init_db()
     print("--- Database initialized ---")
