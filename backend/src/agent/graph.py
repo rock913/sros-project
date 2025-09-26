@@ -43,17 +43,22 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 embeddings = None # Lazy initialization to avoid event loop issues on startup
 
 # Nodes
+from agent.configuration import Configuration
+
+# ... existing imports ...
+
 def generate_initial_queries(state: AgentState, config: RunnableConfig) -> AgentState:
     """Generates the initial set of search queries based on the research topic."""
-    print("---NODE: generate_initial_queries---")    
+    print("---NODE: generate_initial_queries---")
+    cfg = Configuration.from_runnable_config(config)
     research_topic = get_research_topic(state["messages"])
     prompt = query_writer_instructions.format(
         current_date=get_current_date(),
         research_topic=research_topic,
-        number_queries=3,
+        number_queries=cfg.number_of_initial_queries,
     )
     response = completion(
-        model="gemini/gemini-1.5-flash",
+        model=cfg.query_generator_model,
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": SearchQueryList.model_json_schema()},
         api_key=GEMINI_API_KEY
@@ -96,6 +101,7 @@ def run_single_search(state: AgentState, config: RunnableConfig):
 def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> AgentState:
     """Reflects on the gathered abstracts and decides if more research is needed."""
     print("---NODE: reflection_and_refinement---")
+    cfg = Configuration.from_runnable_config(config)
     all_abstracts = "\n---\n".join([str(a) for a in state["literature_abstracts"]])
     prompt = reflection_instructions.format(
         current_date=get_current_date(),
@@ -103,7 +109,7 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
         summaries=all_abstracts,
     )
     response = completion(
-        model="gemini/gemini-1.5-flash",
+        model=cfg.reflection_model,
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": Reflection.model_json_schema()},
         api_key=GEMINI_API_KEY
@@ -205,6 +211,7 @@ async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfi
 def automated_report_generation(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 4: Generates the final report based on the synthesized knowledge."""
     print("---NODE: automated_report_generation---")
+    cfg = Configuration.from_runnable_config(config)
 
     # This is a simplified RAG retrieval. A real implementation would be more sophisticated.
     db = get_db_connection()
@@ -221,7 +228,7 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
         summaries=rag_context, # Use the context from the DB
     )
     response = completion(
-        model="gemini/gemini-1.5-flash",
+        model=cfg.answer_model,
         messages=[{"content": prompt, "role": "user"}],
         api_key=GEMINI_API_KEY
     )

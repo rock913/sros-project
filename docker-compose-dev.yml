@@ -23,34 +23,31 @@ services:
       - langgraph-data:/var/lib/postgresql/data
   langgraph-api:
     image: gemini-fullstack-langgraph-quickstart/langgraph-api:dev
-    # Use the Dockerfile.dev in the backend directory for development
     build:
       context: .
       dockerfile: ./backend/Dockerfile.dev
     container_name: langgraph-api
     ports:
       - "8121:8000"
-      - "8122:8001"
     volumes:
-      # Mount the full project for live updates
       - .:/deps
-    # Set the working directory to the backend, where pyproject.toml is located
     working_dir: /deps/backend
+    # By setting entrypoint to an empty string, we override the
+    # default ENTRYPOINT from the base langgraph-api image.
+    # This allows our custom command to be executed directly.
+    entrypoint: ''
     depends_on:
       langgraph-redis:
         condition: service_healthy
       langgraph-postgres:
         condition: service_started
     environment:
+      LANGCHAIN_TRACING_V2: "true"
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GOOGLE_API_KEY: ${GEMINI_API_KEY}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
       REDIS_URI: redis://langgraph-redis:6379
       POSTGRES_URI: postgresql://postgres:postgres@langgraph-postgres:5432/postgres
       PYTHONPATH: /deps/backend/src
-      # Explicitly tell the langgraph runtime which agent package to serve.
-      LANGGRAPH_APP: agent.app
-    # On start, install dependencies and then run the dev server.
-    # This ensures the service is always ready, whether started via `docker-compose up` or a dev container.
     command: >
-      bash -c "uvicorn langgraph_api.server:app --host 0.0.0.0 --port 8000 --reload --reload-dir /deps/backend/src"
+      bash -c "uvicorn agent.app:app --host 0.0.0.0 --port 8000 --reload --reload-dir /deps/backend/src"
