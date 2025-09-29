@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import asyncio
 import requests
 from typing import List
@@ -25,7 +26,7 @@ from agent.prompts import (
     reflection_instructions,
     answer_instructions,
 )
-from agent.utils import get_research_topic
+from agent.utils import get_research_topic, parse_scientific_papers
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Send
 from agent.state import AgentState 
@@ -61,7 +62,8 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
         model=cfg.query_generator_model,
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": SearchQueryList.model_json_schema()},
-        api_key=GEMINI_API_KEY
+        api_key=GEMINI_API_KEY,
+        num_retries=3
     )
     search_queries = SearchQueryList.model_validate_json(response.choices[0].message.content).query
     print(f"Generated initial queries: {search_queries}")
@@ -69,10 +71,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
 
 
 def continue_to_web_research(state: AgentState):
-    """
-    Conditional edge to start parallel searches.
-    This is used to spawn n number of web research nodes, one for each search query.
-    """
+    """Conditional edge to start parallel searches."""
     print("---EDGE: continue_to_web_research---")
     # This returns a list of Send objects. Each Send object specifies the node
     # to call and the data to pass to it. This is the correct way to fan-out.
@@ -80,29 +79,45 @@ def continue_to_web_research(state: AgentState):
 
 
 def execute_searches(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Executes parallel searches for the given queries and aggregates results."""
+    """Executes parallel searches for the given queries and returns ONLY the new results."""
     print(f"---NODE: execute_searches (Loop {state.get('research_loop_count', 0) + 1})---")
     search_queries = state["search_queries"]
-    all_abstract_contents = state.get("literature_abstracts", [])
+    # This node should be stateless regarding past results.
+    # It finds new abstracts and returns only them. The graph state handles aggregation.
+    new_abstracts = []
     for query in search_queries:
-        print(f"---TOOL: Running search for query: '{query}'---")        
-        arxiv_response = arxiv_tool.invoke(query)        
-        if isinstance(arxiv_response, dict) and "documents" in arxiv_response:
-            all_abstract_contents.extend([doc.page_content for doc in arxiv_response["documents"]])
-    return {"literature_abstracts": all_abstract_contents}
+        try:
+            print(f"---TOOL: Running search for query: '{query}'---")
+            # Clean the query for Arxiv tool
+            cleaned_query = re.sub(r'"|AND|OR|[()]', '', query)
+            print(f"---TOOL: Cleaned query for Arxiv: '{cleaned_query}'---")
+            arxiv_response = arxiv_tool.invoke(cleaned_query)
+            # Parse the raw string response
+            parsed_papers = parse_scientific_papers(arxiv_response)
+            new_abstracts.extend(parsed_papers)
+        except Exception as e:
+            print(f"---TOOL: Error during search for query: '{query}'. Error: {e}---")
+            continue
+    return {"literature_abstracts": new_abstracts}
+
 
 def run_single_search(state: AgentState, config: RunnableConfig):
     """Runs a single academic search and returns the results."""
     query = state["query"]
     print(f"---TOOL: Running search for query: '{query}'---")
     arxiv_results = arxiv_tool.invoke(query)
-    return {"literature_abstracts": [arxiv_results]}
+    # Parse the raw string response and return the full dictionary
+    parsed_papers = parse_scientific_papers(arxiv_results)
+    return {"literature_abstracts": parsed_papers}
+
 
 def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> AgentState:
     """Reflects on the gathered abstracts and decides if more research is needed."""
     print("---NODE: reflection_and_refinement---")
     cfg = Configuration.from_runnable_config(config)
-    all_abstracts = "\n---\n".join([str(a) for a in state["literature_abstracts"]])
+    # Extract summaries from the paper dictionaries for reflection
+    summaries = [paper.get('summary', '') for paper in state["literature_abstracts"]]
+    all_abstracts = "\n---\n".join(summaries)
     prompt = reflection_instructions.format(
         current_date=get_current_date(),
         research_topic=get_research_topic(state["messages"]),
@@ -112,7 +127,8 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
         model=cfg.reflection_model,
         messages=[{"content": prompt, "role": "user"}],
         response_format={"type": "json_object", "schema": Reflection.model_json_schema()},
-        api_key=GEMINI_API_KEY
+        api_key=GEMINI_API_KEY,
+        num_retries=3
     )
     reflection_result = Reflection.model_validate_json(response.choices[0].message.content)
     print(f"Reflection: Sufficient? {reflection_result.is_sufficient}. Gap: {reflection_result.knowledge_gap}")
@@ -139,27 +155,60 @@ def should_continue_searching(state: AgentState):
         print("Conclusion: Research is insufficient. Looping back for more searches.")
         return [Send("execute_searches", {"search_queries": [q]}) for q in state["search_queries"] if q]
 
+def get_doi_from_title(title: str) -> str | None:
+    """Queries the Crossref API to find a DOI for a given paper title."""
+    print(f"---HELPER: Searching Crossref for title: '{title}'---")
+    url = "https://api.crossref.org/works"
+    params = {"query.title": title, "rows": 1, "select": "DOI"}
+    headers = {"User-Agent": "RAGAcademicAgent/1.0 (mailto:your-email@example.com)"}
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response.raise_for_status()  # Raises an HTTPError for bad responses
+        data = response.json()
+        if data['message']['items']:
+            doi = data['message']['items'][0].get('DOI')
+            if doi:
+                print(f"---HELPER: Found DOI: {doi}---")
+                return doi
+    except requests.exceptions.RequestException as e:
+        print(f"---HELPER: Error querying Crossref API: {e}")
+    except (KeyError, IndexError) as e:
+        print(f"---HELPER: Could not parse DOI from Crossref response: {e}")
+    
+    print(f"---HELPER: No DOI found for title on Crossref.")
+    return None
+
 def automated_resource_management(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 2: Fetches full-text resources and adds them to Zotero."""
     print("---NODE: automated_resource_management---")
     literature_full_text_urls = []
-    for abstract in state["literature_abstracts"]:
-        doi_match = re.search(r'10.\d{4,9}/[-._;()/:A-Z0-9]+', abstract, re.IGNORECASE)
-        if doi_match:
-            doi = doi_match.group(0)
-            print(f"Found DOI: {doi}")
+    for paper in state["literature_abstracts"]:
+        paper_title = paper.get('title')
+        if not paper_title:
+            print("Skipping paper with no title.")
+            continue
+
+        doi = get_doi_from_title(paper_title)
+        
+        if doi:
+            # Successfully found DOI, now proceed with Unpaywall and Zotero
             pdf_url_info = unpaywall_tool.invoke(doi)
             if "URL:" in pdf_url_info:
                 pdf_url = pdf_url_info.split("URL: ")[1]
                 literature_full_text_urls.append(pdf_url)
                 print(f"Found PDF URL: {pdf_url}")
-                # Simplified paper_info for Zotero
-                paper_info = {"title": abstract.split('\n')[0], "doi": doi}
-                zotero_result = zotero_tool.invoke(paper_info)
+
+                paper_info = {"title": paper_title, "doi": doi}
+                zotero_result = zotero_tool.invoke({"paper_info": paper_info})
                 print(f"Zotero result: {zotero_result}")
+            else:
+                print(f"Unpaywall found no free PDF for DOI: {doi}")
         else:
-            print("No DOI found in abstract.")
+            # Log and skip if no DOI was found
+            print(f"No DOI found for title: '{paper_title}'. Skipping resource management for this paper.")
+
     return {"literature_full_text": literature_full_text_urls} # Pass URLs to next step
+
 
 async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 3: Chunks, embeds, and stores knowledge in a vector DB."""
@@ -175,11 +224,11 @@ async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfi
     def process_pdfs_sync():
         db = get_db_connection()
         pdf_urls = state.get("literature_full_text", []) or []
-        for url in pdf_urls:
+        for i, url in enumerate(pdf_urls):
             try:
                 print(f"Processing PDF: {url}")
                 response = requests.get(url)
-                response.raise_for_status()
+                response.raise_for_status() # Raises an HTTPError for bad responses
                 # Open PDF from memory
                 doc = fitz.open(stream=response.content, filetype="pdf")
                 full_text = ""
@@ -205,8 +254,14 @@ async def rag_based_knowledge_synthesis(state: AgentState, config: RunnableConfi
             finally:
                 db.close()
 
+            # Add a delay to avoid hitting API rate limits, but don't sleep after the last item
+            if i < len(pdf_urls) - 1:
+                print("Waiting for 20 seconds before processing the next PDF to respect API rate limits...")
+                time.sleep(20)
+
     await asyncio.to_thread(process_pdfs_sync)
     return {}
+
 
 def automated_report_generation(state: AgentState, config: RunnableConfig) -> AgentState:
     """Stage 4: Generates the final report based on the synthesized knowledge."""
@@ -230,7 +285,8 @@ def automated_report_generation(state: AgentState, config: RunnableConfig) -> Ag
     response = completion(
         model=cfg.answer_model,
         messages=[{"content": prompt, "role": "user"}],
-        api_key=GEMINI_API_KEY
+        api_key=GEMINI_API_KEY,
+        num_retries=3
     )
     report = response.choices[0].message.content
     return {"report": report, "messages": [AIMessage(content=report)]}

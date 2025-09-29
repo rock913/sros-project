@@ -41,6 +41,7 @@ reflection_instructions = """You are an expert scientific research analyst. Your
 
 Instructions:
 - Carefully review the provided abstracts.
+- **Crucially, if the 'Abstracts' section below is empty, it means no relevant literature has been found yet. In this case, you must set `is_sufficient` to `false` and generate new, broader search queries to find some initial results.**
 - Determine if the collected literature covers the key aspects of the research topic.
 - Identify any conceptual gaps, missing details, or areas that require further investigation.
 - If the information is sufficient, state that clearly.

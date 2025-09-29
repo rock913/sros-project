@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 from langchain_core.messages import AnyMessage, AIMessage, HumanMessage
-
+import re
 
 def get_research_topic(messages: List[AnyMessage]) -> str:
     """
@@ -18,7 +18,6 @@ def get_research_topic(messages: List[AnyMessage]) -> str:
                 research_topic += f"Assistant: {message.content}\n"
     return research_topic
 
-
 def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
     """
     Create a map of the vertex ai search urls (very long) to a short url with a unique id for each url.
@@ -34,7 +33,6 @@ def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
             resolved_map[url] = f"{prefix}{id}-{idx}"
 
     return resolved_map
-
 
 def insert_citation_markers(text, citations_list):
     """
@@ -55,7 +53,7 @@ def insert_citation_markers(text, citations_list):
     # This ensures that insertions at the end of the string don't affect
     # the indices of earlier parts of the string that still need to be processed.
     sorted_citations = sorted(
-        citations_list, key=lambda c: (c["end_index"], c["start_index"]), reverse=True
+        citations_list, key=lambda c: (c["end_index"], c["start_index"])
     )
 
     modified_text = text
@@ -73,7 +71,6 @@ def insert_citation_markers(text, citations_list):
         )
 
     return modified_text
-
 
 def get_citations(response, resolved_urls_map):
     """
@@ -164,3 +161,36 @@ def get_citations(response, resolved_urls_map):
                     pass
         citations.append(citation)
     return citations
+
+def parse_scientific_papers(response: str) -> list[dict]:
+    """
+    Parses the raw string output from ArxivQueryRun or PubmedQueryRun
+    into a list of paper dictionaries. This function is designed to be
+    flexible with missing fields (like 'Authors') and minor variations in labels.
+    """
+    papers = []
+    # Split the response string by '\n\nPublished:', which separates individual paper blocks
+    # This regex pattern handles cases at the start and in the middle of the string
+    paper_blocks = re.split(r'\n\n(?=Published:)', response.strip())
+
+    for block in paper_blocks:
+        if not block.strip():
+            continue
+
+        # Use re.search with non-capturing groups to match each field independently and non-greedily
+        # This makes each field optional
+        title_match = re.search(r"Title: (.*?)(?:\nAuthors:|\nCopyright Information:|\nSummary:|\nPublished:)", block, re.DOTALL)
+        authors_match = re.search(r"Authors: (.*?)(?:\nSummary:)", block, re.DOTALL)
+        summary_match = re.search(r"Summary::?\s*(.*)", block, re.DOTALL) # Handles 'Summary:' and 'Summary::'
+
+        # Safely extract content only if a match object exists
+        paper_data = {
+            "published": re.search(r"Published: (.*?)\n", block).group(1) if re.search(r"Published: (.*?)\n", block) else "N/A",
+            "title": title_match.group(1).strip() if title_match else "N/A",
+            "authors": authors_match.group(1).strip() if authors_match else "N/A",
+            "summary": summary_match.group(1).strip() if summary_match else "N/A",
+            "raw_text": block
+        }
+        papers.append(paper_data)
+
+    return papers
