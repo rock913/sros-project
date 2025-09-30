@@ -12,41 +12,28 @@ This document is the authoritative guide for the AI assistant, providing a compr
     - `frontend/`: React (Vite) application for the user interface.
     - `docker-compose.yml`: Container orchestration for reproducible environments.
 
-## 2. Core Philosophy: Snapshot-Driven Development
+## 2. Core Philosophy: Session-Driven Workflow
 
-All development and debugging tasks **must** follow a **Snapshot-Driven** methodology. This creates a real-time, traceable log of the entire process, ensuring transparency and seamless collaboration. The authoritative guides for these processes are:
-- **Development**: `doc/DEVELOPMENT_STRATEGY.md`
-- **Debugging**: `doc/DEBUGGING_STRATEGY.md`
+All development and debugging tasks **must** follow a unified **Session-Driven Workflow**. This methodology treats every task as a "session," creating a real-time, traceable log from start to finish. It ensures that the entire lifecycle of a feature or bug fix—including all attempts, errors, and corrections—is captured in a single, coherent narrative.
 
-### a. Development Workflow: `DEVELOPMENT_SESSION.md`
+The authoritative guide for this process is:
+- **Unified Workflow**: `doc/WORKFLOW_STRATEGY.md`
 
-The goal is to **build a new feature**.
+### Session-Driven Workflow at a Glance
 
-1.  **Initialize**: Create `DEVELOPMENT_SESSION.md`.
-    - **Goal**: Define the user story and specify the acceptance test (`*.feature` file) that must pass.
-    - **Analysis**: Explore the codebase (`glob`, `read_file`, `search_file_content`) to assess impact.
-    - **Plan**: Decompose the work into a clear, step-by-step plan.
+The core idea is to unify development and debugging under a single process, managed within the `/.ai-sessions/` directory.
 
-2.  **Iterate (TDD Cycle)**: For each step in the plan:
-    - **Log Action**: Record the `[Step N: <description>]` in the session file.
-    - **Write Test**: Create a failing unit or integration test.
-    - **Log Tool Call**: Record the exact `replace` or `write_file` call used to implement the code.
-    - **Verify**: Run the relevant test to confirm the step's success. Log the command and result.
-    - **Status**: Mark the step as `✅ Success` or `❌ Failed`.
+1.  **Initiate a Session**:
+    - For **new features**, a session log is created in `/.ai-sessions/development/`. The goal is typically to make a `.feature` file pass.
+    - For **standalone bugs** (e.g., a failing E2E test), a session log is created in `/.ai-sessions/debugging/`. The goal is to make a specific test, like `e2e_test.sh`, pass.
 
-3.  **Final Verification**: Once all steps are complete, run the final acceptance test to prove the feature is done.
+2.  **Execute and Record**: The AI follows a plan, recording each step, tool call, and verification result in the session file.
 
-### b. Debugging Workflow: `logs/debugging/*.md`
+3.  **Enter Debug State (If Needed)**: If any step fails, the AI enters a "debug state" *within the same session file*. It creates a "Debugging Snapshot" to diagnose, attempt a fix, and re-verify. This loop continues until the step succeeds.
 
-The goal is to **fix a known bug**. This is triggered when a `Verification` step fails.
+4.  **Complete the Session**: The session is complete when the overarching goal (e.g., the acceptance test) is met.
 
-1.  **Initialize**: Create `logs/debugging/YYYY-MM-DD-feature-name.md`.
-2.  **Reproduce & Snapshot**: Record the full error message, logs, and stack trace.
-3.  **Diagnose & Hypothesize**: State a clear hypothesis about the root cause.
-4.  **Log Analysis and Plan**: Before attempting a fix, log a detailed analysis of the test failures and a clear, step-by-step plan for the fix in the session file.
-5.  **Attempt Fix**: Log the `replace` or `write_file` call used to apply the fix.
-6.  **Verify**: Rerun the failing test to confirm the fix. If it fails again, repeat the loop.
-7.  **Conclude**: Summarize the root cause and final solution.
+This unified approach eliminates the disconnect between development and debugging, providing a clear, end-to-end history for every task.
 
 ## 3. Key Commands & Configuration
 
