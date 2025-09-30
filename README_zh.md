@@ -30,9 +30,21 @@
 **1. 先决条件:**
 
 *   **Docker 和 Docker Compose:** 确保它们已安装在您的系统上。
-*   **`GEMINI_API_KEY`**: 后端代理需要一个 Google Gemini API 密钥。
+*   **LLM 提供商配置**: 后端代理使用 `litellm` 来支持多种 LLM 提供商（如 Google Gemini, OpenAI, Azure 等）。您需要在 `.env` 文件中配置 API 密钥和模型名称。
     1.  通过复制项目根目录中的 `.env.example` 文件来创建一个名为 `.env` 的文件。
-    2.  打开 `.env` 文件并添加您的 Gemini API 密钥：`GEMINI_API_KEY="YOUR_ACTUAL_API_KEY"`
+    2.  打开 `.env` 文件，为您选择的提供商添加 API 密钥。例如，对于 Gemini：
+        ```env
+        GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+        ```
+        或者，对于 OpenAI：
+        ```env
+        OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+        ```
+    3.  (可选) 指定生成模型和嵌入模型。默认分别为 `gemini-1.5-flash` 和 `embedding-001`。您可以覆盖它们：
+        ```env
+        GENERATION_MODEL="gemini-1.5-pro"
+        EMBEDDING_MODEL="text-embedding-004"
+        ```
 
 **2. 构建并运行服务:**
 

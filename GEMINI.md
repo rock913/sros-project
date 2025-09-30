@@ -1,60 +1,100 @@
-# Gemini 项目上下文指南
+# GEMINI: AI-Assisted Development Framework for Auto-Researcher
 
-## 1. 项目架构总览
+This document is the authoritative guide for the AI assistant, providing a comprehensive framework for developing the **Auto-Researcher** project. It ensures the assistant can operate efficiently, autonomously, and in alignment with project standards.
 
-- **架构模式**: 本项目是一个全栈应用，采用前后端分离的架构。
-    - **后端**: 基于 Python 和 LangGraph 构建的 AI 代理服务。它将代理逻辑封装在一个 FastAPI 应用中，并通过 WebSocket 进行实时通信。
-    - **前端**: 基于 React (TypeScript) 和 Vite 构建的单页面应用 (SPA)，提供一个与后端代理交互的聊天界面。
-- **核心目录**:
-    - `backend/src/agent`: 包含后端代理的核心逻辑，包括状态、图、工具和 API 端点。
-    - `frontend/src`: 包含前端 React 应用的所有组件、页面和业务逻辑。
-    - `docker-compose.yml`: 定义和编排前端、后端以及任何依赖服务（如数据库）的容器化环境。
-- **设计原则**:
-    - **后端**: 模块化和可组合性。LangGraph 的使用强制采用基于图的状态机方法来设计代理流程。关注点分离（State, Graph, Tools, API）。
-    - **前端**: 组件化架构。通过可复用的 React 组件构建用户界面，状态管理集中在顶层组件中。
+## 1. Project Overview
 
-## 2. 模块地图
+- **Project Name**: Auto-Researcher
+- **Description**: An autonomous AI platform to automate the research lifecycle, from topic discovery to final report generation.
+- **Architecture**: Full-stack application with a Python/LangGraph backend and a React/TypeScript frontend.
+- **Key Directories**:
+    - `backend/`: FastAPI application containing the core agent logic.
+    - `frontend/`: React (Vite) application for the user interface.
+    - `docker-compose.yml`: Container orchestration for reproducible environments.
 
-### 后端
+## 2. Core Philosophy: Snapshot-Driven Development
 
-- **`app.py`**:
-    - **职责**: 创建 FastAPI 应用，设置 WebSocket 端点 (`/ws`) 用于与前端进行双向通信。管理代理的并发执行。
-    - **依赖**: `graph.py` (获取可执行的 LangGraph 实例)。
+All development and debugging tasks **must** follow a **Snapshot-Driven** methodology. This creates a real-time, traceable log of the entire process, ensuring transparency and seamless collaboration. The authoritative guides for these processes are:
+- **Development**: `doc/DEVELOPMENT_STRATEGY.md`
+- **Debugging**: `doc/DEBUGGING_STRATEGY.md`
 
-- **`graph.py`**:
-    - **职责**: 定义和构建 LangGraph。它将 `AgentState`、工具和代理节点（`agent.py`）连接在一起，形成一个完整的执行图。
-    - **依赖**: `agent.py`, `state.py`, `tools_and_schemas.py`。
+### a. Development Workflow: `DEVELOPMENT_SESSION.md`
 
-- **`agent.py`**:
-    - **职责**: 定义代理的核心逻辑节点。决定在每一步是调用工具还是响应用户。
-    - **依赖**: `tools_and_schemas.py` (访问可用工具)。
+The goal is to **build a new feature**.
 
-- **`state.py`**:
-    - **职责**: 定义 `AgentState` TypedDict，这是 LangGraph 中用于在节点间传递数据的核心数据结构。
-    - **被依赖**: `graph.py` 和图中的所有节点。
+1.  **Initialize**: Create `DEVELOPMENT_SESSION.md`.
+    - **Goal**: Define the user story and specify the acceptance test (`*.feature` file) that must pass.
+    - **Analysis**: Explore the codebase (`glob`, `read_file`, `search_file_content`) to assess impact.
+    - **Plan**: Decompose the work into a clear, step-by-step plan.
 
-- **`tools_and_schemas.py`**:
-    - **职责**: 定义代理可以使用的工具（例如，文件系统工具、shell 命令）以及它们的 Pydantic 输入模式。
-    - **被依赖**: `agent.py`, `graph.py`。
+2.  **Iterate (TDD Cycle)**: For each step in the plan:
+    - **Log Action**: Record the `[Step N: <description>]` in the session file.
+    - **Write Test**: Create a failing unit or integration test.
+    - **Log Tool Call**: Record the exact `replace` or `write_file` call used to implement the code.
+    - **Verify**: Run the relevant test to confirm the step's success. Log the command and result.
+    - **Status**: Mark the step as `✅ Success` or `❌ Failed`.
 
-- **`database.py`**:
-    - **职责**: 提供与 SQLite 数据库的连接，用于持久化存储会话历史记录。
-    - **依赖**: `aifos`, `sqlalchemy`。
+3.  **Final Verification**: Once all steps are complete, run the final acceptance test to prove the feature is done.
 
-### 前端
+### b. Debugging Workflow: `logs/debugging/*.md`
 
-- **`App.tsx`**:
-    - **职责**: 应用程序的主入口点。管理 WebSocket 连接，维护全局状态（如消息历史），并组合主要的 UI 组件。
-    - **依赖**: `ChatMessagesView.tsx`, `InputForm.tsx`, `WelcomeScreen.tsx`。
+The goal is to **fix a known bug**. This is triggered when a `Verification` step fails.
 
-- **`ChatMessagesView.tsx`**:
-    - **职责**: 渲染代理和用户的消息列表。
-    - **依赖**: `lib/utils.ts` (用于 UI 逻辑)。
+1.  **Initialize**: Create `logs/debugging/YYYY-MM-DD-feature-name.md`.
+2.  **Reproduce & Snapshot**: Record the full error message, logs, and stack trace.
+3.  **Diagnose & Hypothesize**: State a clear hypothesis about the root cause.
+4.  **Log Analysis and Plan**: Before attempting a fix, log a detailed analysis of the test failures and a clear, step-by-step plan for the fix in the session file.
+5.  **Attempt Fix**: Log the `replace` or `write_file` call used to apply the fix.
+6.  **Verify**: Rerun the failing test to confirm the fix. If it fails again, repeat the loop.
+7.  **Conclude**: Summarize the root cause and final solution.
 
-- **`InputForm.tsx`**:
-    - **职责**: 提供用户输入框和提交按钮，处理用户消息的发送。
-    - **依赖**: `ui/button.tsx`, `ui/textarea.tsx`。
+## 3. Key Commands & Configuration
 
-- **`WelcomeScreen.tsx`**:
-    - **职责**: 在聊天开始前显示的欢迎界面。
-    - **依赖**: `ui/card.tsx`。
+All testing and verification **must** be performed using the project's `Makefile`.
+
+### a. Makefile Commands
+
+-   **Run All Backend Tests**:
+    ```bash
+    make -C backend/ test
+    ```
+-   **Run a Specific Test File**:
+    ```bash
+    make -C backend/ test TEST_FILE=tests/path/to/your_test_file.py
+    ```
+-   **Run End-to-End (E2E) Tests**:
+    ```bash
+    make test-e2e-docker TOPIC="A relevant research topic"
+    ```
+-   **Start Development Environment**:
+    ```bash
+    make dev-docker
+    ```
+
+### b. Environment Configuration
+
+The backend agent uses `litellm` and requires environment variables to be set for the desired Large Language Model (LLM) provider.
+
+1.  **Create `.env` file**: Copy `.env.example` to `.env` in the project root.
+2.  **Set API Keys**: Add the API key for your chosen provider. For example:
+    -   **Google Gemini**:
+        ```env
+        GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+        ```
+    -   **OpenAI**:
+        ```env
+        OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+        ```
+3.  **Specify Models (Optional)**: You can override the default models:
+    ```env
+    GENERATION_MODEL="gemini-1.5-pro"
+    EMBEDDING_MODEL="text-embedding-004"
+    ```
+
+## 4. Operational Principles
+
+### a. Tool Parameter Precision
+
+The assistant must ensure all tool calls use the correct parameter names as defined in the tool's schema. Repeated, efficiency-impacting errors due to incorrect parameter names (e.g., using `newContent` instead of `new_string`) are to be strictly avoided. Before executing a tool call, parameter names must be double-checked against the provided documentation to ensure correctness.
+
+By adhering to this framework, the AI assistant can effectively contribute to the project, maintaining high standards of code quality, documentation, and process transparency.

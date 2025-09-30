@@ -30,9 +30,21 @@ This guide provides the recommended setup using Docker for a consistent and repr
 **1. Prerequisites:**
 
 *   **Docker and Docker Compose:** Ensure they are installed on your system.
-*   **`GEMINI_API_KEY`**: The backend agent requires a Google Gemini API key.
+*   **LLM Provider Configuration**: The backend agent uses `litellm` to support various LLM providers (e.g., Google Gemini, OpenAI, Azure). You need to configure the API key and model names in the `.env` file.
     1.  Create a file named `.env` in the project root by copying the `.env.example` file.
-    2.  Open the `.env` file and add your Gemini API key: `GEMINI_API_KEY="YOUR_ACTUAL_API_KEY"`
+    2.  Open the `.env` file and add the API key for your chosen provider. For example, for Gemini:
+        ```env
+        GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+        ```
+        Or for OpenAI:
+        ```env
+        OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+        ```
+    3.  (Optional) Specify the generation and embedding models. The defaults are `gemini-1.5-flash` and `embedding-001`. You can override them:
+        ```env
+        GENERATION_MODEL="gemini-1.5-pro"
+        EMBEDDING_MODEL="text-embedding-004"
+        ```
 
 **2. Build and Run Services:**
 

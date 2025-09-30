@@ -8,24 +8,52 @@ from langchain_core.runnables import RunnableConfig
 class Configuration(BaseModel):
     """The configuration for the agent."""
 
-    query_generator_model: str = Field(
-        default="gemini/gemini-2.5-flash",
+    embedding_model: str = Field(
+        default="Qwen/Qwen3-Embedding-8B",
         metadata={
-            "description": "The name of the language model to use for the agent's query generation."
+            "description": "The name of the embedding model to use."
         },
     )
 
-    reflection_model: str = Field(
-        default="gemini/gemini-2.5-flash",
+    embedding_api_base: str = Field(
+        default="https://api.siliconflow.cn/v1",
         metadata={
-            "description": "The name of the language model to use for the agent's reflection."
+            "description": "The API base URL for the embedding model."
         },
     )
 
-    answer_model: str = Field(
-        default="gemini/gemini-2.5-flash",
+    embedding_api_key: str = Field(
+        default_factory=lambda: os.environ.get("SILICONFLOW_API_KEY", ""),
         metadata={
-            "description": "The name of the language model to use for the agent's answer."
+            "description": "The API key for the embedding model."
+        },
+    )
+
+    embedding_llm_provider: str = Field(
+        default="openai",
+        metadata={
+            "description": "The litellm provider for the embedding model. Defaults to 'openai' for OpenAI-compatible APIs like SiliconFlow."
+        },
+    )
+    
+    generation_llm_provider: str = Field(
+        default="gemini",
+        metadata={
+            "description": "The litellm provider for generation tasks (e.g., gemini studio models)."
+        },
+    )
+
+    embedding_dimensions: int = Field(
+        default=2048,
+        metadata={
+            "description": "The dimensionality for embedding vectors when calling SiliconFlow embeddings API."
+        },
+    )
+
+    generation_model: str = Field(
+        default="gemini/gemini-1.5-flash",
+        metadata={
+            "description": "The name of the language model to use for generation tasks (query generation, reflection, and final answer)."
         },
     )
 
@@ -37,6 +65,13 @@ class Configuration(BaseModel):
     max_research_loops: int = Field(
         default=2,
         metadata={"description": "The maximum number of research loops to perform."},
+    )
+
+    generation_llm_provider: str = Field(
+        default="vertex_ai",
+        metadata={
+            "description": "The litellm provider for the generation model. Defaults to 'vertex_ai' for Google Vertex AI models."
+        },
     )
 
     @classmethod

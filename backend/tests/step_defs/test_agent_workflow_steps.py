@@ -69,7 +69,7 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
         mock_arxiv = agent_test_context["mock_arxiv"]
         mock_unpaywall = agent_test_context["mock_unpaywall"]
         mock_zotero = agent_test_context["mock_zotero"]
-        mock_embeddings = agent_test_context["mock_embeddings"]
+        mock_embedding = agent_test_context["mock_embedding"] # Corrected key
         mock_requests_get = agent_test_context["mock_requests_get"]
 
         # Common responses
@@ -88,9 +88,8 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
             mock_doc.close.return_value = None
             mock_fitz_open.return_value = mock_doc
 
-            # Patch GoogleGenerativeAIEmbeddings class to return our mock_embeddings instance
-            with patch('agent.graph.GoogleGenerativeAIEmbeddings', return_value=mock_embeddings):
-
+            # Patch litellm.embedding to return our mock_embedding instance
+            with patch('litellm.embedding', return_value=mock_embedding):
                 if scenario_name == "No Refinement Needed":
                     reflection_response = MagicMock(choices=[MagicMock(message=MagicMock(content=json.dumps({"is_sufficient": True, "knowledge_gap": "", "follow_up_queries": []})))])
                     mock_completion.side_effect = [initial_queries_response, reflection_response, final_report_response]
@@ -100,7 +99,7 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
                     mock_zotero.invoke.return_value = "Successfully added paper to Zotero."
                     mock_requests_get.return_value.content = b"fake pdf content"
                     mock_requests_get.return_value.raise_for_status.return_value = None
-                    mock_embeddings.embed_documents.return_value = [[0.1] * 1024]
+                    mock_embedding.embed_documents.return_value = [[0.1] * 1024]
 
                 elif scenario_name == "Research Refinement":
                     reflection_1 = MagicMock(choices=[MagicMock(message=MagicMock(content=json.dumps({"is_sufficient": False, "knowledge_gap": "Need more info", "follow_up_queries": ["query 2"]})))])
@@ -127,7 +126,7 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
                     mock_zotero.invoke.return_value = "Successfully added paper to Zotero."
                     mock_requests_get.return_value.content = b"fake pdf content"
                     mock_requests_get.return_value.raise_for_status.return_value = None
-                    mock_embeddings.embed_documents.return_value = [[0.1] * 1024]
+                    mock_embedding.embed_documents.return_value = [[0.1] * 1024]
 
 
                 elif scenario_name == "Resource Management and RAG":
@@ -144,7 +143,8 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
                     mock_zotero.invoke.return_value = "Paper added to Zotero."
                     mock_requests_get.return_value.content = b"fake pdf content"
                     mock_requests_get.return_value.raise_for_status.return_value = None
-                    mock_embeddings.embed_documents.return_value = [[0.1] * 1024, [0.2] * 1024]
+                    mock_embedding.embed_documents.return_value = [[0.1] * 1024, [0.2] * 1024]
+                    mock_embedding.embed_query.return_value = [0.1] * 1024
 
                 else:
                     pytest.fail(f"Unknown scenario name: {scenario_name}")

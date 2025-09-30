@@ -9,8 +9,8 @@ from langchain_core.messages import HumanMessage, AIMessage
 from agent.graph import (
     generate_initial_queries,
     reflection_and_refinement,
-    automated_report_generation,
-    rag_based_knowledge_synthesis,
+    retrieve_and_synthesize_report,
+    ingest_and_embed_documents,
     execute_searches,
     should_continue_searching,
     automated_resource_management,
@@ -112,14 +112,14 @@ def test_reflection_and_refinement_integration(db_session):
         assert "research_loop_count" in result_state
         assert result_state["research_loop_count"] == 1
 
-def test_automated_report_generation_integration(db_session):
-    """Tests the automated_report_generation node with actual LLM call."""
+def test_retrieve_and_synthesize_report_integration(db_session):
+    """Tests the retrieve_and_synthesize_report node with actual LLM call."""
     with patch('agent.graph.completion') as mock_litellm_completion:
         mock_litellm_completion.return_value = MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))])
         # Populate the database with some dummy documents for RAG context
-        doc1 = Document(content="AI is a powerful tool for climate modeling.", embedding=[0.1]*1024)
-        doc2 = Document(content="Climate change requires urgent action.", embedding=[0.2]*1024)
-        session = db_session # Use the fixture's session
+        doc1 = Document(content="AI is a powerful tool for climate modeling.", embedding=[0.1]*2048)
+        doc2 = Document(content="Climate change requires urgent action.", embedding=[0.2]*2048)
+        session = db_session  # Use the fixture's session
         session.add_all([doc1, doc2])
         session.commit()
 
@@ -130,7 +130,7 @@ def test_automated_report_generation_integration(db_session):
             literature_full_text=[], # Not directly used by this node, but part of state
         )
         
-        result_state = automated_report_generation(initial_state, {})
+        result_state = retrieve_and_synthesize_report(initial_state, {})
         
         assert "report" in result_state
         assert isinstance(result_state["report"], str)
@@ -141,11 +141,10 @@ def test_automated_report_generation_integration(db_session):
 
 # --- Integration Tests for Embedding Generation ---
 
-@pytest.mark.asyncio
-async def test_rag_based_knowledge_synthesis_integration(db_session):
-    """Tests the rag_based_knowledge_synthesis node with actual embedding generation."""
+def test_ingest_and_embed_documents_integration(db_session):
+    """Tests the ingest_and_embed_documents node with actual embedding generation."""
     with patch('agent.graph.embeddings') as mock_embeddings:
-        mock_embeddings.embed_documents.return_value = [[0.1]*1024]
+        mock_embeddings.embed_documents.return_value = [[0.1]*2048]
         # Mock requests.get to simulate PDF download
         with patch('requests.get') as mock_requests_get:
             mock_response = MagicMock()
@@ -159,7 +158,7 @@ async def test_rag_based_knowledge_synthesis_integration(db_session):
                 literature_full_text=["http://example.com/mock_paper.pdf"]
             )
             
-            await rag_based_knowledge_synthesis(initial_state, {})
+            ingest_and_embed_documents(initial_state, {})
             
             # Verify documents are stored in the database with embeddings
             session = db_session
@@ -178,15 +177,18 @@ async def test_rag_based_knowledge_synthesis_integration(db_session):
 @pytest.mark.asyncio
 async def test_full_graph_integration_flow(db_session):
     """Tests the full graph flow with actual LLM and embedding calls."""
-    with patch('agent.graph.completion') as mock_litellm_completion,         patch('agent.graph.embeddings') as mock_embeddings,         patch('requests.get') as mock_requests_get,         patch('agent.graph.arxiv_tool') as mock_arxiv,         patch('agent.graph.unpaywall_tool') as mock_unpaywall,         patch('agent.graph.zotero_tool') as mock_zotero:
-
+    with patch('agent.graph.completion') as mock_litellm_completion, \
+         patch('agent.graph.embeddings') as mock_embeddings, \
+         patch('requests.get') as mock_requests_get, \
+         patch('agent.graph.arxiv_tool') as mock_arxiv, \
+         patch('agent.graph.unpaywall_tool') as mock_unpaywall, \
+         patch('agent.graph.zotero_tool') as mock_zotero:
         mock_litellm_completion.side_effect = [
             MagicMock(choices=[MagicMock(message=MagicMock(content='{"query": ["q1", "q2"], "rationale": "test"}'))]),
             MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]),
             MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]),
         ]
-        mock_embeddings.embed_documents.return_value = [[0.1]*1024]
-
+        mock_embeddings.embed_documents.return_value = [[0.1]*2048]
         mock_arxiv.invoke.return_value = {"documents": [MagicMock(page_content="mock abstract content with doi 10.1234/5678", metadata={"title": "Mock Paper"})]}
         mock_unpaywall.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/mock_paper.pdf"
         mock_zotero.invoke.return_value = "Successfully added paper to Zotero."
@@ -203,8 +205,8 @@ async def test_full_graph_integration_flow(db_session):
         builder.add_node("execute_searches", execute_searches)
         builder.add_node("reflection_and_refinement", reflection_and_refinement)
         builder.add_node("automated_resource_management", automated_resource_management)
-        builder.add_node("rag_based_knowledge_synthesis", rag_based_knowledge_synthesis)
-        builder.add_node("automated_report_generation", automated_report_generation)
+        builder.add_node("ingest_and_embed_documents", ingest_and_embed_documents)
+        builder.add_node("retrieve_and_synthesize_report", retrieve_and_synthesize_report)
 
         builder.add_edge(START, "generate_initial_queries")
         builder.add_edge("generate_initial_queries", "execute_searches")
@@ -219,9 +221,9 @@ async def test_full_graph_integration_flow(db_session):
             },
         )
 
-        builder.add_edge("automated_resource_management", "rag_based_knowledge_synthesis")
-        builder.add_edge("rag_based_knowledge_synthesis", "automated_report_generation")
-        builder.add_edge("automated_report_generation", END)
+        builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
+        builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
+        builder.add_edge("retrieve_and_synthesize_report", END)
 
         graph_to_test = builder.compile()
 

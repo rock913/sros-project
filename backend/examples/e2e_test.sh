@@ -74,6 +74,9 @@ EOF
 
   echo "[3/4] Sending request and streaming response..."
   echo "-------------------------------------------------"
+  
+  START_TIME=$(date +%s)
+  echo "  > Agent process started at: $(date)"
 
   # Use curl to send the request and process the stream.
   # -X POST: Specifies a POST request.
@@ -97,10 +100,15 @@ EOF
       echo "$json_data" | $JQ_CMD
     fi
   done
+  
+  END_TIME=$(date +%s)
+  DURATION=$((END_TIME - START_TIME))
 
   echo
   echo "-------------------------------------------------"
   echo "[4/4] Stream finished. Test complete."
+  echo "  > Agent process finished at: $(date)"
+  echo "  > Total execution time: ${DURATION} seconds."
   echo "================================================="
   echo
   echo "Log file saved to: $(realpath $LOG_FILE)"

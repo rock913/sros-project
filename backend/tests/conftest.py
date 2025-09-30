@@ -28,12 +28,12 @@ def agent_test_context():
     It yields a dictionary of mocks so that individual test steps can
     configure their return values and assert that they were called correctly.
     """
-    with patch('agent.graph.completion') as mock_completion, \
+    with patch('agent.graph.completion') as mock_litellm_completion, \
+     patch('agent.graph.embeddings') as mock_litellm_embedding, \
          patch('agent.graph.arxiv_tool') as mock_arxiv_tool, \
          patch('agent.graph.unpaywall_tool') as mock_unpaywall_tool, \
          patch('agent.graph.zotero_tool') as mock_zotero_tool, \
-         patch('requests.get') as mock_requests_get, \
-         patch('agent.graph.GoogleGenerativeAIEmbeddings') as mock_google_generative_ai_embeddings:
+         patch('requests.get') as mock_requests_get:
 
         # Generic mock for all tools
         mock_arxiv_tool.invoke = MagicMock(return_value={"documents": []})
@@ -41,17 +41,20 @@ def agent_test_context():
         mock_zotero_tool.invoke = MagicMock(return_value="Successfully added paper to Zotero.")
         
         # Mock for embeddings
-        mock_google_generative_ai_embeddings.return_value.embed_documents = MagicMock(return_value=[[0.1, 0.2, 0.3]] * 5) # Return some dummy vectors
+        mock_litellm_embedding.return_value = MagicMock(data=[MagicMock(embedding=[0.1, 0.2, 0.3])])
 
         # The context object that will be passed to the test steps
         context = {
-            "mock_completion": mock_completion,
+            "mock_completion": mock_litellm_completion,
             "mock_arxiv": mock_arxiv_tool,
             "mock_unpaywall": mock_unpaywall_tool,
             "mock_zotero": mock_zotero_tool,
             "mock_requests_get": mock_requests_get,
-            "mock_embeddings": mock_google_generative_ai_embeddings.return_value,
+            "mock_embedding": mock_litellm_embedding,
+            "mock_embeddings": mock_litellm_embedding,  # alias for step_defs expecting plural key
             "final_state": None,  # To store the result of the agent run
         }
+        # Provide plural alias used in some step definitions
+        context["mock_embeddings"] = mock_litellm_embedding
         yield context
 

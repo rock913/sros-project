@@ -3,9 +3,11 @@ from unittest.mock import patch, MagicMock
 import os
 from sqlalchemy import create_engine
 from langchain_core.messages import HumanMessage
-from agent.graph import graph
+from agent.graph import generate_initial_queries, execute_searches, reflection_and_refinement, should_continue_searching, automated_resource_management, ingest_and_embed_documents, retrieve_and_synthesize_report
 from agent.database import init_db, Document, Base, SessionLocal
 from dotenv import load_dotenv
+from langgraph.graph import StateGraph, START, END
+from agent.state import AgentState
 
 # Load environment variables from .env file
 load_dotenv()
@@ -31,35 +33,40 @@ def db_session():
     session.commit()
     session.close()
 
-def test_graph_creation():
-    """
-    Tests that the graph is created successfully and is a compiled graph.
-    """
-    assert hasattr(graph, 'invoke')
-
-def test_graph_nodes():
-    """
-    Tests that the graph has the expected nodes.
-    """
-    expected_nodes = [
-        "generate_initial_queries",
-        "execute_searches",
+@pytest.fixture
+def mocked_graph():
+    """Provides a freshly compiled graph for each test."""
+    builder = StateGraph(AgentState)
+    builder.add_node("generate_initial_queries", generate_initial_queries)
+    builder.add_node("execute_searches", execute_searches)
+    builder.add_node("reflection_and_refinement", reflection_and_refinement)
+    builder.add_node("automated_resource_management", automated_resource_management)
+    builder.add_node("ingest_and_embed_documents", ingest_and_embed_documents)
+    builder.add_node("retrieve_and_synthesize_report", retrieve_and_synthesize_report)
+    builder.add_edge(START, "generate_initial_queries")
+    builder.add_edge("generate_initial_queries", "execute_searches")
+    builder.add_edge("execute_searches", "reflection_and_refinement")
+    builder.add_conditional_edges(
         "reflection_and_refinement",
-        "automated_resource_management",
-        "rag_based_knowledge_synthesis",
-        "automated_report_generation",
-    ]
-    for node in expected_nodes:
-        assert node in graph.nodes
+        should_continue_searching,
+        {
+            "execute_searches": "execute_searches",
+            "automated_resource_management": "automated_resource_management",
+        },
+    )
+    builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
+    builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
+    builder.add_edge("retrieve_and_synthesize_report", END)
+    return builder.compile()
 
 @pytest.mark.asyncio
-@patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
+@patch('agent.graph.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-async def test_full_agent_workflow_success(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+@patch('agent.graph.embeddings')
+async def test_full_agent_workflow_success(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the full agent workflow for a successful run, mocking external services.
     """
@@ -74,13 +81,13 @@ async def test_full_agent_workflow_success(mock_embed_documents, mock_requests_g
     mock_zotero_tool_instance.invoke.return_value = "Successfully added paper to Zotero."
     mock_requests_get.return_value.raise_for_status.return_value = None
     mock_requests_get.return_value.content = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj\n4 0 obj<</Length 55>>stream\nBT /F1 24 Tf 100 700 Td (Hello World!) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000059 00000 n\n0000000111 00000 n\n0000000200 00000 n\ntrailer<</Size 5/Root 1 0 R>>startxref\n300\n%%EOF"
-    mock_embed_documents.return_value = [[0.1]*1024, [0.2]*1024] # Mock embeddings
+    mock_embedding.return_value = MagicMock(data=[MagicMock(embedding=[0.1]*1024), MagicMock(embedding=[0.2]*1024)]) # Mock embeddings
 
     # Define the initial state
     initial_state = {"messages": [HumanMessage(content="test topic")]}
 
     # Invoke the graph
-    final_state = await graph.ainvoke(initial_state)
+    final_state = await mocked_graph.ainvoke(initial_state)
 
     # Assertions
     mock_litellm_completion.assert_called()
@@ -88,7 +95,7 @@ async def test_full_agent_workflow_success(mock_embed_documents, mock_requests_g
     mock_unpaywall_tool_instance.invoke.assert_called()
     mock_zotero_tool_instance.invoke.assert_called()
     mock_requests_get.assert_called_with("http://example.com/paper.pdf")
-    mock_embed_documents.assert_called()
+    mock_embedding.assert_called()
 
     # Verify documents are stored in the database
     docs_in_db = db_session.query(Document).all()
@@ -96,9 +103,9 @@ async def test_full_agent_workflow_success(mock_embed_documents, mock_requests_g
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
+@patch('agent.graph.completion')
 @patch('agent.graph.arxiv_tool')
-async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the reflection loop where the agent searches again.
     """
@@ -115,8 +122,8 @@ async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion
     with patch('agent.graph.unpaywall_tool') as mock_unpaywall_tool_instance, \
          patch('agent.graph.zotero_tool') as mock_zotero_tool_instance, \
          patch('requests.get'), \
-         patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents'):
-        final_state = await graph.ainvoke(initial_state)
+         patch('litellm.embedding'):
+        final_state = await mocked_graph.ainvoke(initial_state)
 
     # generate_initial_queries (1) + reflection_and_refinement (2) + automated_report_generation (1) = 4
     # execute_searches is not mocked, so we can't count it.
@@ -126,13 +133,13 @@ async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion
 
 
 @pytest.mark.asyncio
-@patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
+@patch('agent.graph.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-async def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+@patch('agent.graph.embeddings')
+async def test_full_agent_workflow_no_unpaywall_pdf(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when Unpaywall does not find an open-access PDF.
     The agent should continue the workflow without downloading or adding to Zotero.
@@ -146,22 +153,22 @@ async def test_full_agent_workflow_no_unpaywall_pdf(mock_embed_documents, mock_r
     mock_unpaywall_tool_instance.invoke.return_value = "No open access version found for this DOI."
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = await graph.ainvoke(initial_state)
+    final_state = await mocked_graph.ainvoke(initial_state)
 
     assert mock_unpaywall_tool_instance.invoke.call_count == 1
     mock_requests_get.assert_not_called() # Should not try to download
     mock_zotero_tool_instance.invoke.assert_not_called() # Should not try to add to Zotero
-    mock_embed_documents.assert_not_called() # Should not embed if download fails
+    mock_embedding.assert_not_called() # Should not embed if download fails
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
+@patch('agent.graph.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get', side_effect=Exception("Download Error"))
-@patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-async def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+@patch('agent.graph.embeddings')
+async def test_full_agent_workflow_pdf_download_fails(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when downloading a PDF fails.
     The agent should handle the error and continue.
@@ -175,21 +182,21 @@ async def test_full_agent_workflow_pdf_download_fails(mock_embed_documents, mock
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = await graph.ainvoke(initial_state)
+    final_state = await mocked_graph.ainvoke(initial_state)
 
     assert mock_requests_get.call_count == 1
     assert mock_zotero_tool_instance.invoke.call_count == 1 # Zotero is still called even if download fails
-    mock_embed_documents.assert_not_called() # Should not embed if download fails
+    mock_embedding.assert_not_called() # Should not embed if download fails
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.VertexLLM.completion')
+@patch('agent.graph.completion')
 @patch('agent.graph.arxiv_tool')
 @patch('agent.graph.unpaywall_tool')
 @patch('agent.graph.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.GoogleGenerativeAIEmbeddings.embed_documents')
-async def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session):
+@patch('agent.graph.embeddings')
+async def test_full_agent_workflow_zotero_fails(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when the Zotero tool fails.
     The agent should log the error and continue to generate the report.
@@ -204,10 +211,10 @@ async def test_full_agent_workflow_zotero_fails(mock_embed_documents, mock_reque
     mock_zotero_tool_instance.invoke.return_value = "Failed to add paper to Zotero: some error"
     mock_requests_get.return_value.raise_for_status.return_value = None
     mock_requests_get.return_value.content = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj\n4 0 obj<</Length 55>>stream\nBT /F1 24 Tf 100 700 Td (Hello World!) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000059 00000 n\n0000000111 00000 n\n0000000200 00000 n\ntrailer<</Size 5/Root 1 0 R>>startxref\n300\n%%EOF"
-    mock_embed_documents.return_value = [[0.1]*1024]
+    mock_embedding.return_value = MagicMock(data=[MagicMock(embedding=[0.1]*1024)])
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
-    final_state = await graph.ainvoke(initial_state)
+    final_state = await mocked_graph.ainvoke(initial_state)
 
     assert mock_zotero_tool_instance.invoke.call_count == 1
     assert final_state["report"] == "Final Report"

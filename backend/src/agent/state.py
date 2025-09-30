@@ -10,6 +10,8 @@ class AgentState(TypedDict):
     literature_abstracts: Annotated[List[Any], operator.add]
     # The full text of the literature
     literature_full_text: List[str]
+    # Papers queued (DOI + URL) for ingestion after resource management step
+    papers_for_ingestion: List[dict]
     is_sufficient: bool
     knowledge_gap: str
     research_loop_count: int

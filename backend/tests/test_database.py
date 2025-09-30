@@ -32,9 +32,8 @@ def test_init_db(db_session):
     assert result is True
 
 def test_simple_insert_and_query(db_session):
-    doc1 = {"text": "This is a test document about AI.", "embedding": [0.1]*1024}
-    doc2 = {"text": "Another document on machine learning.", "embedding": [0.4]*1024}
-    
+    doc1 = {"text": "This is a test document about AI.", "embedding": [0.1]*2048, "source": "test_source_1"}
+    doc2 = {"text": "Another document on machine learning.", "embedding": [0.4]*2048, "source": "test_source_2"}
     insert_documents([doc1, doc2])
 
     query_embedding = [0.1]*1024
@@ -49,10 +48,9 @@ def test_query_documents_no_results(db_session):
     assert len(results) == 0
 
 def test_query_documents_multiple_results(db_session):
-    doc1 = {"text": "Apple is a fruit.", "embedding": [0.1]*1024}
-    doc2 = {"text": "Orange is a fruit.", "embedding": [0.15]*1024}
-    doc3 = {"text": "Banana is a fruit.", "embedding": [0.2]*1024}
-    
+    doc1 = {"text": "Apple is a fruit.", "embedding": [0.1]*2048, "source": "test_source_3"}
+    doc2 = {"text": "Orange is a fruit.", "embedding": [0.15]*2048, "source": "test_source_4"}
+    doc3 = {"text": "Banana is a fruit.", "embedding": [0.2]*2048, "source": "test_source_5"}
     insert_documents([doc1, doc2, doc3])
 
     query_embedding = [0.1]*1024
