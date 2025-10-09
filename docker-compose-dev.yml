@@ -57,5 +57,7 @@ services:
       REDIS_URI: redis://langgraph-redis:6379
       POSTGRES_URI: postgresql://postgres:postgres@langgraph-postgres:5432/postgres
       PYTHONPATH: /deps/backend/src
+      # Force provider fallback to direct Gemini API (avoids Vertex AI ADC credential requirement)
+      GENERATION_LLM_PROVIDER: gemini  
     command: >
       bash -c "uvicorn agent.app:app --host 0.0.0.0 --port 8000 --reload --reload-dir /deps/backend/src"

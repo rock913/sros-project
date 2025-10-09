@@ -39,7 +39,7 @@ class Configuration(BaseModel):
     generation_llm_provider: str = Field(
         default="gemini",
         metadata={
-            "description": "The litellm provider for generation tasks (e.g., gemini studio models)."
+            "description": "The litellm provider for generation tasks (Google Gemini via API key by default)."
         },
     )
 
@@ -51,7 +51,7 @@ class Configuration(BaseModel):
     )
 
     generation_model: str = Field(
-        default="gemini/gemini-1.5-flash",
+        default="gemini-2.5-flash",
         metadata={
             "description": "The name of the language model to use for generation tasks (query generation, reflection, and final answer)."
         },
@@ -67,12 +67,9 @@ class Configuration(BaseModel):
         metadata={"description": "The maximum number of research loops to perform."},
     )
 
-    generation_llm_provider: str = Field(
-        default="vertex_ai",
-        metadata={
-            "description": "The litellm provider for the generation model. Defaults to 'vertex_ai' for Google Vertex AI models."
-        },
-    )
+    # NOTE: A duplicate field (generation_llm_provider) previously overwrote the intended default
+    # and forced 'vertex_ai', causing credential lookup failures when ADC was not configured.
+    # That duplicate has been removed. To force Vertex AI explicitly, set env GENERATION_LLM_PROVIDER=vertex_ai.
 
     @classmethod
     def from_runnable_config(
@@ -92,4 +89,14 @@ class Configuration(BaseModel):
         # Filter out None values
         values = {k: v for k, v in raw_values.items() if v is not None}
 
-        return cls(**values)
+        inst = cls(**values)
+
+        # Automatic fallback: if provider is vertex_ai but no ADC credentials are present, and a GEMINI_API_KEY
+        # is supplied, switch to gemini provider to avoid 500 errors.
+        if (
+            inst.generation_llm_provider == "vertex_ai"
+            and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            and os.environ.get("GEMINI_API_KEY")
+        ):
+            inst.generation_llm_provider = "gemini"
+        return inst

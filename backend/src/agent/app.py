@@ -21,7 +21,7 @@ class AgentOutput(BaseModel):
     messages: List[Dict[str, Any]] = Field(description="The history of messages in the conversation.")
     research_topic: str = Field(description="The initial research topic.")
     search_queries: List[str] = Field(description="The search queries generated.")
-    literature_abstracts: List[str] = Field(description="List of retrieved literature abstracts.")
+    literature_abstracts: List[Dict[str, Any]] = Field(description="List of retrieved literature abstracts.")
     literature_full_text: List[str] = Field(description="List of URLs for full text literature.")
     is_sufficient: bool = Field(description="Whether the research is sufficient.")
     knowledge_gap: str = Field(description="The identified knowledge gap.")

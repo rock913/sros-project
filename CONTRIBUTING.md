@@ -4,11 +4,9 @@ We welcome contributions from everyone. To ensure a smooth and collaborative pro
 
 ## AI-Assisted Development Workflow
 
-This project utilizes an AI-assisted, Document-Test-Driven Development (DTDD) model. All contributors, **including AI assistants**, must strictly adhere to the development workflow defined in:
+This project is developed with the help of an AI assistant. The assistant's operational framework, including its development and debugging methodology, is defined in the [GEMINI.md](GEMINI.md) file. This ensures the AI's actions are transparent, consistent, and aligned with the project's standards.
 
-[**Core Development Workflow](./.ai-conventions/01_workflow.md)**
-
-Please review this document before starting any coding work. It contains essential information about our development philosophy, coding standards, and commit message format.
+While human contributors are not required to follow the AI's exact workflow, understanding it can provide valuable context about how the project evolves.
 
 ## Development Environment
 

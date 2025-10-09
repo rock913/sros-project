@@ -75,6 +75,8 @@ To verify that everything is working correctly, you can run the test suite.
     make test-e2e-docker TOPIC="The impact of AI on climate change"
     ```
 
+> For the full E2E testing methodology (streaming phases, enhanced script, snapshot template), see the `E2E Testing Framework` section in `GEMINI.md`.
+
 <details>
 <summary><strong>Alternative: Local Setup without Docker</strong></summary>
 

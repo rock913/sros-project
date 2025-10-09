@@ -49,7 +49,7 @@ from agent.database import get_db_connection, Document, query_documents
 load_dotenv()
 
 # Configuration
-MAX_RESEARCH_LOOPS = 3
+MAX_RESEARCH_LOOPS = 1
 
 
 # Nodes
@@ -80,7 +80,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
         print(f"---ERROR: Failed to generate initial queries due to API unavailability: {e}---")
         search_queries = []
     print(f"Generated initial queries: {search_queries}")
-    return {"search_queries": search_queries, "research_topic": research_topic}
+    return {"search_queries": search_queries, "research_topic": research_topic, "literature_full_text": []}
 
 
 def continue_to_web_research(state: AgentState):
@@ -420,6 +420,8 @@ def ingest_and_embed_documents(state: AgentState, config: RunnableConfig) -> Age
             
             # 4. Generate embeddings using litellm
             print("---INITIALIZING EMBEDDINGS for document ingestion---")
+            # Set drop_params to True to handle models that don't support 'dimensions'
+            litellm.drop_params = True
             if callable(embeddings):
                 try:
                     embeddings()
@@ -472,8 +474,8 @@ def ingest_and_embed_documents(state: AgentState, config: RunnableConfig) -> Age
         # Add a delay to avoid hitting API rate limits
         if i < len(papers_to_process) - 1:
             if not test_mode:
-                print("Waiting for 20 seconds before processing the next PDF...")
-                time.sleep(20)
+                print("Waiting for 5 seconds before processing the next PDF...")
+                time.sleep(5)
             
     return {}
 
