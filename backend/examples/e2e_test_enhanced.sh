@@ -23,7 +23,7 @@ PORT=8121
 TIMEOUT=900   # seconds overall budget
 RETRY=30       # max health retries
 SLEEP=2
-EXPECTED_KEYS=(run_id generate_initial_queries execute_searches reflection_and_refinement retrieve_and_synthesize_report report)
+EXPECTED_KEYS=(run_id generate_initial_queries execute_searches reflection_and_refinement retrieve_and_synthesize_report)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -166,7 +166,7 @@ fi
 # Extract final report (best-effort)
 REPORT_FILE="${LOG_FILE%.log}_report.txt"
 if command -v jq >/dev/null 2>&1; then
-  grep '^data:' "$TMP_RAW" | sed 's/^data: //' | jq -r 'select(.report!=null)|.report' | tail -n1 > "$REPORT_FILE" || true
+  grep '^data:' "$TMP_RAW" | sed 's/^data: //' | jq -r 'select(.retrieve_and_synthesize_report.report!=null) | .retrieve_and_synthesize_report.report' | tail -n1 > "$REPORT_FILE" || true
 else
   grep -o '"report": *"[^"]\{1,400\}' "$TMP_RAW" | sed 's/^.*"report": *"//' | tail -n1 > "$REPORT_FILE" || true
 fi

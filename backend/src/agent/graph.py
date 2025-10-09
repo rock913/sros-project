@@ -355,6 +355,88 @@ import numpy as np
     stop=stop_after_attempt(5),
     retry=retry_if_exception_type((ServiceUnavailableError, RateLimitError)),
 )
+def _ingest_and_embed_single_document(paper_info: dict, cfg: Configuration):
+    """Processes a single PDF, checks for existence in DB, and ingests if new."""
+    doi = paper_info.get("doi")
+    url = paper_info.get("url")
+    if not doi or not url:
+        return
+
+    db = get_db_connection()
+    try:
+        # 1. Check if document already exists in the database
+        existing_doc = db.query(Document).filter(Document.source == doi).first()
+        if existing_doc:
+            print(f"Document with DOI {doi} already exists in the database. Skipping ingestion.")
+            return
+
+        # 2. If not, process and ingest
+        print(f"Processing new document with DOI: {doi} from URL: {url}")
+        response = requests.get(url)
+        response.raise_for_status()
+        
+        doc = fitz.open(stream=response.content, filetype="pdf")
+        full_text = "".join(page.get_text() for page in doc)
+        doc.close()
+        
+        if not full_text.strip():
+            print(f"PDF at {url} is empty or text could not be extracted. Skipping.")
+            return
+
+        # 3. Chunk the text
+        chunks = text_splitter.split_text(full_text)
+        
+        # 4. Generate embeddings using litellm
+        print("---INITIALIZING EMBEDDINGS for document ingestion---")
+        litellm.drop_params = True
+        if callable(embeddings):
+            try:
+                embeddings()
+            except Exception:
+                pass
+        raw_embeddings = embeddings.embed_documents(
+            model=cfg.embedding_model,
+            input=chunks,
+            api_base=cfg.embedding_api_base,
+            api_key=cfg.embedding_api_key,
+            custom_llm_provider=cfg.embedding_llm_provider,
+            dimensions=cfg.embedding_dimensions,
+        )
+        if hasattr(raw_embeddings, 'data'):
+            vectors = [d.embedding for d in getattr(raw_embeddings, 'data', [])]
+        elif isinstance(raw_embeddings, list):
+            vectors = raw_embeddings
+        else:
+            maybe_ret = getattr(embeddings, 'return_value', None)
+            if maybe_ret and hasattr(maybe_ret, 'data'):
+                vectors = [d.embedding for d in maybe_ret.data]
+            else:
+                vectors = []
+        if not vectors:
+            vectors = [[0.0]*cfg.embedding_dimensions for _ in chunks]
+        if len(vectors) != len(chunks):
+            if len(vectors) > len(chunks):
+                vectors = vectors[:len(chunks)]
+            else:
+                vectors.extend([[0.0]*cfg.embedding_dimensions for _ in range(len(chunks)-len(vectors))])
+        chunk_embeddings = [np.array(vec) for vec in vectors]
+        
+        # 5. Store in DB
+        for chunk, embedding_vector in zip(chunks, chunk_embeddings):
+            document = Document(content=chunk, embedding=embedding_vector, source=doi)
+            db.add(document)
+        db.commit()
+        print(f"Successfully processed and stored {len(chunk_embeddings)} chunks for DOI {doi}")
+
+    except RetryError as e:
+        print(f"Caught a RetryError during embedding for DOI {doi}, likely a persistent API quota issue. Stopping ingestion for this item. Error: {e}")
+        db.rollback()
+    except Exception as e:
+        print(f"Failed to process PDF for DOI {doi}. Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 def ingest_and_embed_documents(state: AgentState, config: RunnableConfig) -> AgentState:
     """Processes PDFs, checks for existence in DB, and ingests new ones."""
     print("---NODE: ingest_and_embed_documents---")
@@ -388,94 +470,12 @@ def ingest_and_embed_documents(state: AgentState, config: RunnableConfig) -> Age
                 print(f"---TEST_MODE: Created fallback ingestion task for DOI {doi}---")
                 break
 
-    for i, paper_info in enumerate(papers_to_process):
-        doi = paper_info.get("doi")
-        url = paper_info.get("url")
-        if not doi or not url:
-            continue
-
-        db = get_db_connection()
+    for paper_info in papers_to_process:
         try:
-            # 1. Check if document already exists in the database
-            existing_doc = db.query(Document).filter(Document.source == doi).first()
-            if existing_doc:
-                print(f"Document with DOI {doi} already exists in the database. Skipping ingestion.")
-                continue
-
-            # 2. If not, process and ingest
-            print(f"Processing new document with DOI: {doi} from URL: {url}")
-            response = requests.get(url)
-            response.raise_for_status()
-            
-            doc = fitz.open(stream=response.content, filetype="pdf")
-            full_text = "".join(page.get_text() for page in doc)
-            doc.close()
-            
-            if not full_text.strip():
-                print(f"PDF at {url} is empty or text could not be extracted. Skipping.")
-                continue
-
-            # 3. Chunk the text
-            chunks = text_splitter.split_text(full_text)
-            
-            # 4. Generate embeddings using litellm
-            print("---INITIALIZING EMBEDDINGS for document ingestion---")
-            # Set drop_params to True to handle models that don't support 'dimensions'
-            litellm.drop_params = True
-            if callable(embeddings):
-                try:
-                    embeddings()
-                except Exception:
-                    pass
-            raw_embeddings = embeddings.embed_documents(
-                model=cfg.embedding_model,
-                input=chunks,
-                api_base=cfg.embedding_api_base,
-                api_key=cfg.embedding_api_key,
-                custom_llm_provider=cfg.embedding_llm_provider,
-                dimensions=cfg.embedding_dimensions,
-            )
-            if hasattr(raw_embeddings, 'data'):
-                vectors = [d.embedding for d in getattr(raw_embeddings, 'data', [])]
-            elif isinstance(raw_embeddings, list):
-                vectors = raw_embeddings
-            else:
-                maybe_ret = getattr(embeddings, 'return_value', None)
-                if maybe_ret and hasattr(maybe_ret, 'data'):
-                    vectors = [d.embedding for d in maybe_ret.data]
-                else:
-                    vectors = []
-            if not vectors:
-                vectors = [[0.0]*cfg.embedding_dimensions for _ in chunks]
-            if len(vectors) != len(chunks):
-                if len(vectors) > len(chunks):
-                    vectors = vectors[:len(chunks)]
-                else:
-                    vectors.extend([[0.0]*cfg.embedding_dimensions for _ in range(len(chunks)-len(vectors))])
-            chunk_embeddings = [np.array(vec) for vec in vectors]
-            
-            # 5. Store in DB
-            for chunk, embedding_vector in zip(chunks, chunk_embeddings):
-                document = Document(content=chunk, embedding=embedding_vector, source=doi)
-                db.add(document)
-            db.commit()
-            print(f"Successfully processed and stored {len(chunk_embeddings)} chunks for DOI {doi}")
-
+            _ingest_and_embed_single_document(paper_info, cfg)
         except RetryError as e:
-            print(f"Caught a RetryError during embedding for DOI {doi}, likely a persistent API quota issue. Stopping ingestion. Error: {e}")
-            db.rollback()
-            break
-        except Exception as e:
-            print(f"Failed to process PDF for DOI {doi}. Error: {e}")
-            db.rollback()
-        finally:
-            db.close()
-
-        # Add a delay to avoid hitting API rate limits
-        if i < len(papers_to_process) - 1:
-            if not test_mode:
-                print("Waiting for 5 seconds before processing the next PDF...")
-                time.sleep(5)
+            print(f"Persistent failure for paper {paper_info.get('doi')}, even after retries. Skipping. Error: {e}")
+            continue
             
     return {}
 

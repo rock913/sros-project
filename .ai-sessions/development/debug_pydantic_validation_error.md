@@ -126,3 +126,36 @@ The fix is to replace the buggy `jq` filter with the correct one.
 -   **Change:** On line 117, modify the `jq` command.
     -   **From:** `klist=$(echo "$obj" | jq -r 'paths(length==1)|join(".")' 2>/dev/null || true)`
     -   **To:** `klist=$(echo "$obj" | jq -r 'keys_unsorted[]' 2>/dev/null || true)`
+
+---
+
+## 10. Fifth Failure Analysis (HTTP 500 Internal Server Error)
+
+After fixing the `jq` parsing, the test was run again. This time, it failed immediately during the streaming step with a new error.
+
+### Key Log Snippet (Snapshot #5):
+
+```log
+[3/6] Streaming from http://localhost:8121/agent/stream ...
+  [CHUNK] {"status_code": 500, "message": "Internal Server Error"}
+```
+
+### Root Cause #5:
+
+This is a regression introduced by the earlier removal of the `time.sleep(5)` in `backend/src/agent/graph.py`. The root cause is a structural issue with the retry logic.
+
+1.  The `@retry` decorator was applied to the entire `ingest_and_embed_documents` function.
+2.  This function contains a loop to process multiple documents.
+3.  If an API rate limit error occurs on any document *after the first one*, the `@retry` decorator causes the **entire function to restart from the beginning**.
+4.  This re-execution with partial results from a previous run likely leads to an inconsistent state (e.g., database session conflicts, duplicate data handling issues), causing the application to raise an unhandled exception and return an HTTP 500 error.
+5.  The original `time.sleep()` was inefficient but masked this issue by preventing the rate limit from being hit in the first place.
+
+## 11. Resolution Strategy #5
+
+The fix is to apply the retry logic at a more granular level, specifically to the operation for a single document.
+
+-   **File to Modify:** `backend/src/agent/graph.py`
+-   **Change:** Refactor the ingestion logic.
+    1.  Create a new helper function, `_ingest_and_embed_single_document`, which will contain the logic for downloading, parsing, and embedding a single PDF.
+    2.  Move the `@retry` decorator from `ingest_and_embed_documents` to the new `_ingest_and_embed_single_document` helper function.
+    3.  The main `ingest_and_embed_documents` function will now simply loop through the papers and call the new, robust helper function for each one. This ensures that any rate-limit-related retries only affect the specific document that failed, not the entire batch.
