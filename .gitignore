@@ -199,4 +199,19 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-backend/.langgraph_api
+backend/.langgraph_api# Ignore downloaded VSCode test runtime
+vscode-extension/.vscode-test/
+
+# Build artifacts and heavy binaries
+vscode-extension/**/vscode-*-linux-*/
+vscode-extension/*.asar
+vscode-extension/*.bin
+
+# backend cache
+backend/unpaywall_cache/
+
+# Node, dist, logs already present but ensure
+node_modules/
+dist/
+build/
+
