@@ -1,0 +1,103 @@
+{
+    "name": "auto-researcher",
+    "displayName": "auto-researcher",
+    "description": "AI-powered autonomous research agent",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.83.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "auto-researcher.showControlPanel",
+                "title": "Show AI Control Panel",
+                "icon": "$(chip)"
+            },
+            {
+                "command": "auto-researcher.refreshAssetLibrary",
+                "title": "Refresh Asset Library",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "auto-researcher.refreshManuscript",
+                "title": "Refresh Manuscript",
+                "icon": "$(refresh)"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "auto-researcher-sidebar",
+                    "title": "Auto Researcher",
+                    "icon": "resources/icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "auto-researcher-sidebar": [
+                {
+                    "id": "assetLibrary",
+                    "name": "Asset Library",
+                    "type": "tree"
+                },
+                {
+                    "id": "manuscript",
+                    "name": "Manuscript",
+                    "type": "tree"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "command": "auto-researcher.showControlPanel",
+                    "when": "view == 'auto-researcher-sidebar'",
+                    "group": "navigation"
+                },
+                {
+                    "command": "auto-researcher.refreshAssetLibrary",
+                    "when": "view == assetLibrary",
+                    "group": "navigation",
+                    "icon": "$(refresh)"
+                },
+                {
+                    "command": "auto-researcher.refreshManuscript",
+                    "when": "view == manuscript",
+                    "group": "navigation",
+                    "icon": "$(refresh)"
+                }
+            ]
+        }
+    },    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "xvfb-run --auto-servernum vscode-test",
+        "test-e2e": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/mocha": "^10.0.6",
+        "@types/node": "18.x",
+        "@types/sinon": "^17.0.4",
+        "@types/vscode": "^1.83.0",
+        "@typescript-eslint/eslint-plugin": "^6.19.1",
+        "@typescript-eslint/parser": "^6.19.1",
+        "@vscode/test-cli": "^0.0.4",
+        "@vscode/test-electron": "^2.3.9",
+        "eslint": "^8.56.0",
+        "sinon": "^21.0.0",
+        "typescript": "^5.3.3"
+    },
+    "dependencies": {
+        "axios": "^1.12.2"
+    }
+}

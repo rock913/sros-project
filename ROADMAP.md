@@ -15,20 +15,24 @@ This foundational phase has been completed. We have built a robust, "headless" A
 
 ### Phase 2: VS Code Skeleton and Static Display (In Progress)
 
-The next phase focuses on building the user-facing component of the platform: a VS Code extension. The goal is to create a "read-only" view of the research process.
+The next phase focuses on building the user-facing component of the platform: a VS Code extension. The goal is to create a "read-only" view of the research process, with the entire development workflow being containerized.
 
 **Detailed Plan:**
-1.  **Develop the basic VS Code Extension:**
-    -   Set up a new TypeScript project for the extension.
+1.  **Containerized Development Environment:**
+    -   Create a dedicated Dockerfile and Dev Container configuration (`.devcontainer/devcontainer.json`) for the extension.
+    -   This environment will pre-install all necessary dependencies (Node.js, `yo`, `vsce`) for a consistent, one-click setup.
+    -   Integrate this new service into the main `docker-compose-dev.yml` to ensure seamless networking with the backend.
+2.  **Develop the basic VS Code Extension (inside the container):**
+    -   Set up a new TypeScript project for the extension under a new `vscode-extension` directory.
     -   Implement the three-panel layout as described in the technical documentation:
         -   **Left Panel (Research Asset Library):** A TreeView to display research resources (papers, notes).
         -   **Center Panel (Dynamic Manuscript):** The main editor, where the final report will be shown.
         -   **Right Panel (AI Control Panel):** A Webview to show the agent's status and thinking process.
-2.  **API Integration (Read-Only):**
-    -   The extension will call the backend API to fetch the status and results of a completed research task.
-    -   The data will be used to populate the three panels (e.g., list of papers in the asset library, final report in the editor, agent logs in the control panel).
-3.  **Static Visualization:**
-    -   The primary goal is to prove that the frontend can successfully connect to and display data from the backend. All interactions that trigger new runs will be handled via API tools (like Insomnia or curl) for now.
+3.  **API Integration (Read-Only):**
+    -   The extension will call the backend API (via its Docker service name, e.g., `http://backend:8000`) to fetch the status and results of a completed research task.
+    -   The data will be used to populate the three panels.
+4.  **Static Visualization:**
+    -   The primary goal is to prove that the frontend can successfully connect to and display data from the backend. All interactions that trigger new runs will be handled via API tools for now.
 
 ### Phase 3: Real-time Interaction and Dynamic Collaboration (Future)
 

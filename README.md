@@ -18,64 +18,71 @@ For a detailed view of our future plans, please see our [Project Roadmap](ROADMA
 
 ## Project Structure
 
-The project is divided into two main directories:
+The project is divided into three main directories:
 
--   `frontend/`: Contains the React application built with Vite.
+-   `frontend/`: Contains the React application built with Vite (the legacy web UI).
 -   `backend/`: Contains the LangGraph/FastAPI application, including the research agent logic.
+-   `vscode-extension/`: Contains the new VS Code extension, which is the primary user interface under active development.
 
-## Getting Started (Docker Recommended)
+## Getting Started (Dev Container Recommended)
 
-This guide provides the recommended setup using Docker for a consistent and reproducible development environment.
+This project is optimized for a containerized development experience using **VS Code Dev Containers**. This is the recommended approach as it provides a consistent, pre-configured environment for both frontend and backend development.
 
-**1. Prerequisites:**
+### Development Environments
 
-*   **Docker and Docker Compose:** Ensure they are installed on your system.
-*   **LLM Provider Configuration**: The backend agent uses `litellm` to support various LLM providers (e.g., Google Gemini, OpenAI, Azure). You need to configure the API key and model names in the `.env` file.
-    1.  Create a file named `.env` in the project root by copying the `.env.example` file.
-    2.  Open the `.env` file and add the API key for your chosen provider. For example, for Gemini:
-        ```env
-        GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-        ```
-        Or for OpenAI:
-        ```env
-        OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
-        ```
-    3.  (Optional) Specify the generation and embedding models. The defaults are `gemini-1.5-flash` and `embedding-001`. You can override them:
-        ```env
-        GENERATION_MODEL="gemini-1.5-pro"
-        EMBEDDING_MODEL="text-embedding-004"
-        ```
+We have configured two separate Dev Container environments:
 
-**2. Build and Run Services:**
+-   **Frontend Development:** The default configuration (`.devcontainer/devcontainer.json`), which attaches to the `vscode-dev` service. Use this for working on the React application or the VS Code extension.
+-   **Backend Development:** A separate configuration (`.devcontainer/devcontainer.json.backend`) for working on the Python-based LangGraph agent, which attaches to the `langgraph-api` service.
 
-Run the following command to build the container images and start all services in detached mode:
+To switch between environments, you simply need to rename the configuration files in the `.devcontainer` directory. For example, to activate the backend environment:
 
 ```bash
-make dev-docker
+# Back up the current frontend config
+mv .devcontainer/devcontainer.json .devcontainer/devcontainer.json.frontend
+
+# Activate the backend config
+mv .devcontainer/devcontainer.json.backend .devcontainer/devcontainer.json
 ```
 
-**3. Accessing the Application:**
+### Prerequisites
+
+*   **VS Code** with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+*   **Docker and Docker Compose:** Ensure they are installed and running on your system.
+*   **LLM Provider Configuration**: The backend agent uses `litellm` to support various LLM providers.
+    1.  Create a `.env` file by copying `.env.example`.
+    2.  Add your API key (e.g., `GEMINI_API_KEY="YOUR_API_KEY"`).
+
+### Launching the Dev Environment
+
+1.  **Build and Run Services:**
+    Before launching the Dev Container for the first time, you need to build the images and start the services:
+    ```bash
+    make dev-docker
+    ```
+    This command builds the necessary Docker images (with the VS Code Server pre-installed for faster startup) and starts the database and other services.
+
+2.  **Open in Dev Container:**
+    -   Open the project folder in VS Code.
+    -   Click the green "><" icon in the bottom-left corner of the window.
+    -   Select **"Reopen in Container"**.
+
+    VS Code will automatically attach to the correct service (`vscode-dev` for frontend or `langgraph-api` for backend) based on your `devcontainer.json` configuration.
+
+### Accessing the Application
 
 Once the containers are running:
 -   The **React Frontend** will be available at `http://localhost:5173`.
 -   The **Backend API** will be available at `http://localhost:8000`.
 -   The **FastAPI/LangGraph UI** can be accessed at `http://localhost:8000/docs`.
 
-**4. Testing the Setup:**
+### Testing the Setup
 
-To verify that everything is working correctly, you can run the test suite.
+This project employs a comprehensive, multi-layered testing strategy to ensure quality across the backend, frontend, and VS Code extension. This includes unit, integration, and end-to-end (E2E) behavioral snapshot tests.
 
-*   **Run Unit & Integration Tests:**
-    ```bash
-    make test-backend-docker
-    ```
+For a complete guide on the testing philosophy, what to run, and how to run it, please refer to the canonical **[TESTING.md](TESTING.md)** document. It is the single source of truth for all verification procedures.
 
-*   **Run the End-to-End (E2E) Test:**
-    ```bash
-    make test-e2e-docker TOPIC="The impact of AI on climate change"
-    ```
-
-> For the full E2E testing methodology (streaming phases, enhanced script, snapshot template), see the `E2E Testing Framework` section in `GEMINI.md`.
+> The E2E snapshot testing methodology is also detailed in `GEMINI.md`.
 
 <details>
 <summary><strong>Alternative: Local Setup without Docker</strong></summary>

@@ -47,6 +47,7 @@
     -   记录用于验证该步骤的命令（如 `make test`）。
     -   附上测试结果的摘要。
     -   标记状态：`✅ Success` 或 `❌ Failed`。
+    > **Note**: For a complete catalog of available verification commands across the project, refer to the canonical `TESTING.md` document.
 
 ### 阶段三：调试状态 (Debugging State) - 条件触发
 
@@ -68,7 +69,26 @@
 2.  **总结 (Optional)**: 对本次会话的工作进行简要总结。
 3.  **代码提交 (Optional)**: 运行 `git status` 和 `git diff`，起草 `commit message`，并等待用户确认。
 
-## 优势
+## 3. Development Environment
+
+To ensure the **Unified Session Workflow** is executed in a consistent and reproducible manner, this project relies on a containerized development environment powered by **VS Code Dev Containers**.
+
+### Key Characteristics:
+
+-   **Containerized:** The entire development environment is defined as code within Dockerfiles and Docker Compose files. This guarantees that every developer (human or AI) uses the exact same set of dependencies and tools.
+-   **Pre-configured:** The Dev Containers are pre-configured for both frontend and backend development, with all necessary VS Code extensions and settings already installed.
+-   **Separation of Concerns:** There are two distinct Dev Container configurations:
+    -   **Frontend:** The default, for UI/UX and VS Code extension development.
+    -   **Backend:** For development on the core Python agent.
+    This separation allows for a focused development experience tailored to the specific task. Instructions for switching between them are in the main `README.md`.
+
+### How it Supports the Workflow:
+
+-   **Initialization:** When starting a new session, the developer can quickly launch the appropriate Dev Container, ensuring a clean slate for the task.
+-   **Verification:** All verification steps (e.g., running tests) are executed within the container. This eliminates any potential for local machine configuration to affect the outcome, making the `✅ Success` or `❌ Failed` status a reliable signal.
+-   **Debugging State:** When a test fails, the developer is already in a fully-equipped debugging environment. They can use the VS Code debugger, access the container's shell, and inspect the running services, all within the same context where the failure occurred.
+
+## 4. Advantages
 
 -   **流程统一**: 开发和调试遵循同一套心智模型和记录标准，降低了 AI 和人类的认知负荷。
 -   **历史连贯**: 一个功能的完整生命周期，包括所有弯路和修复，都记录在单一、连续的文件中，提供了无与伦by的追溯能力。

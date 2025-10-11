@@ -84,128 +84,96 @@ The backend agent uses `litellm` and requires environment variables to be set fo
 
 The assistant must ensure all tool calls use the correct parameter names as defined in the tool's schema. Repeated, efficiency-impacting errors due to incorrect parameter names (e.g., using `newContent` instead of `new_string`) are to be strictly avoided. Before executing a tool call, parameter names must be double-checked against the provided documentation to ensure correctness.
 
+### b. Snapshot-Driven Development
+
+To ensure progress is tracked and the development process is transparent, the AI assistant must follow a strict snapshot-driven workflow when executing a development plan.
+
+**The Workflow:**
+1.  **Identify the Current Step:** Before starting work, identify the current step from the relevant session snapshot file (e.g., in `/.ai-sessions/development/`).
+2.  **Execute the Step:** Perform the actions required to complete the step (e.g., creating files, modifying code).
+3.  **Update the Snapshot:** After the step is successfully completed, the assistant **must** first update the session snapshot file. This involves marking the completed step (e.g., with `[DONE]`) and adding a brief summary of the actions taken.
+4.  **Proceed:** Only after the snapshot is updated can the assistant propose and begin the next development step.
+
+This ensures a persistent, auditable trail of the development progress for every session.
+
 By adhering to this framework, the AI assistant can effectively contribute to the project, maintaining high standards of code quality, documentation, and process transparency.
 
-## 5. End-to-End (E2E) Testing Framework
+## Detailed Strategy
 
-This section standardizes how the assistant (and humans) execute, observe, and debug full research flows from a raw topic to a final report. It complements unit/integration tests by validating the multi-stage LangGraph pipeline, external tool orchestration, streaming interface, and persistence layer.
+This framework's specific implementation details are defined in `doc/WORKFLOW_STRATEGY.md`. This document is the core behavioral guideline for all AI developers (both human and model) and details:
 
-### 5.1 Scope & Goals
-E2E tests must verify that for a given research topic:
-1. Streaming API (`/agent/stream`) emits structured incremental state chunks.
-2. Core state transitions occur in correct order: `generate_initial_queries` → (`execute_searches` fan-out cycles + `reflection_and_refinement` loop) → `automated_resource_management` → `ingest_and_embed_documents` → `retrieve_and_synthesize_report` → final `report`.
-3. At least one set of `literature_abstracts` is produced; loop count ≤ configured max (default 3).
-4. A final `report` (non-empty) is generated.
-5. (Optional) DB receives newly embedded chunks when full-text ingestion occurs.
+1.  **File Organization & Naming Conventions**: How to organize and name session files based on work intent (feature development vs. bug fixing).
+2.  **Unified Session Workflow**: The four standard phases from initialization, iterative execution, conditionally triggered debugging state, to final completion.
+3.  **Debugging Snapshot**: How to structurally record errors, propose hypotheses, attempt fixes, and re-verify when a test fails.
 
-### 5.2 Interfaces Under Test
-- Health: `GET /ok` (readiness check)
-- Invoke (non-stream): `POST /agent/invoke` (fast schema / 4xx / 5xx detection)
-- Stream (SSE): `POST /agent/stream` with body:
-```json
-{
-    "input": {"messages": [{"role": "user", "content": "<topic>"}]}
-}
-```
+### Development Environment: VS Code Dev Containers
 
-### 5.3 Provided Scripts
-| Script | Purpose | When to Use |
-|--------|---------|-------------|
-| `backend/examples/e2e_test.sh` | Minimal curl-based streaming viewer | Quick manual smoke |
-| `backend/examples/e2e_test_enhanced.sh` | Robust test: health check, retries, timeout, key assertions, report extraction, exit codes | CI & reproducible validation |
+To facilitate the **Session-Driven Workflow**, the project has adopted a fully containerized development environment using **VS Code Dev Containers**. This approach directly supports the core principles of GEMINI by providing a consistent, reproducible, and isolated environment for all development and debugging tasks.
 
-### 5.4 Enhanced Script Behavior
-Exit codes:
-- 0: Success (final report captured)
-- 2: Usage error
-- 3: Health endpoint not ready
-- 4: HTTP failure (non-200 or stream error)
-- 5: Stream ended without final report / missing mandatory key
-- 6: Global timeout exceeded
+-   **Consistency:** The entire development environment, including all dependencies and tooling, is defined in code (`Dockerfile`, `docker-compose.yml`). This eliminates "works on my machine" problems and ensures that both human and AI developers operate in the exact same context.
 
-Key expectations (asserted): `run_id`, `generate_initial_queries`, `execute_searches`, `reflection_and_refinement`, `retrieve_and_synthesize_report`, `report`.
+-   **Pre-built for Speed:** The development images are pre-built with the VS Code Server installed. This significantly reduces the startup time for new Dev Container sessions, allowing developers to get into a coding session almost instantly. This speed is crucial for maintaining a tight feedback loop during iterative development and debugging.
 
-Usage examples:
+-   **Separate Contexts for Frontend and Backend:** The project provides two distinct Dev Container configurations (`.devcontainer/devcontainer.json` for frontend and `.devcontainer/devcontainer.json.backend` for backend). This allows developers to work in a context that is tailored to the specific task at hand, with the correct tools and extensions readily available. This separation of concerns aligns with the GEMINI principle of breaking down complex problems into smaller, manageable units of work.
+
+By leveraging Dev Containers, the GEMINI framework ensures that every development "session" is executed in a clean, predictable, and efficient environment, thereby enhancing the reliability and effectiveness of the AI-assisted development process.
+
+## E2E Testing & Regression Snapshots (Golden File Testing)
+
+Our End-to-End (E2E) tests validate the entire research workflow. To prevent regressions, we use an enhanced test script (`e2e_test_enhanced.sh`) that compares the output of a test run against a pre-recorded "Golden File Snapshot".
+
+> **Note on Terminology:** These **Golden File Snapshots** are used for automated regression testing. They are distinct from the **Debugging Snapshots** captured in `.ai-sessions` files, which serve as a narrative log for a specific debugging session as defined in `doc/WORKFLOW_STRATEGY.md`.
+
+### 1. Running the Standard E2E Test
+
+The basic E2E test simply runs the workflow and streams the output.
+
+**Invocation:**
 ```bash
-bash backend/examples/e2e_test_enhanced.sh "recent development on neuro ai"
-bash backend/examples/e2e_test_enhanced.sh "ai in climate change" --timeout 600
+make test-e2e-docker TOPIC="Your Research Topic"
 ```
 
-Artifacts produced:
-- Log: `logs/e2e_test_enhanced_<timestamp>.log`
-- Extracted report: `logs/e2e_test_enhanced_<timestamp>_report.txt`
+### 2. Running the Enhanced Test with Snapshot Validation
 
-### 5.5 Success & Failure Heuristics
-| Signal | Interpretation | Action |
-|--------|---------------|--------|
-| Health fails repeatedly | Service not started / port clash | Inspect container: `docker ps`, `docker logs langgraph-api` |
-| Stream ends before `report` | Upstream node error or LLM failure | Search log for last chunked node key |
-| Long stall after queries | External search latency / API quota | Reduce queries or set `TEST_MODE=1` |
-| No DB ingestion | No DOI or ingestion path triggered | Enable fallback vars or inspect `automated_resource_management` logs |
+For rigorous, automated regression testing, use the enhanced script. It validates the run's log output against a golden file snapshot.
 
-### 5.6 Configuration & Determinism
-Environment knobs (set in `.env` or docker-compose overrides):
-- `GENERATION_MODEL`, `EMBEDDING_MODEL`: LLM / embedding choices.
-- `TEST_MODE=1`: Disables outbound DOI lookups & some network calls for faster, deterministic loops.
-- `ENABLE_TEST_FALLBACK_INGEST=1`: Allows controlled ingestion fallback from abstracts in test mode.
-- `MAX_RESEARCH_LOOPS` (code constant): Loop cap (adjust via code patch if needed for perf tests).
+**How it Works:**
 
-### 5.7 DB Validation (Optional Step)
-After a successful run (ingestion path triggered):
-```sql
--- Example manual check (psql inside postgres container)
-SELECT source, COUNT(*) AS chunks FROM documents GROUP BY source ORDER BY COUNT(*) DESC LIMIT 5;
-```
-Automate by adding a lightweight Python script querying `Document` count delta before/after.
+1.  **Execute and Capture:**
+    ```bash
+    ./backend/examples/e2e_test_enhanced.sh "Your Research Topic"
+    ```
+    This runs the agent and saves its full, structured log to a temporary file (e.g., `/tmp/e2e_test_run.log`).
 
-### 5.8 Integration into Session-Driven Workflow
-When an E2E run is the goal condition of a development or debugging session:
-1. Start a session log under `/.ai-sessions/development/` (new feature) or `/.ai-sessions/debugging/` (failure reproduction).
-2. Record: topic used, script variant, git commit, env flags, start timestamp.
-3. Embed log artifact path(s) and extracted key timeline (see snapshot template below).
-4. If failure: create an inline "Debug Snapshot" subsection (DO NOT start a new session file) describing hypothesis + attempted fix + re-run result.
-5. Mark session COMPLETE only when exit code 0 AND `report` length > threshold (e.g., 500 chars) unless otherwise justified.
+2.  **Snapshot Comparison:** The script automatically compares this log to a corresponding "golden" snapshot file located in `backend/tests/features/snapshots/`.
 
-### 5.9 Snapshot Template
-Each E2E session should include an appended structured snapshot (for machine + human parsing):
-```
---- E2E SNAPSHOT v1 ---
-timestamp_start: 2025-10-03T09:21:07Z
-commit: <git-sha>
-topic: "recent development on neuro ai"
-script: backend/examples/e2e_test_enhanced.sh
-env:
-    TEST_MODE: "0"
-    GENERATION_MODEL: "gemini-1.5-flash"
-    EMBEDDING_MODEL: "text-embedding-004"
-result:
-    exit_code: 0
-    duration_seconds: 312
-    observed_keys:
-        - run_id
-        - generate_initial_queries
-        - execute_searches
-        - reflection_and_refinement
-        - retrieve_and_synthesize_report
-        - report
-    research_loop_count: 2
-    report_chars: 6842
-artifacts:
-    log: logs/e2e_test_enhanced_20251003_092107.log
-    report: logs/e2e_test_enhanced_20251003_092107_report.txt
-notes: |
-    Loop 1 produced 3 abstracts; reflection requested additional queries (9 follow-ups). Ingestion path triggered, 1 DOI retrieved.
---- END SNAPSHOT ---
-```
+3.  **Validation:** If the output from the current run differs from the snapshot, the test fails. This is critical for detecting unintended changes in the agent's behavior.
 
-Assistants must parse this block (YAML-like) for automated meta-analysis (e.g., comparing loop counts across sessions).
+### 3. Creating and Updating Golden File Snapshots
 
-### 5.10 CI Integration (Planned)
-Recommended GitHub Actions step:
-1. Spin up `docker-compose -f docker-compose-dev.yml up -d`.
-2. Run enhanced script with deterministic topic (e.g., `neuro ai test summarization` + `TEST_MODE=1`).
-3. Upload `logs/e2e_test_enhanced_*` as artifacts.
-4. Parse report length + required keys; fail job if missing.
+When you add a feature or intentionally change the agent's behavior, you must update the corresponding snapshot.
+
+**Workflow:**
+
+1.  **Run the enhanced test:**
+    ```bash
+    ./backend/examples/e2e_test_enhanced.sh "The topic for your test case"
+    ```
+    The test will likely fail if the snapshot exists and the output has changed. This is expected.
+
+2.  **Inspect the new output:** Manually review the temporary log file (the path is specified in the script's output, e.g., `/tmp/e2e_test_run.log`) to ensure the new output is correct and reflects the intended changes.
+
+3.  **Create or Update the Snapshot:**
+    - If the snapshot directory doesn't exist, create it:
+      ```bash
+      mkdir -p backend/tests/features/snapshots
+      ```
+    - Copy the temporary log to become the new golden snapshot. **It's crucial to name the snapshot file descriptively based on the test case.**
+      ```bash
+      cp /tmp/e2e_test_run.log backend/tests/features/snapshots/neuro_ai_development.log
+      ```
+
+4.  **Commit:** Commit the new or updated snapshot file along with your code changes. This locks in the new behavior as the standard for future test runs.
 
 ## 6. Snapshot-Based Observability and Live Debugging
 
@@ -222,7 +190,16 @@ Assistant RULES:
 
 This ensures longitudinal traceability of research agent evolution and supports automated regression detection.
 
-### 6.1 Live Debugging Workflow in Practice
+## Holistic Testing Strategy
+
+The end-to-end behavioral test described above is the cornerstone of our Observation-Driven Development philosophy. However, it is part of a broader, multi-layered testing strategy that covers the entire project.
+
+The canonical guide for all testing procedures, including unit, integration, and E2E tests for the backend, VS Code extension, and frontend, is documented in the root `TESTING.md` file.
+
+**All developers and AI assistants must refer to `TESTING.md` as the single source of truth for how to verify code changes.**
+
+## Example Debugging Scenario
+
 
 To make this process concrete, the assistant and developers **must** follow the "Session-Driven Workflow" by creating and maintaining a log file within the `/.ai-sessions/` directory for any non-trivial debugging task.
 

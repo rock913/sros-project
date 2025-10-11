@@ -65,3 +65,19 @@ RUN uv pip uninstall --system pip setuptools wheel && \
 # -- End of pip removal --
 
 WORKDIR /deps/backend
+
+# VS Code Server pre-installation
+# See https://code.visualstudio.com/remote/advancedcontainers/pre-build-scripts
+# This will install the VS Code Server for the latest version of VS Code.
+# The server will be downloaded to /root/.vscode-server/bin/ and will be owned by root.
+#
+# If you want to install a specific version of VS Code, you can use the following URL format:
+# https://update.code.visualstudio.com/commit:<commit_hash>/server-linux-x64/stable
+#
+# You can find the commit hash for a specific version of VS Code in the release notes:
+# https://code.visualstudio.com/updates
+RUN apt-get update && \
+    apt-get install -y curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://aka.ms/install-vscode-server/setup.sh | sh

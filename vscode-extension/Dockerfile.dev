@@ -1,0 +1,26 @@
+# Use a recent Node.js LTS version as the base image
+FROM node:20-slim
+
+# Install wget and tar for downloading and extracting VS Code Server
+RUN apt-get update && apt-get install -y wget tar libglib2.0-0 libgbm1 libasound2 libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcairo2 libgtk-3-0 xvfb && rm -rf /var/lib/apt/lists/*
+
+# VS Code Server details from the user's log
+ARG VSCODE_SERVER_COMMIT=6f17636121051a53c88d3e605c491d22af2ba755
+ARG VSCODE_SERVER_URL=https://update.code.visualstudio.com/commit:${VSCODE_SERVER_COMMIT}/server-linux-x64/stable
+
+# Pre-install VS Code Server to avoid download issues
+RUN mkdir -p /root/.vscode-server/bin/${VSCODE_SERVER_COMMIT} && \
+    wget -O /tmp/vscode-server.tar.gz ${VSCODE_SERVER_URL} && \
+    tar -xzf /tmp/vscode-server.tar.gz -C /root/.vscode-server/bin/${VSCODE_SERVER_COMMIT} --strip-components 1 && \
+    rm /tmp/vscode-server.tar.gz
+
+# Install global dependencies required for VS Code extension development
+RUN npm install -g yo @vscode/vsce
+
+# Set a working directory (optional, but good practice)
+# The workspace folder will be mounted here by docker-compose
+WORKDIR /workspaces/gemini-fullstack-langgraph-quickstart
+
+# Keep the container running.
+# The actual development server will be started by the user inside the container.
+CMD ["tail", "-f", "/dev/null"]

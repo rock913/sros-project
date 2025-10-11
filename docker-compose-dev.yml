@@ -61,3 +61,16 @@ services:
       GENERATION_LLM_PROVIDER: gemini  
     command: >
       bash -c "uvicorn agent.app:app --host 0.0.0.0 --port 8000 --reload --reload-dir /deps/backend/src"
+  vscode-dev:
+    image: gemini-fullstack-langgraph-quickstart/vscode-dev:dev
+    build:
+      context: .
+      dockerfile: ./vscode-extension/Dockerfile.dev
+    container_name: vscode-dev
+    # Mount the entire project directory to ensure all files are accessible
+    volumes:
+      - .:/workspaces/gemini-fullstack-langgraph-quickstart:cached
+    # Set the default working directory inside the container
+    working_dir: /workspaces/gemini-fullstack-langgraph-quickstart
+    # Keep the container running in the background
+    command: tail -f /dev/null

@@ -18,10 +18,11 @@
 
 ## 项目结构
 
-该项目分为两个主要目录：
+该项目分为三个主要目录：
 
-- `frontend/`: 包含使用 Vite 构建的 React 应用程序。
+- `frontend/`: 包含使用 Vite 构建的 React 应用程序（旧版 Web UI）。
 - `backend/`: 包含 LangGraph/FastAPI 应用程序，包括研究代理逻辑。
+- `vscode-extension/`: 包含新的 VS Code 扩展，这是当前正在积极开发的主要用户界面。
 
 ## 快速入门 (推荐使用 Docker)
 
@@ -74,6 +75,8 @@ make dev-docker
     ```bash
     make test-e2e-docker TOPIC="人工智能对气候变化的影响"
     ```
+
+> 关于完整的 E2E 测试方法，包括使用黄金快照文件进行自动化回归测试的详细信息，请参阅 `GEMINI.md` 中的详细指南。
 
 <details>
 <summary><strong>备选方案：无 Docker 环境本地设置</strong></summary>
