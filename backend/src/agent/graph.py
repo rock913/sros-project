@@ -46,6 +46,10 @@ from langgraph.types import Send
 from agent.state import AgentState 
 from agent.database import get_db_connection, Document, query_documents
 
+# Import checkpointer for state persistence
+from langgraph.checkpoint.postgres import PostgresSaver
+from psycopg_pool import ConnectionPool
+
 load_dotenv()
 
 # Configuration
@@ -564,4 +568,28 @@ builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
 builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
 builder.add_edge("retrieve_and_synthesize_report", END)
 
-graph = builder.compile()
+# Initialize PostgresSaver checkpointer for state persistence
+# This enables multi-session support via thread_id
+DB_URI = os.getenv(
+    "POSTGRES_URI", 
+    "postgresql://postgres:postgres@langgraph-postgres:5432/postgres"
+)
+
+# Create connection pool for checkpointer
+# Using a pool ensures efficient connection reuse across multiple requests
+connection_pool = ConnectionPool(
+    conninfo=DB_URI,
+    max_size=20,  # Maximum number of connections in the pool
+    kwargs={
+        "autocommit": True,  # Required for PostgresSaver
+        "prepare_threshold": 0,  # Disable prepared statements for compatibility
+    }
+)
+
+# Initialize checkpointer
+# This will automatically create necessary tables (checkpoints, checkpoint_writes)
+checkpointer = PostgresSaver(connection_pool)
+
+# Compile the graph with checkpointer
+# Now supports state persistence and multi-session isolation via thread_id
+graph = builder.compile(checkpointer=checkpointer)

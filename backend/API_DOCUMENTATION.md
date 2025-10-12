@@ -2,6 +2,49 @@
 
 本文档说明如何查看和使用 Auto-Researcher 后端 API 文档，以便前后端开发者能够高效协作。
 
+# API Documentation Guide
+
+本文档说明如何查看和使用 Auto-Researcher 后端 API 文档，以便前后端开发者能够高效协作。
+
+## 🔑 核心概念：State Persistence & Thread Management
+
+### State Persistence（状态持久化）
+
+**从 v0.0.2 开始**，后端使用 **LangGraph PostgresSaver Checkpointer** 实现状态持久化：
+
+- **多会话支持**: 每个研究任务通过 `thread_id`（UUID）隔离
+- **自动保存**: 所有状态自动保存到 PostgreSQL
+- **断点续传**: 可随时暂停和恢复研究任务
+- **并发安全**: 支持多个研究任务并行执行
+
+### Thread ID（会话标识符）
+
+**格式要求**: 必须是有效的 UUID v4 格式
+```
+✅ 正确: "550e8400-e29b-41d4-a716-446655440000"
+❌ 错误: "my-research-001" (非 UUID 格式)
+```
+
+**生成方法**:
+```python
+# Python
+import uuid
+thread_id = str(uuid.uuid4())
+```
+
+```typescript
+// TypeScript
+import { v4 as uuidv4 } from 'uuid';
+const threadId = uuidv4();
+```
+
+**使用场景**:
+- **新研究**: 生成新的 UUID
+- **继续研究**: 使用之前的 UUID
+- **查看历史**: 用 UUID 检索过往研究
+
+---
+
 ## 📖 API 文档来源
 
 ### 1. OpenAPI 契约文件（单一真相来源）
@@ -94,19 +137,106 @@ code ../openapi.yaml
    - 访问 http://localhost:8121/docs 验证文档自动生成正确
    - 确保生成的文档与 `openapi.yaml` 契约一致
 
----
-
 ## 📋 核心 API 端点总览
 
-| 端点 | 方法 | 用途 | 契约定义 |
-|------|------|------|----------|
-| `/ok` | GET | 健康检查 | ❌ 未定义 |
-| `/agent/state` | GET | 获取最新状态（无需 thread_id） | ❌ 未定义 |
-| `/agent/state/{thread_id}` | GET | 获取特定会话状态 | ✅ 已定义 |
-| `/agent/invoke` | POST | 启动或继续研究任务 | ✅ 已定义 |
-| `/agent/stream` | POST | 流式调用研究代理 | ❌ 未定义 |
+| 端点 | 方法 | 用途 | Thread ID | 契约定义 |
+|------|------|------|-----------|----------|
+| `/ok` | GET | 健康检查 | 不需要 | ✅ 已定义 |
+| `/agent/state` | GET | 获取最新状态（便捷端点） | 不需要 | ✅ 已定义 |
+| `/agent/state/{thread_id}` | GET | 获取特定会话状态 | **必需（UUID）** | ✅ 已定义 |
+| `/agent/invoke` | POST | 启动或继续研究任务 | 推荐提供 | ✅ 已定义 |
+| `/agent/stream` | POST | 流式调用研究代理 | 推荐提供 | ❌ 待实现 |
 
-> ⚠️ **注意**: 标记为"未定义"的端点需要在 `openapi.yaml` 中补充契约定义
+### 端点详解
+
+#### 1. `GET /agent/state/{thread_id}` - 获取会话状态
+
+**用途**: 检索特定研究会话的持久化状态
+
+**Path 参数**:
+- `thread_id` (string, UUID格式, 必需): 会话标识符
+
+**示例请求**:
+```bash
+curl http://localhost:8121/agent/state/550e8400-e29b-41d4-a716-446655440000
+```
+
+**成功响应 (200)**:
+```json
+{
+  "research_topic": "Quantum Computing Applications",
+  "search_queries": ["quantum computing 2024", "quantum algorithms"],
+  "literature_abstracts": [
+    {
+      "title": "Advances in Quantum Computing",
+      "authors": ["Alice", "Bob"],
+      "summary": "..."
+    }
+  ],
+  "report": "# Research Report\n\n...",
+  "is_sufficient": true
+}
+```
+
+**错误响应 (404)**:
+```json
+{
+  "detail": "No state found for thread 550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 2. `POST /agent/invoke` - 调用研究代理
+
+**用途**: 启动新研究或继续现有研究
+
+**请求体**:
+```json
+{
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Research recent advances in quantum computing"
+      }
+    ]
+  },
+  "config": {
+    "configurable": {
+      "thread_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  }
+}
+```
+
+**重要说明**:
+- 如果 `thread_id` 已存在，agent 将从上次状态继续
+- 如果 `thread_id` 是新的，将创建新的研究会话
+- 省略 `thread_id` 会使用默认线程（不推荐）
+
+**示例请求**:
+```bash
+curl -X POST http://localhost:8121/agent/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "messages": [{"role": "user", "content": "Quantum computing"}]
+    },
+    "config": {
+      "configurable": {
+        "thread_id": "550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }'
+```
+
+**典型工作流**:
+```
+1. 生成 UUID → thread_id = uuid.uuid4()
+2. 调用 POST /agent/invoke (创建新研究)
+3. 可选：中途调用 GET /agent/state/{thread_id} (检查进度)
+4. 可选：再次调用 POST /agent/invoke (继续研究)
+5. 最终：调用 GET /agent/state/{thread_id} (获取完整结果)
+```
 
 ---
 
@@ -151,6 +281,86 @@ npm install -g @openapitools/openapi-generator-cli
 **A**: 
 - 查看 `../openapi.yaml` 即可
 - 或使用在线工具：https://editor.swagger.io/
+
+### Q4: thread_id 是什么？为什么需要它？
+
+**A**: 
+- `thread_id` 是研究会话的唯一标识符（UUID 格式）
+- **用途**: 
+  - 支持多个独立的研究任务并行进行
+  - 允许暂停和恢复研究（断点续传）
+  - 隔离不同用户或不同研究主题的数据
+- **格式**: 必须是有效的 UUID v4，如 `"550e8400-e29b-41d4-a716-446655440000"`
+
+### Q5: 如果不提供 thread_id 会怎样？
+
+**A**: 
+- 系统会使用默认线程（不推荐生产环境使用）
+- 所有请求会共享同一个状态，导致数据混乱
+- **最佳实践**: 总是为每个独立的研究任务生成新的 UUID
+
+### Q6: 如何在前端生成和管理 thread_id？
+
+**A**: 
+```typescript
+// 1. 生成新的研究会话
+import { v4 as uuidv4 } from 'uuid';
+const threadId = uuidv4();
+
+// 2. 存储到本地（可选）
+localStorage.setItem('currentResearchThreadId', threadId);
+
+// 3. 在 API 调用中使用
+const response = await fetch('/agent/invoke', {
+  method: 'POST',
+  body: JSON.stringify({
+    input: { messages: [{ role: 'user', content: topic }] },
+    config: { configurable: { thread_id: threadId } }
+  })
+});
+
+// 4. 稍后检索状态
+const state = await fetch(`/agent/state/${threadId}`);
+```
+
+### Q7: thread_id 可以是任意字符串吗？
+
+**A**: 
+- **❌ 不可以**！必须是有效的 UUID v4 格式
+- PostgreSQL 数据库的 `checkpoints` 表中 `thread_id` 列定义为 UUID 类型
+- 如果使用非 UUID 字符串，会导致数据库错误：
+  ```
+  psycopg.errors.InvalidTextRepresentation: 
+  invalid input syntax for type uuid: "my-research-001"
+  ```
+
+### Q8: 如何列出所有的研究会话？
+
+**A**: 
+- 当前 API 不支持列出所有 thread（这是 Phase 3.5 的规划功能）
+- **临时方案**: 在数据库中直接查询
+  ```sql
+  SELECT DISTINCT thread_id FROM checkpoints ORDER BY created_at DESC;
+  ```
+- **未来功能**: `GET /sessions` 将提供完整的会话管理（计划在 Phase 3.5.1 实现）
+
+### Q9: checkpointer 保存了什么数据？
+
+**A**: 
+Checkpointer 自动保存完整的 agent 状态，包括：
+- **messages**: 完整的对话历史
+- **research_topic**: 研究主题
+- **search_queries**: 生成的所有搜索查询
+- **literature_abstracts**: 收集的论文摘要
+- **literature_full_text**: 下载的论文全文
+- **knowledge_gap**: 识别的知识缺口
+- **report**: 生成的研究报告
+- **is_sufficient**: 是否有足够的信息
+
+**数据库表**:
+- `checkpoints`: 主检查点数据
+- `checkpoint_writes`: 写入操作日志
+- `checkpoint_blobs`: 大型二进制数据（如PDF内容）
 
 ---
 

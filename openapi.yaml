@@ -1,7 +1,18 @@
 openapi: 3.0.0
 info:
   title: "Auto-Researcher Agent API"
-  description: "API for the autonomous research agent, enabling interaction with the LangGraph backend."
+  description: |
+    API for the autonomous research agent, enabling interaction with the LangGraph backend.
+    
+    **State Persistence**: The agent uses LangGraph's PostgresSaver checkpointer to persist state 
+    across invocations. Each research session is identified by a `thread_id` (UUID format), 
+    enabling multi-session support, state recovery, and conversation history.
+    
+    **Key Features**:
+    - Multi-session support with thread-based isolation
+    - Automatic state persistence to PostgreSQL
+    - Resume research from any checkpoint
+    - Thread-safe concurrent operations
   version: "1.0.0"
 paths:
   /ok:
@@ -24,7 +35,32 @@ paths:
   /agent/invoke:
     post:
       summary: "Invoke Agent Run"
-      description: "Starts a new research task or continues an existing one by invoking the agent."
+      description: |
+        Starts a new research task or continues an existing one by invoking the agent.
+        
+        **Thread Management**:
+        - Provide a `thread_id` (UUID format) to continue an existing session
+        - Omit `thread_id` or provide a new UUID to start a fresh research session
+        - Each thread maintains independent state (papers, queries, reports)
+        
+        **State Persistence**:
+        - All state is automatically saved to PostgreSQL via the checkpointer
+        - You can stop and resume research at any time using the same `thread_id`
+        - State includes: messages, research topic, search queries, collected papers, and generated reports
+        
+        **Example**:
+        ```json
+        {
+          "input": {
+            "messages": [{"role": "user", "content": "Research quantum computing"}]
+          },
+          "config": {
+            "configurable": {
+              "thread_id": "550e8400-e29b-41d4-a716-446655440000"
+            }
+          }
+        }
+        ```
       tags:
         - Agent
       requestBody:
@@ -47,6 +83,7 @@ paths:
                             enum: [user, assistant]
                           content:
                             type: string
+                            description: "The research topic or continuation message"
                         required:
                           - role
                           - content
@@ -60,7 +97,13 @@ paths:
                       properties:
                         thread_id:
                           type: string
-                          description: "The ID of the conversation thread. If omitted, a new one is created."
+                          format: uuid
+                          description: |
+                            The UUID of the conversation thread. Must be a valid UUID v4 format.
+                            - **New session**: Generate a new UUID (e.g., using `uuid.uuid4()`)
+                            - **Resume session**: Use the same UUID from previous invocations
+                            - **Omitted**: A default thread will be used (not recommended for production)
+                          example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
           description: "Agent invocation successful. Returns the final state."
@@ -93,7 +136,24 @@ paths:
   /agent/state/{thread_id}:
     get:
       summary: "Get Agent State by Thread ID"
-      description: "Retrieves the current state and accumulated data for a given research thread from the database."
+      description: |
+        Retrieves the persisted state for a specific research thread from the PostgreSQL checkpointer.
+        
+        **Use Cases**:
+        - Check progress of an ongoing research session
+        - Retrieve results from a completed research task
+        - Resume interrupted research by fetching last known state
+        
+        **State Contents**:
+        - Messages: Full conversation history
+        - Research topic: The original research query
+        - Search queries: All generated search queries
+        - Literature abstracts: Collected paper metadata
+        - Knowledge gaps: Identified gaps in the research
+        - Report: Generated research report (if completed)
+        
+        **Important**: The `thread_id` must be a valid UUID that exists in the database.
+        If the thread doesn't exist or has no checkpoints, a 404 error is returned.
       tags:
         - Agent
       parameters:
@@ -102,7 +162,9 @@ paths:
           required: true
           schema:
             type: string
-          description: "The ID of the conversation thread to fetch."
+            format: uuid
+          description: "The UUID of the conversation thread to fetch. Must match an existing thread in the database."
+          example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
           description: "Successful retrieval of agent state."

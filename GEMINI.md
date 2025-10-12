@@ -211,22 +211,23 @@ The canonical guide for all testing procedures, including unit, integration, and
 
 ## Example Debugging Scenario
 
-
 To make this process concrete, the assistant and developers **must** follow the "Session-Driven Workflow" by creating and maintaining a log file within the `/.ai-sessions/` directory for any non-trivial debugging task.
 
 This log serves as a "black box recorder" for the debugging process, capturing hypotheses, attempts, and results.
 
-**A live example of this process can be found at:**
-- **[.ai-sessions/debug_e2e_http_500_error.md](/.ai-sessions/debug_e2e_http_500_error.md)**
+**Live examples of this process can be found at:**
+- **[.ai-sessions/debugging/debug_e2e_http_500_error.md](/.ai-sessions/debugging/debug_e2e_http_500_error.md)** - Documents the resolution of an `HTTP 500` error in E2E tests
+- **[.ai-sessions/development/2025-10-12-debug-frontend-backend-sync.md](/.ai-sessions/development/2025-10-12-debug-frontend-backend-sync.md)** - Documents fixing frontend-backend synchronization and API documentation issues
+- **[.ai-sessions/development/2025-10-12-enhance-library-document-display.md](/.ai-sessions/development/2025-10-12-enhance-library-document-display.md)** - Comprehensive planning for historical data management feature (Phase 3.5)
 
-This file documents the step-by-step resolution of a real `HTTP 500` error in the E2E test. By following and updating this log, the assistant creates a traceable, shareable history of the debugging session, which is invaluable for team collaboration and future reference.
+These files document the step-by-step resolution of real issues and feature planning. By following and updating these logs, the assistant creates a traceable, shareable history of the development session, which is invaluable for team collaboration and future reference.
 
 **Workflow for the Assistant:**
-1.  **Identify the Issue:** A test fails (e.g., an E2E test).
-2.  **Create a Debugging Log:** Create a new file in `/.ai-sessions/debugging/` named `debug_<issue_summary>.md`.
-3.  **Document the Initial State (Snapshot #1):** Record the command, the error, and the relevant logs.
-4.  **Formulate a Hypothesis:** State a clear hypothesis about the cause of the error.
-5.  **Attempt a Fix:** Apply a change to the code.
-6.  **Verify and Document:** Re-run the test and document the outcome in a new "Snapshot" section in the same file.
-7.  **Iterate:** Continue this cycle of "Hypothesize -> Fix -> Verify" until the issue is resolved.
-8.  **Commit:** The final debugging log is committed along with the code changes, providing full context for the fix.
+1.  **Identify the Issue/Task:** A test fails, or a new feature is requested.
+2.  **Create a Session Log:** Create a new file in `/.ai-sessions/debugging/` (for bugs) or `/.ai-sessions/development/` (for features) named `<date>-<issue_summary>.md`.
+3.  **Document the Initial State (Snapshot #1):** Record the command, the error, or the feature requirements, and the relevant logs.
+4.  **Formulate a Hypothesis/Plan:** State a clear hypothesis about the cause (for bugs) or a detailed implementation plan (for features).
+5.  **Attempt a Fix/Implementation:** Apply changes to the code.
+6.  **Verify and Document:** Re-run tests or verify the implementation, and document the outcome in a new "Snapshot" section in the same file.
+7.  **Iterate:** Continue this cycle of "Hypothesize -> Fix -> Verify" (for bugs) or "Plan -> Implement -> Verify" (for features) until the goal is achieved.
+8.  **Commit:** The final session log is committed along with the code changes, providing full context for the work done.

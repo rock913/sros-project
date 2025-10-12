@@ -4,7 +4,8 @@ Auto-Researcher is an autonomous AI platform designed to automate the entire res
 
 <img src="./app.png" title="Auto-Researcher" alt="Auto-Researcher" width="90%">
 
-For a detailed view of our future plans, please see our [Project Roadmap](ROADMAP.md).
+For a detailed view of our future plans, please see our [Project Roadmap](ROADMAP.md).  
+For current development status and progress tracking, see [Development Status](DEVELOPMENT_STATUS.md).
 
 ## Features
 
@@ -13,7 +14,9 @@ For a detailed view of our future plans, please see our [Project Roadmap](ROADMA
 - 📚 **Automated Literature Management:** Discovers academic papers (Arxiv), finds open-access PDFs (Unpaywall), and automatically organizes them in a Zotero library.
 - ✍️ **RAG-Powered Knowledge Synthesis:** Builds a vector knowledge base from full-text papers to generate deep, context-aware insights.
 - 📄 **Cited Report Generation:** Produces a complete report on the research topic, fully supported by citations from the collected literature.
-- 🐳 **Containerized & Ready-to-Run:** A fully containerized environment using Docker for easy setup and consistent development.
+- �️ **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (In Development - Phase 3.5).
+- 📊 **Research Analytics Dashboard:** Visualize research trends, keyword distributions, and productivity metrics across all projects (In Development - Phase 3.5).
+- �🐳 **Containerized & Ready-to-Run:** A fully containerized environment using Docker for easy setup and consistent development.
 - 🔌 **API-First & Extensible:** Designed with a robust API, with a VS Code extension in development for a native research experience.
 
 ## Project Structure
