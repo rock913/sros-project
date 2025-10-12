@@ -257,7 +257,7 @@ def list_sessions_endpoint(
     """
     try:
         sessions = db_manager.list_sessions(status=status, limit=limit, offset=offset)
-        return [SessionResponse(**s.to_dict()) for s in sessions]
+        return [SessionResponse(**s) for s in sessions]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing sessions: {str(e)}")
 
@@ -270,7 +270,7 @@ def get_session_endpoint(session_id: str = Path(..., description="Session UUID")
         session = db_manager.get_session_by_id(session_uuid)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        return SessionResponse(**session.to_dict())
+        return SessionResponse(**session)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except HTTPException:
@@ -294,7 +294,7 @@ def create_session_endpoint(request: SessionCreate):
             tags=request.tags,
             notes=request.notes
         )
-        return SessionResponse(**session.to_dict())
+        return SessionResponse(**session)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
 
@@ -317,7 +317,7 @@ def update_session_endpoint(
         )
         if not session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        return SessionResponse(**session.to_dict())
+        return SessionResponse(**session)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except HTTPException:
@@ -353,7 +353,7 @@ def list_session_events(
     try:
         session_uuid = UUID(session_id)
         events = db_manager.list_events(session_uuid, event_type=event_type, limit=limit)
-        return [e.to_dict() for e in events]
+        return events
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:

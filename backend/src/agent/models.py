@@ -99,7 +99,7 @@ class Paper(Base):
     arxiv_id = Column(String(50), nullable=True)
     url = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
-    metadata = Column(JSONB, default=dict, comment="Additional paper metadata")
+    extra_metadata = Column(JSONB, default=dict, comment="Additional paper metadata")
     
     # Relationships
     session = relationship("Session", back_populates="papers")
@@ -121,7 +121,7 @@ class Paper(Base):
             'arxiv_id': self.arxiv_id,
             'url': self.url,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'metadata': self.metadata or {},
+            'extra_metadata': self.extra_metadata or {},
         }
 
 
@@ -139,7 +139,7 @@ class Report(Base):
     format = Column(String(50), default='markdown', comment="Report format: markdown, pdf, html")
     version = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now(), nullable=False)
-    metadata = Column(JSONB, default=dict, comment="Report generation metadata")
+    extra_metadata = Column(JSONB, default=dict, comment="Report generation metadata")
     
     # Relationships
     session = relationship("Session", back_populates="reports")
@@ -158,7 +158,7 @@ class Report(Base):
             'format': self.format,
             'version': self.version,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'metadata': self.metadata or {},
+            'extra_metadata': self.extra_metadata or {},
         }
 
 

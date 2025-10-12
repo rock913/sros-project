@@ -72,7 +72,7 @@ def create_session(
     research_topic: Optional[str] = None,
     tags: Optional[List[str]] = None,
     notes: Optional[str] = None
-) -> Session:
+) -> Dict[str, Any]:
     """
     Create a new research session.
     
@@ -84,7 +84,7 @@ def create_session(
         notes: User notes
     
     Returns:
-        Created Session object
+        Created Session dict
     """
     with get_db() as db:
         session = Session(
@@ -97,26 +97,28 @@ def create_session(
         db.add(session)
         db.flush()
         db.refresh(session)
-        return session
+        return session.to_dict()
 
 
-def get_session_by_id(session_id: UUID) -> Optional[Session]:
+def get_session_by_id(session_id: UUID) -> Optional[Dict[str, Any]]:
     """Get session by ID."""
     with get_db() as db:
-        return db.query(Session).filter(Session.id == session_id).first()
+        session = db.query(Session).filter(Session.id == session_id).first()
+        return session.to_dict() if session else None
 
 
-def get_session_by_thread_id(thread_id: UUID) -> Optional[Session]:
+def get_session_by_thread_id(thread_id: UUID) -> Optional[Dict[str, Any]]:
     """Get session by LangGraph thread_id."""
     with get_db() as db:
-        return db.query(Session).filter(Session.thread_id == thread_id).first()
+        session = db.query(Session).filter(Session.thread_id == thread_id).first()
+        return session.to_dict() if session else None
 
 
 def list_sessions(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0
-) -> List[Session]:
+) -> List[Dict[str, Any]]:
     """
     List sessions with optional filtering.
     
@@ -126,7 +128,7 @@ def list_sessions(
         offset: Pagination offset
     
     Returns:
-        List of Session objects
+        List of Session dicts
     """
     with get_db() as db:
         query = db.query(Session).order_by(desc(Session.created_at))
@@ -134,7 +136,8 @@ def list_sessions(
         if status:
             query = query.filter(Session.status == status)
         
-        return query.limit(limit).offset(offset).all()
+        sessions = query.limit(limit).offset(offset).all()
+        return [s.to_dict() for s in sessions]
 
 
 def update_session(
@@ -144,7 +147,7 @@ def update_session(
     status: Optional[str] = None,
     tags: Optional[List[str]] = None,
     notes: Optional[str] = None
-) -> Optional[Session]:
+) -> Optional[Dict[str, Any]]:
     """
     Update session fields.
     
@@ -168,7 +171,7 @@ def update_session(
         
         db.flush()
         db.refresh(session)
-        return session
+        return session.to_dict()
 
 
 def delete_session(session_id: UUID) -> bool:
@@ -197,8 +200,8 @@ def add_paper(
     doi: Optional[str] = None,
     arxiv_id: Optional[str] = None,
     url: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None
-) -> Paper:
+    extra_metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Add a paper to a session."""
     with get_db() as db:
         paper = Paper(
@@ -209,18 +212,19 @@ def add_paper(
             doi=doi,
             arxiv_id=arxiv_id,
             url=url,
-            metadata=metadata or {}
+            extra_metadata=extra_metadata or {}
         )
         db.add(paper)
         db.flush()
         db.refresh(paper)
-        return paper
+        return paper.to_dict()
 
 
-def list_papers(session_id: UUID) -> List[Paper]:
+def list_papers(session_id: UUID) -> List[Dict[str, Any]]:
     """Get all papers for a session."""
     with get_db() as db:
-        return db.query(Paper).filter(Paper.session_id == session_id).all()
+        papers = db.query(Paper).filter(Paper.session_id == session_id).all()
+        return [p.to_dict() for p in papers]
 
 
 # ==================== Report CRUD Operations ====================
@@ -230,8 +234,8 @@ def create_report(
     content: str,
     format: str = "markdown",
     version: int = 1,
-    metadata: Optional[Dict[str, Any]] = None
-) -> Report:
+    extra_metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Create a report for a session."""
     with get_db() as db:
         report = Report(
@@ -239,18 +243,19 @@ def create_report(
             content=content,
             format=format,
             version=version,
-            metadata=metadata or {}
+            extra_metadata=extra_metadata or {}
         )
         db.add(report)
         db.flush()
         db.refresh(report)
-        return report
+        return report.to_dict()
 
 
-def list_reports(session_id: UUID) -> List[Report]:
+def list_reports(session_id: UUID) -> List[Dict[str, Any]]:
     """Get all reports for a session."""
     with get_db() as db:
-        return db.query(Report).filter(Report.session_id == session_id).order_by(desc(Report.created_at)).all()
+        reports = db.query(Report).filter(Report.session_id == session_id).order_by(desc(Report.created_at)).all()
+        return [r.to_dict() for r in reports]
 
 
 # ==================== Event Logging ====================
@@ -259,7 +264,7 @@ def log_event(
     session_id: UUID,
     event_type: str,
     event_data: Optional[Dict[str, Any]] = None
-) -> SessionEvent:
+) -> Dict[str, Any]:
     """Log an event for a session."""
     with get_db() as db:
         event = SessionEvent(
@@ -270,14 +275,14 @@ def log_event(
         db.add(event)
         db.flush()
         db.refresh(event)
-        return event
+        return event.to_dict()
 
 
 def list_events(
     session_id: UUID,
     event_type: Optional[str] = None,
     limit: int = 100
-) -> List[SessionEvent]:
+) -> List[Dict[str, Any]]:
     """Get events for a session, optionally filtered by type."""
     with get_db() as db:
         query = db.query(SessionEvent).filter(SessionEvent.session_id == session_id).order_by(desc(SessionEvent.created_at))
@@ -285,4 +290,5 @@ def list_events(
         if event_type:
             query = query.filter(SessionEvent.event_type == event_type)
         
-        return query.limit(limit).all()
+        events = query.limit(limit).all()
+        return [e.to_dict() for e in events]
