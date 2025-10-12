@@ -105,3 +105,12 @@ def query_documents(query_embedding: list, k: int = 5):
         return results
     finally:
         db.close()
+
+
+def get_all_documents():
+    db = SessionLocal()
+    try:
+        results = db.query(Document).all()
+        return results
+    finally:
+        db.close()

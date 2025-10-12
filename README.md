@@ -122,6 +122,8 @@ graph TD
 
 ## Contributing
 
+This project follows an **API Contract First** development model. Before contributing, especially for features involving frontend-backend interaction, please read our **[Unified Session-Driven Workflow](doc/WORKFLOW_STRATEGY.md)** to understand the process.
+
 We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for details on our testing process, code style, and submission guidelines.
 
 ## License

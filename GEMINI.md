@@ -19,6 +19,17 @@ All development and debugging tasks **must** follow a unified **Session-Driven W
 The authoritative guide for this process is:
 - **Unified Workflow**: `doc/WORKFLOW_STRATEGY.md`
 
+### Principle 0: API Contract First
+
+For any task involving interaction between the frontend (VS Code extension) and the backend (Python agent), you **must** adhere to the **API Contract First** principle.
+
+1.  **The Goal**: To ensure frontend and backend development are perfectly aligned, enabling parallel work and eliminating integration errors (like the `404 Not Found` error that prompted this update).
+2.  **The Contract**: The `openapi.yaml` file is the single source of truth for all API definitions.
+3.  **Your Primary Task**: Before writing any implementation code for a feature, your first step is to:
+    -   **Check for the contract**: Search for and review the `openapi.yaml` file.
+    -   **Define or Update**: Work with the user to define a new API endpoint or update an existing one within `openapi.yaml`.
+    -   **Gain Agreement**: Do not proceed until the contract is clear and validated. This contract is your blueprint for the implementation plan.
+
 ### Session-Driven Workflow at a Glance
 
 The core idea is to unify development and debugging under a single process, managed within the `/.ai-sessions/` directory.

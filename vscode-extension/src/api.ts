@@ -57,17 +57,15 @@ export async function checkHealth() {
  */
 export async function getAgentState(): Promise<AgentState> {
   try {
-    // The backend agent endpoint might require a specific payload format.
-    // For now, we send an empty messages array as a placeholder.
-    const payload = { messages: [] }; 
-    const response = await axios.post(`${API_BASE_URL}/agent`, payload);
+    const response = await axios.get(`${API_BASE_URL}/agent/state`);
+    const output = response.data;
     // Ensure a default state is returned if the response is partial
     return {
       // Backend API uses snake_case
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      literature_abstracts: response.data.literature_abstracts || [],
-      report: response.data.report || '',
-      ...response.data,
+      literature_abstracts: output.literature_abstracts || [],
+      report: output.report || '',
+      ...output,
     };
   } catch (error) {
     console.error('Error fetching agent state:', error);

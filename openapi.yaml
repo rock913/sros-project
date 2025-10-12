@@ -1,0 +1,143 @@
+openapi: 3.0.0
+info:
+  title: "Auto-Researcher Agent API"
+  description: "API for the autonomous research agent, enabling interaction with the LangGraph backend."
+  version: "1.0.0"
+paths:
+  /ok:
+    get:
+      summary: "Health Check"
+      description: "Verify that the API is running and responsive."
+      tags:
+        - Health
+      responses:
+        '200':
+          description: "API is healthy and running."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+  /agent/invoke:
+    post:
+      summary: "Invoke Agent Run"
+      description: "Starts a new research task or continues an existing one by invoking the agent."
+      tags:
+        - Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                input:
+                  type: object
+                  properties:
+                    messages:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          role:
+                            type: string
+                            enum: [user, assistant]
+                          content:
+                            type: string
+                        required:
+                          - role
+                          - content
+                  required:
+                    - messages
+                config:
+                  type: object
+                  properties:
+                    configurable:
+                      type: object
+                      properties:
+                        thread_id:
+                          type: string
+                          description: "The ID of the conversation thread. If omitted, a new one is created."
+      responses:
+        '200':
+          description: "Agent invocation successful. Returns the final state."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentOutput'
+        '500':
+          description: "Agent invocation failed."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  /agent/state:
+    get:
+      summary: "Get Latest Agent State"
+      description: "Retrieves the latest agent state from the database without requiring a thread_id. This is a convenience endpoint for simple use cases."
+      tags:
+        - Agent
+      responses:
+        '200':
+          description: "Successful retrieval of agent state."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentOutput'
+  /agent/state/{thread_id}:
+    get:
+      summary: "Get Agent State by Thread ID"
+      description: "Retrieves the current state and accumulated data for a given research thread from the database."
+      tags:
+        - Agent
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "The ID of the conversation thread to fetch."
+      responses:
+        '200':
+          description: "Successful retrieval of agent state."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentOutput'
+        '404':
+          description: "Thread not found or has no data."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+components:
+  schemas:
+    AgentOutput:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            type: object
+        research_topic:
+          type: string
+        search_queries:
+          type: array
+          items:
+            type: string
+        literature_abstracts:
+          type: array
+          items:
+            type: object
+        report:
+          type: string
