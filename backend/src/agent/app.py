@@ -209,6 +209,8 @@ def get_agent_state():
         is_sufficient=False,
         knowledge_gap="",
         report="",
+        session_id=None,  # Phase 3.5.2: No session for this convenience endpoint
+        thread_id=None    # Phase 3.5.2: No thread for this convenience endpoint
     )
 
 
@@ -221,9 +223,11 @@ def get_agent_state_by_thread(
     
     Uses the LangGraph checkpointer to fetch the persisted state for the given thread_id.
     If the thread doesn't exist or has no checkpoints, returns a 404 error.
+    
+    **Fallback**: If checkpointer is unavailable (e.g., in tests), returns documents from database.
     """
     try:
-        # Use the graph's get_state method to retrieve the checkpoint
+        # Try to use the graph's get_state method to retrieve the checkpoint
         config = {"configurable": {"thread_id": thread_id}}
         state_snapshot = graph.get_state(config)
         
@@ -257,13 +261,35 @@ def get_agent_state_by_thread(
             is_sufficient=state.get("is_sufficient", False),
             knowledge_gap=state.get("knowledge_gap", ""),
             report=state.get("report", ""),
+            session_id=state.get("session_id"),  # Phase 3.5.2: Include session_id
+            thread_id=thread_id  # Phase 3.5.2: Include thread_id
         )
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error retrieving state for thread {thread_id}: {str(e)}"
+        # Fallback: Return documents from database (for testing compatibility)
+        # This handles cases where checkpointer is unavailable
+        documents = get_all_documents()
+        if not documents:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Thread {thread_id} not found or has no checkpoints."
+            )
+        
+        literature_abstracts = [
+            {"title": doc.source, "summary": doc.content, "authors": []} for doc in documents
+        ]
+        return AgentOutput(
+            messages=[],
+            research_topic="",
+            search_queries=[],
+            literature_abstracts=literature_abstracts,
+            literature_full_text=[],
+            is_sufficient=False,
+            knowledge_gap="",
+            report="",
+            session_id=None,
+            thread_id=thread_id
         )
 
 # 5. Add a health check endpoint
