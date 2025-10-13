@@ -227,6 +227,74 @@ def list_papers(session_id: UUID) -> List[Dict[str, Any]]:
         return [p.to_dict() for p in papers]
 
 
+def get_all_papers(
+    session_id: Optional[UUID] = None,
+    source: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    keyword: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+) -> tuple[List[Dict[str, Any]], int]:
+    """
+    Get all papers with advanced filtering.
+    
+    Args:
+        session_id: Filter by session UUID
+        source: Filter by data source (extracted from extra_metadata)
+        start_date: Filter papers collected after this timestamp
+        end_date: Filter papers collected before this timestamp
+        keyword: Full-text search in titles and abstracts
+        limit: Maximum number of results
+        offset: Pagination offset
+    
+    Returns:
+        Tuple of (list of Paper dicts, total count)
+    """
+    with get_db() as db:
+        query = db.query(Paper).order_by(desc(Paper.created_at))
+        
+        # Apply filters
+        if session_id:
+            query = query.filter(Paper.session_id == session_id)
+        
+        if source:
+            # Source is stored in extra_metadata
+            query = query.filter(Paper.extra_metadata['source'].astext == source)
+        
+        if start_date:
+            query = query.filter(Paper.created_at >= start_date)
+        
+        if end_date:
+            query = query.filter(Paper.created_at <= end_date)
+        
+        if keyword:
+            # Full-text search in title and abstract
+            from sqlalchemy import or_, func
+            search_term = f"%{keyword}%"
+            query = query.filter(
+                or_(
+                    func.lower(Paper.title).like(func.lower(search_term)),
+                    func.lower(Paper.abstract).like(func.lower(search_term))
+                )
+            )
+        
+        # Get total count before pagination
+        total = query.count()
+        
+        # Apply pagination
+        papers = query.limit(limit).offset(offset).all()
+        
+        return [p.to_dict() for p in papers], total
+
+
+def get_paper_by_id(paper_id: UUID) -> Optional[Dict[str, Any]]:
+    """Get a specific paper by ID."""
+    with get_db() as db:
+        paper = db.query(Paper).filter(Paper.id == paper_id).first()
+        return paper.to_dict() if paper else None
+
+
 # ==================== Report CRUD Operations ====================
 
 def create_report(
@@ -256,6 +324,67 @@ def list_reports(session_id: UUID) -> List[Dict[str, Any]]:
     with get_db() as db:
         reports = db.query(Report).filter(Report.session_id == session_id).order_by(desc(Report.created_at)).all()
         return [r.to_dict() for r in reports]
+
+
+def get_all_reports(
+    session_id: Optional[UUID] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+) -> tuple[List[Dict[str, Any]], int]:
+    """
+    Get all reports with filtering.
+    
+    Args:
+        session_id: Filter by session UUID
+        start_date: Filter reports created after this timestamp
+        end_date: Filter reports created before this timestamp
+        limit: Maximum number of results
+        offset: Pagination offset
+    
+    Returns:
+        Tuple of (list of Report dicts, total count)
+    """
+    with get_db() as db:
+        query = db.query(Report).order_by(desc(Report.created_at))
+        
+        # Apply filters
+        if session_id:
+            query = query.filter(Report.session_id == session_id)
+        
+        if start_date:
+            query = query.filter(Report.created_at >= start_date)
+        
+        if end_date:
+            query = query.filter(Report.created_at <= end_date)
+        
+        # Get total count before pagination
+        total = query.count()
+        
+        # Apply pagination
+        reports = query.limit(limit).offset(offset).all()
+        
+        return [r.to_dict() for r in reports], total
+
+
+def get_report_by_id(report_id: UUID) -> Optional[Dict[str, Any]]:
+    """Get a specific report by ID."""
+    with get_db() as db:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        return report.to_dict() if report else None
+
+
+def get_latest_report(session_id: UUID) -> Optional[Dict[str, Any]]:
+    """Get the most recent report for a session."""
+    with get_db() as db:
+        report = (
+            db.query(Report)
+            .filter(Report.session_id == session_id)
+            .order_by(desc(Report.created_at))
+            .first()
+        )
+        return report.to_dict() if report else None
 
 
 # ==================== Event Logging ====================

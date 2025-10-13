@@ -449,7 +449,329 @@ def list_session_events(
         raise HTTPException(status_code=500, detail=f"Error retrieving events: {str(e)}")
 
 
-# 6. Startup event to initialize the database
+# ==================== Phase 3.5.2: Paper Management APIs ====================
+
+@app.get("/papers", tags=["Papers"])
+def list_all_papers(
+    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
+    source: Optional[str] = Query(None, description="Filter by data source (arxiv, unpaywall, zotero)"),
+    start_date: Optional[str] = Query(None, description="Filter papers collected after this timestamp"),
+    end_date: Optional[str] = Query(None, description="Filter papers collected before this timestamp"),
+    keyword: Optional[str] = Query(None, description="Search keyword in titles and abstracts"),
+    limit: int = Query(100, le=500, description="Maximum results to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset")
+):
+    """
+    List all papers with advanced filtering.
+    
+    Supports filtering by session, source, date range, and full-text keyword search.
+    """
+    try:
+        session_uuid = UUID(session_id) if session_id else None
+        papers, total = db_manager.get_all_papers(
+            session_id=session_uuid,
+            source=source,
+            start_date=start_date,
+            end_date=end_date,
+            keyword=keyword,
+            limit=limit,
+            offset=offset
+        )
+        return {
+            "papers": papers,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving papers: {str(e)}")
+
+
+@app.get("/papers/export", tags=["Papers"])
+def export_papers(
+    format: str = Query(..., description="Export format: bibtex, ris, or json"),
+    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
+    source: Optional[str] = Query(None, description="Filter by data source")
+):
+    """
+    Export papers to bibliography formats (BibTeX, RIS, JSON).
+    
+    Supports the same filtering options as GET /papers.
+    """
+    try:
+        from fastapi.responses import PlainTextResponse, JSONResponse
+        
+        session_uuid = UUID(session_id) if session_id else None
+        papers, _ = db_manager.get_all_papers(
+            session_id=session_uuid,
+            source=source,
+            limit=10000  # Export all matching papers
+        )
+        
+        if format == "json":
+            return JSONResponse(content=papers)
+        
+        elif format == "bibtex":
+            # Generate BibTeX format
+            bibtex_entries = []
+            for paper in papers:
+                entry_type = "article"
+                cite_key = f"{paper.get('authors', ['Unknown'])[0].split()[-1] if paper.get('authors') else 'Unknown'}{paper.get('id', '')[:8]}"
+                
+                entry = f"@{entry_type}{{{cite_key},\n"
+                entry += f"  title = {{{paper.get('title', 'Untitled')}}},\n"
+                if paper.get('authors'):
+                    entry += f"  author = {{{' and '.join(paper['authors'])}}},\n"
+                if paper.get('doi'):
+                    entry += f"  doi = {{{paper['doi']}}},\n"
+                if paper.get('url'):
+                    entry += f"  url = {{{paper['url']}}},\n"
+                entry += "}\n"
+                bibtex_entries.append(entry)
+            
+            return PlainTextResponse(
+                content="\n".join(bibtex_entries),
+                media_type="application/x-bibtex"
+            )
+        
+        elif format == "ris":
+            # Generate RIS format
+            ris_entries = []
+            for paper in papers:
+                entry = "TY  - JOUR\n"
+                entry += f"TI  - {paper.get('title', 'Untitled')}\n"
+                for author in paper.get('authors', []):
+                    entry += f"AU  - {author}\n"
+                if paper.get('abstract'):
+                    entry += f"AB  - {paper['abstract']}\n"
+                if paper.get('doi'):
+                    entry += f"DO  - {paper['doi']}\n"
+                if paper.get('url'):
+                    entry += f"UR  - {paper['url']}\n"
+                entry += "ER  -\n"
+                ris_entries.append(entry)
+            
+            return PlainTextResponse(
+                content="\n".join(ris_entries),
+                media_type="application/x-research-info-systems"
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Use bibtex, ris, or json.")
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting papers: {str(e)}")
+
+
+@app.get("/papers/{paper_id}", tags=["Papers"])
+def get_paper_details(paper_id: str = Path(..., description="Paper UUID")):
+    """Get detailed information for a specific paper."""
+    try:
+        paper_uuid = UUID(paper_id)
+        paper = db_manager.get_paper_by_id(paper_uuid)
+        if not paper:
+            raise HTTPException(status_code=404, detail=f"Paper {paper_id} not found")
+        return paper
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving paper: {str(e)}")
+
+
+# ==================== Phase 3.5.2: Report Management APIs ====================
+
+@app.get("/reports", tags=["Reports"])
+def list_all_reports(
+    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
+    start_date: Optional[str] = Query(None, description="Filter reports created after this timestamp"),
+    end_date: Optional[str] = Query(None, description="Filter reports created before this timestamp"),
+    limit: int = Query(50, le=500, description="Maximum results to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset")
+):
+    """
+    List all reports with filtering.
+    
+    Supports filtering by session and date range.
+    """
+    try:
+        session_uuid = UUID(session_id) if session_id else None
+        reports, total = db_manager.get_all_reports(
+            session_id=session_uuid,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset
+        )
+        return {
+            "reports": reports,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving reports: {str(e)}")
+
+
+@app.get("/reports/compare", tags=["Reports"])
+def compare_reports(
+    report_id_1: str = Query(..., description="First report UUID (older version)"),
+    report_id_2: str = Query(..., description="Second report UUID (newer version)")
+):
+    """
+    Compare two report versions and generate a diff.
+    
+    Returns both reports and a unified diff showing changes.
+    """
+    try:
+        import difflib
+        
+        report_uuid_1 = UUID(report_id_1)
+        report_uuid_2 = UUID(report_id_2)
+        
+        report_1 = db_manager.get_report_by_id(report_uuid_1)
+        report_2 = db_manager.get_report_by_id(report_uuid_2)
+        
+        if not report_1:
+            raise HTTPException(status_code=404, detail=f"Report {report_id_1} not found")
+        if not report_2:
+            raise HTTPException(status_code=404, detail=f"Report {report_id_2} not found")
+        
+        # Generate unified diff
+        content_1_lines = report_1.get('content', '').splitlines(keepends=True)
+        content_2_lines = report_2.get('content', '').splitlines(keepends=True)
+        
+        diff = ''.join(difflib.unified_diff(
+            content_1_lines,
+            content_2_lines,
+            fromfile=f"Report {report_id_1}",
+            tofile=f"Report {report_id_2}",
+            lineterm=''
+        ))
+        
+        return {
+            "report_1": report_1,
+            "report_2": report_2,
+            "diff": diff
+        }
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error comparing reports: {str(e)}")
+
+
+@app.get("/reports/{report_id}", tags=["Reports"])
+def get_report_details(report_id: str = Path(..., description="Report UUID")):
+    """Get detailed information for a specific report."""
+    try:
+        report_uuid = UUID(report_id)
+        report = db_manager.get_report_by_id(report_uuid)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+        return report
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving report: {str(e)}")
+
+
+@app.get("/sessions/{session_id}/reports/latest", tags=["Reports"])
+def get_latest_session_report(session_id: str = Path(..., description="Session UUID")):
+    """Get the most recent report for a session."""
+    try:
+        session_uuid = UUID(session_id)
+        report = db_manager.get_latest_report(session_uuid)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"No reports found for session {session_id}")
+        return report
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving latest report: {str(e)}")
+
+
+@app.get("/reports/{report_id}/export", tags=["Reports"])
+def export_report(
+    report_id: str = Path(..., description="Report UUID"),
+    format: str = Query(..., description="Export format: markdown, html, or pdf")
+):
+    """
+    Export a report to various formats (Markdown, HTML, PDF).
+    
+    Note: PDF export is a placeholder for future implementation.
+    """
+    try:
+        from fastapi.responses import PlainTextResponse, HTMLResponse
+        
+        report_uuid = UUID(report_id)
+        report = db_manager.get_report_by_id(report_uuid)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+        
+        content = report.get('content', '')
+        
+        if format == "markdown":
+            return PlainTextResponse(content=content, media_type="text/markdown")
+        
+        elif format == "html":
+            # Simple Markdown to HTML conversion (for demo purposes)
+            # In production, use a proper Markdown library like python-markdown
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Research Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        pre {{ background: #f4f4f4; padding: 10px; }}
+    </style>
+</head>
+<body>
+    <pre>{content}</pre>
+</body>
+</html>
+            """
+            return HTMLResponse(content=html_content)
+        
+        elif format == "pdf":
+            # Placeholder for PDF export (requires additional libraries like weasyprint)
+            raise HTTPException(
+                status_code=501,
+                detail="PDF export not yet implemented. Use markdown or html format."
+            )
+        
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported format: {format}. Use markdown, html, or pdf."
+            )
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting report: {str(e)}")
+
+
+# ==================== Startup & Main ====================
 @app.on_event("startup")
 async def on_startup():
     """Initializes the database."""

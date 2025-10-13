@@ -181,6 +181,397 @@ paths:
                 properties:
                   detail:
                     type: string
+  
+  # ========================================
+  # Phase 3.5.2: Paper Management APIs
+  # ========================================
+  /papers:
+    get:
+      summary: "List All Papers"
+      description: |
+        Retrieve all papers from the literature database with advanced filtering capabilities.
+        
+        **Filtering Options**:
+        - `session_id`: Filter by research session
+        - `source`: Filter by data source (arxiv, unpaywall, zotero)
+        - `start_date`: Papers collected after this date
+        - `end_date`: Papers collected before this date
+        - `keyword`: Full-text search in titles and abstracts
+        - `limit`: Maximum number of results (default: 100)
+        - `offset`: Pagination offset (default: 0)
+      tags:
+        - Papers
+      parameters:
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: "Filter papers by session UUID"
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [arxiv, unpaywall, zotero]
+          description: "Filter papers by data source"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Filter papers collected after this timestamp"
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Filter papers collected before this timestamp"
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: "Search keyword in paper titles and abstracts"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+          description: "Maximum number of results to return"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: "Number of results to skip (for pagination)"
+      responses:
+        '200':
+          description: "List of papers matching the filter criteria"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  papers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Paper'
+                  total:
+                    type: integer
+                    description: "Total number of papers matching the filters"
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+  
+  /papers/{paper_id}:
+    get:
+      summary: "Get Paper Details"
+      description: "Retrieve detailed information for a specific paper by its UUID."
+      tags:
+        - Papers
+      parameters:
+        - name: paper_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the paper to retrieve"
+      responses:
+        '200':
+          description: "Detailed paper information"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paper'
+        '404':
+          description: "Paper not found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  
+  /papers/export:
+    get:
+      summary: "Export Papers"
+      description: |
+        Export papers to various bibliography formats.
+        
+        **Supported Formats**:
+        - `bibtex`: BibTeX format (.bib)
+        - `ris`: RIS format (.ris)
+        - `json`: JSON format (.json)
+        
+        **Filtering**: Supports the same query parameters as GET /papers
+      tags:
+        - Papers
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [bibtex, ris, json]
+          description: "Export format"
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: "Filter papers by session UUID"
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [arxiv, unpaywall, zotero]
+          description: "Filter papers by data source"
+      responses:
+        '200':
+          description: "Exported bibliography file"
+          content:
+            application/x-bibtex:
+              schema:
+                type: string
+            application/x-research-info-systems:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Paper'
+  
+  # ========================================
+  # Phase 3.5.2: Report Management APIs
+  # ========================================
+  /reports:
+    get:
+      summary: "List All Reports"
+      description: |
+        Retrieve all research reports with filtering and sorting capabilities.
+        
+        **Filtering Options**:
+        - `session_id`: Filter by research session
+        - `start_date`: Reports created after this date
+        - `end_date`: Reports created before this date
+        - `limit`: Maximum number of results (default: 50)
+        - `offset`: Pagination offset (default: 0)
+      tags:
+        - Reports
+      parameters:
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: "Filter reports by session UUID"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Filter reports created after this timestamp"
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Filter reports created before this timestamp"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: "Maximum number of results to return"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: "Number of results to skip (for pagination)"
+      responses:
+        '200':
+          description: "List of reports matching the filter criteria"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+  
+  /reports/{report_id}:
+    get:
+      summary: "Get Report Details"
+      description: "Retrieve a specific report version by its UUID."
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the report to retrieve"
+      responses:
+        '200':
+          description: "Detailed report information"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '404':
+          description: "Report not found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  
+  /sessions/{session_id}/reports/latest:
+    get:
+      summary: "Get Latest Report for Session"
+      description: "Retrieve the most recent report version for a specific research session."
+      tags:
+        - Reports
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the session"
+      responses:
+        '200':
+          description: "Latest report for the session"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '404':
+          description: "Session not found or has no reports"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  
+  /reports/{report_id}/export:
+    get:
+      summary: "Export Report"
+      description: |
+        Export a report to various formats.
+        
+        **Supported Formats**:
+        - `markdown`: Markdown format (.md)
+        - `html`: HTML format (.html)
+        - `pdf`: PDF format (.pdf) [Future implementation]
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the report to export"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [markdown, html, pdf]
+          description: "Export format"
+      responses:
+        '200':
+          description: "Exported report file"
+          content:
+            text/markdown:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: "Report not found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  
+  /reports/compare:
+    get:
+      summary: "Compare Two Report Versions"
+      description: |
+        Generate a diff between two report versions to track changes.
+        
+        **Output**: Returns a unified diff format showing additions and deletions.
+      tags:
+        - Reports
+      parameters:
+        - name: report_id_1
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID of the first report (older version)"
+        - name: report_id_2
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID of the second report (newer version)"
+      responses:
+        '200':
+          description: "Diff between the two reports"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_1:
+                    $ref: '#/components/schemas/Report'
+                  report_2:
+                    $ref: '#/components/schemas/Report'
+                  diff:
+                    type: string
+                    description: "Unified diff format showing changes"
+        '404':
+          description: "One or both reports not found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
 
 components:
   schemas:
@@ -213,3 +604,85 @@ components:
             type: object
         report:
           type: string
+    
+    Paper:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "Unique identifier for the paper"
+        session_id:
+          type: string
+          format: uuid
+          description: "The research session this paper belongs to"
+        source:
+          type: string
+          enum: [arxiv, unpaywall, zotero]
+          description: "Data source of the paper"
+        title:
+          type: string
+          description: "Paper title"
+        authors:
+          type: array
+          items:
+            type: string
+          description: "List of paper authors"
+        abstract:
+          type: string
+          description: "Paper abstract"
+        url:
+          type: string
+          format: uri
+          description: "URL to the paper"
+        pdf_url:
+          type: string
+          format: uri
+          description: "Direct link to PDF (if available)"
+        published_date:
+          type: string
+          format: date
+          description: "Publication date"
+        metadata:
+          type: object
+          description: "Additional metadata (DOI, arXiv ID, citations, etc.)"
+        collected_at:
+          type: string
+          format: date-time
+          description: "Timestamp when the paper was collected"
+      required:
+        - id
+        - session_id
+        - source
+        - title
+    
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "Unique identifier for the report"
+        session_id:
+          type: string
+          format: uuid
+          description: "The research session this report belongs to"
+        version:
+          type: integer
+          description: "Report version number (incremental)"
+        content:
+          type: string
+          description: "Full report content in Markdown format"
+        created_at:
+          type: string
+          format: date-time
+          description: "Timestamp when the report was generated"
+        metadata:
+          type: object
+          description: "Additional metadata (word count, section count, etc.)"
+      required:
+        - id
+        - session_id
+        - version
+        - content
+        - created_at
