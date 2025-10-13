@@ -185,38 +185,261 @@ function generateControlPanelHTML(state, healthStatus) {
     </body>
     </html>`;
 }
-// New provider that fetches data from the backend API
+/**
+ * Phase 3.5.2: Generates HTML for Paper Details view
+ */
+function generatePaperDetailsHTML(paper) {
+    return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Paper Details</title>
+        <style>
+            body {
+                font-family: var(--vscode-font-family);
+                color: var(--vscode-foreground);
+                background-color: var(--vscode-editor-background);
+                padding: 20px;
+                line-height: 1.6;
+            }
+            h1 {
+                color: var(--vscode-titleBar-activeForeground);
+                border-bottom: 2px solid var(--vscode-panel-border);
+                padding-bottom: 10px;
+            }
+            .metadata {
+                background-color: var(--vscode-editor-inactiveSelectionBackground);
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            .metadata-row {
+                display: grid;
+                grid-template-columns: 150px 1fr;
+                margin: 8px 0;
+            }
+            .metadata-label {
+                font-weight: bold;
+                color: var(--vscode-textLink-foreground);
+            }
+            .abstract {
+                margin: 20px 0;
+                padding: 15px;
+                background-color: var(--vscode-textBlockQuote-background);
+                border-left: 4px solid var(--vscode-textLink-foreground);
+            }
+            a {
+                color: var(--vscode-textLink-foreground);
+                text-decoration: none;
+            }
+            a:hover {
+                text-decoration: underline;
+            }
+            .tag {
+                display: inline-block;
+                padding: 3px 8px;
+                margin: 2px;
+                background-color: var(--vscode-badge-background);
+                color: var(--vscode-badge-foreground);
+                border-radius: 3px;
+                font-size: 0.9em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>${paper.title}</h1>
+        
+        <div class="metadata">
+            <div class="metadata-row">
+                <div class="metadata-label">Authors:</div>
+                <div>${paper.authors.join(', ')}</div>
+            </div>
+            ${paper.doi ? `
+            <div class="metadata-row">
+                <div class="metadata-label">DOI:</div>
+                <div><a href="https://doi.org/${paper.doi}">${paper.doi}</a></div>
+            </div>
+            ` : ''}
+            ${paper.arxiv_id ? `
+            <div class="metadata-row">
+                <div class="metadata-label">arXiv ID:</div>
+                <div><a href="https://arxiv.org/abs/${paper.arxiv_id}">${paper.arxiv_id}</a></div>
+            </div>
+            ` : ''}
+            ${paper.url ? `
+            <div class="metadata-row">
+                <div class="metadata-label">URL:</div>
+                <div><a href="${paper.url}">${paper.url}</a></div>
+            </div>
+            ` : ''}
+            <div class="metadata-row">
+                <div class="metadata-label">Collected:</div>
+                <div>${new Date(paper.created_at).toLocaleString()}</div>
+            </div>
+            ${paper.extra_metadata.source ? `
+            <div class="metadata-row">
+                <div class="metadata-label">Source:</div>
+                <div><span class="tag">${paper.extra_metadata.source.toUpperCase()}</span></div>
+            </div>
+            ` : ''}
+            ${paper.extra_metadata.year ? `
+            <div class="metadata-row">
+                <div class="metadata-label">Year:</div>
+                <div>${paper.extra_metadata.year}</div>
+            </div>
+            ` : ''}
+        </div>
+
+        ${paper.abstract ? `
+        <div class="abstract">
+            <h2>Abstract</h2>
+            <p>${paper.abstract}</p>
+        </div>
+        ` : ''}
+    </body>
+    </html>`;
+}
+// Phase 3.5.2: Enhanced Asset Library Provider - shows all historical papers
 class AssetLibraryProvider {
     constructor() {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+        this.groupBy = 'session';
     }
     refresh() {
         this._onDidChangeTreeData.fire();
+    }
+    setGrouping(groupBy) {
+        this.groupBy = groupBy;
+        this.refresh();
     }
     getTreeItem(element) {
         return element;
     }
     async getChildren(element) {
-        if (element) {
-            // Child items are not expected for papers in this view
+        // If a group item is clicked, show its papers
+        if (element && element.papers) {
+            return element.papers.map(paper => new PaperTreeItem(paper.title, vscode.TreeItemCollapsibleState.None, undefined, paper));
+        }
+        // If a paper is clicked, no children
+        if (element && element.paperDetail) {
             return [];
         }
-        const state = await (0, api_1.getAgentState)();
-        const papers = state.literature_abstracts;
-        if (!papers || papers.length === 0) {
-            return [new vscode.TreeItem('No papers found', vscode.TreeItemCollapsibleState.None)];
+        // Root level: fetch all papers and group them
+        const { papers } = await (0, api_1.getAllPapers)({ limit: 500 });
+        if (papers.length === 0) {
+            const item = new PaperTreeItem('No papers found', vscode.TreeItemCollapsibleState.None);
+            return [item];
         }
-        return papers.map((paper) => {
-            const item = new vscode.TreeItem(paper.title, vscode.TreeItemCollapsibleState.None);
-            item.description = paper.authors.join(', ');
-            item.tooltip = paper.abstract;
-            return item;
+        // Group papers
+        return this.groupPapers(papers);
+    }
+    groupPapers(papers) {
+        if (this.groupBy === 'session') {
+            return this.groupBySession(papers);
+        }
+        else if (this.groupBy === 'source') {
+            return this.groupBySource(papers);
+        }
+        else {
+            return this.groupByDate(papers);
+        }
+    }
+    groupBySession(papers) {
+        const groups = new Map();
+        papers.forEach(paper => {
+            const sessionId = paper.session_id;
+            if (!groups.has(sessionId)) {
+                groups.set(sessionId, []);
+            }
+            groups.get(sessionId).push(paper);
+        });
+        return Array.from(groups.entries()).map(([sessionId, sessionPapers]) => {
+            const label = `Session ${sessionId.substring(0, 8)}... (${sessionPapers.length} papers)`;
+            return new PaperTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, sessionPapers);
+        });
+    }
+    groupBySource(papers) {
+        const groups = new Map();
+        papers.forEach(paper => {
+            const source = paper.extra_metadata.source || 'unknown';
+            if (!groups.has(source)) {
+                groups.set(source, []);
+            }
+            groups.get(source).push(paper);
+        });
+        return Array.from(groups.entries()).map(([source, sourcePapers]) => {
+            const label = `${source.toUpperCase()} (${sourcePapers.length} papers)`;
+            return new PaperTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, sourcePapers);
+        });
+    }
+    groupByDate(papers) {
+        const groups = new Map();
+        papers.forEach(paper => {
+            const date = new Date(paper.created_at);
+            const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            if (!groups.has(dateKey)) {
+                groups.set(dateKey, []);
+            }
+            groups.get(dateKey).push(paper);
+        });
+        // Sort by date descending
+        const sorted = Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+        return sorted.map(([date, datePapers]) => {
+            const label = `${date} (${datePapers.length} papers)`;
+            return new PaperTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, datePapers);
         });
     }
 }
 exports.AssetLibraryProvider = AssetLibraryProvider;
-// New provider for the manuscript view
+// Custom TreeItem for papers with additional metadata
+class PaperTreeItem extends vscode.TreeItem {
+    constructor(label, collapsibleState, papers, // For group items
+    paperDetail // For individual paper items
+    ) {
+        super(label, collapsibleState);
+        this.label = label;
+        this.collapsibleState = collapsibleState;
+        this.papers = papers;
+        this.paperDetail = paperDetail;
+        if (paperDetail) {
+            // Individual paper styling
+            this.description = paperDetail.authors.slice(0, 2).join(', ');
+            this.tooltip = this.createTooltip(paperDetail);
+            this.contextValue = 'paper';
+            this.iconPath = new vscode.ThemeIcon('file-text');
+            // Add command to view paper details
+            this.command = {
+                command: 'researchAgent.viewPaperDetails',
+                title: 'View Paper Details',
+                arguments: [paperDetail]
+            };
+        }
+        else {
+            // Group item styling
+            this.contextValue = 'paperGroup';
+            this.iconPath = new vscode.ThemeIcon('folder');
+        }
+    }
+    createTooltip(paper) {
+        let tooltip = `**${paper.title}**\n\n`;
+        tooltip += `Authors: ${paper.authors.join(', ')}\n\n`;
+        if (paper.abstract) {
+            const shortAbstract = paper.abstract.substring(0, 200);
+            tooltip += `Abstract: ${shortAbstract}${paper.abstract.length > 200 ? '...' : ''}\n\n`;
+        }
+        if (paper.doi) {
+            tooltip += `DOI: ${paper.doi}\n`;
+        }
+        if (paper.url) {
+            tooltip += `URL: ${paper.url}\n`;
+        }
+        tooltip += `Collected: ${new Date(paper.created_at).toLocaleString()}`;
+        return tooltip;
+    }
+}
+// Phase 3.5.2: Enhanced Manuscript Provider - shows all report versions
 class ManuscriptProvider {
     constructor() {
         this._onDidChangeTreeData = new vscode.EventEmitter();
@@ -229,21 +452,86 @@ class ManuscriptProvider {
         return element;
     }
     async getChildren(element) {
-        if (element) {
+        // If a session item is clicked, show its reports
+        if (element && element.reports) {
+            return element.reports.map(report => new ReportTreeItem(`Version ${report.version}`, vscode.TreeItemCollapsibleState.None, undefined, report));
+        }
+        // If a report is clicked, no children
+        if (element && element.reportDetail) {
             return [];
         }
-        const state = await (0, api_1.getAgentState)();
-        const report = state.report;
-        if (!report) {
-            return [new vscode.TreeItem('No report found', vscode.TreeItemCollapsibleState.None)];
+        // Root level: fetch all reports and group by session
+        const { reports } = await (0, api_1.getAllReports)({ limit: 500 });
+        if (reports.length === 0) {
+            const item = new ReportTreeItem('No reports found', vscode.TreeItemCollapsibleState.None);
+            return [item];
         }
-        // Wrap long reports
-        const item = new vscode.TreeItem(report, vscode.TreeItemCollapsibleState.None);
-        item.tooltip = report;
-        return [item];
+        // Group reports by session
+        return this.groupBySession(reports);
+    }
+    groupBySession(reports) {
+        const groups = new Map();
+        reports.forEach(report => {
+            const sessionId = report.session_id;
+            if (!groups.has(sessionId)) {
+                groups.set(sessionId, []);
+            }
+            groups.get(sessionId).push(report);
+        });
+        // Sort each session's reports by version descending
+        groups.forEach((sessionReports) => {
+            sessionReports.sort((a, b) => b.version - a.version);
+        });
+        return Array.from(groups.entries()).map(([sessionId, sessionReports]) => {
+            const latestVersion = sessionReports[0].version;
+            const label = `Session ${sessionId.substring(0, 8)}... (v${latestVersion}, ${sessionReports.length} versions)`;
+            return new ReportTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, sessionReports);
+        });
     }
 }
 exports.ManuscriptProvider = ManuscriptProvider;
+// Custom TreeItem for reports with additional metadata
+class ReportTreeItem extends vscode.TreeItem {
+    constructor(label, collapsibleState, reports, // For group items (session)
+    reportDetail // For individual report items
+    ) {
+        super(label, collapsibleState);
+        this.label = label;
+        this.collapsibleState = collapsibleState;
+        this.reports = reports;
+        this.reportDetail = reportDetail;
+        if (reportDetail) {
+            // Individual report styling
+            const wordCount = reportDetail.extra_metadata.word_count || 0;
+            const date = new Date(reportDetail.created_at).toLocaleDateString();
+            this.description = `${wordCount} words • ${date}`;
+            this.tooltip = this.createTooltip(reportDetail);
+            this.contextValue = 'report';
+            this.iconPath = new vscode.ThemeIcon('file-code');
+            // Add command to view report
+            this.command = {
+                command: 'researchAgent.viewReport',
+                title: 'View Report',
+                arguments: [reportDetail]
+            };
+        }
+        else {
+            // Group item styling (session)
+            this.contextValue = 'reportGroup';
+            this.iconPath = new vscode.ThemeIcon('folder');
+        }
+    }
+    createTooltip(report) {
+        let tooltip = `**Report Version ${report.version}**\n\n`;
+        tooltip += `Format: ${report.format}\n`;
+        tooltip += `Created: ${new Date(report.created_at).toLocaleString()}\n`;
+        if (report.extra_metadata.word_count) {
+            tooltip += `Word Count: ${report.extra_metadata.word_count}\n`;
+        }
+        tooltip += `\nSession: ${report.session_id}`;
+        return tooltip;
+    }
+}
 function activate(context) {
     console.log('Congratulations, your extension "auto-researcher" is now active!');
     // Create provider instances
@@ -285,7 +573,120 @@ function activate(context) {
         manuscriptProvider.refresh();
         vscode.window.showInformationMessage('Manuscript refreshed.');
     });
-    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand);
+    // Phase 3.5.2: New commands for Paper management
+    const viewPaperDetailsCommand = vscode.commands.registerCommand('researchAgent.viewPaperDetails', async (paper) => {
+        const panel = vscode.window.createWebviewPanel('paperDetails', `Paper: ${paper.title}`, vscode.ViewColumn.Two, { enableScripts: true });
+        panel.webview.html = generatePaperDetailsHTML(paper);
+    });
+    const exportPapersCommand = vscode.commands.registerCommand('researchAgent.exportPapers', async () => {
+        // Ask user for export format
+        const format = await vscode.window.showQuickPick(['BibTeX', 'RIS', 'JSON'], { placeHolder: 'Select export format' });
+        if (!format) {
+            return;
+        }
+        try {
+            const formatMap = {
+                'BibTeX': 'bibtex',
+                'RIS': 'ris',
+                'JSON': 'json'
+            };
+            const result = await (0, api_1.exportPapers)(formatMap[format]);
+            // Create a new document with the exported content
+            const doc = await vscode.workspace.openTextDocument({
+                content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+                language: format === 'JSON' ? 'json' : 'plaintext'
+            });
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage(`Papers exported as ${format}`);
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to export papers: ${error}`);
+        }
+    });
+    // Phase 3.5.2: New commands for Report management
+    const viewReportCommand = vscode.commands.registerCommand('researchAgent.viewReport', async (report) => {
+        // Create or show the report document
+        const doc = await vscode.workspace.openTextDocument({
+            content: report.content,
+            language: 'markdown'
+        });
+        await vscode.window.showTextDocument(doc, vscode.ViewColumn.Two);
+    });
+    const exportReportCommand = vscode.commands.registerCommand('researchAgent.exportReport', async (report) => {
+        const format = await vscode.window.showQuickPick(['Markdown', 'HTML'], { placeHolder: 'Select export format' });
+        if (!format) {
+            return;
+        }
+        try {
+            const formatMap = {
+                'Markdown': 'markdown',
+                'HTML': 'html'
+            };
+            const content = await (0, api_1.exportReport)(report.id, formatMap[format]);
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: format === 'HTML' ? 'html' : 'markdown'
+            });
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage(`Report exported as ${format}`);
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to export report: ${error}`);
+        }
+    });
+    const compareReportsCommand = vscode.commands.registerCommand('researchAgent.compareReports', async (report) => {
+        // Get all reports for the same session
+        const { reports } = await (0, api_1.getAllReports)({ session_id: report.session_id });
+        // Filter out the current report and show other versions
+        const otherVersions = reports.filter(r => r.id !== report.id);
+        if (otherVersions.length === 0) {
+            vscode.window.showInformationMessage('No other versions to compare');
+            return;
+        }
+        // Let user select which version to compare with
+        const items = otherVersions.map(r => ({
+            label: `Version ${r.version}`,
+            description: new Date(r.created_at).toLocaleString(),
+            report: r
+        }));
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: `Compare v${report.version} with...`
+        });
+        if (!selected) {
+            return;
+        }
+        try {
+            const comparison = await (0, api_1.compareReports)(selected.report.id, report.id);
+            if (!comparison) {
+                vscode.window.showErrorMessage('Failed to compare reports');
+                return;
+            }
+            // Show diff in a new document
+            const doc = await vscode.workspace.openTextDocument({
+                content: comparison.diff,
+                language: 'diff'
+            });
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage(`Comparing v${selected.report.version} → v${report.version}`);
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to compare reports: ${error}`);
+        }
+    });
+    const changeGroupingCommand = vscode.commands.registerCommand('researchAgent.changeGrouping', async () => {
+        const groupBy = await vscode.window.showQuickPick(['Session', 'Source', 'Date'], { placeHolder: 'Group papers by...' });
+        if (!groupBy) {
+            return;
+        }
+        const groupMap = {
+            'Session': 'session',
+            'Source': 'source',
+            'Date': 'date'
+        };
+        assetLibraryProvider.setGrouping(groupMap[groupBy]);
+        vscode.window.showInformationMessage(`Papers grouped by ${groupBy}`);
+    });
+    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand);
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);

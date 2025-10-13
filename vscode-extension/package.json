@@ -29,6 +29,36 @@
                 "command": "auto-researcher.refreshManuscript",
                 "title": "Refresh Manuscript",
                 "icon": "$(refresh)"
+            },
+            {
+                "command": "researchAgent.viewPaperDetails",
+                "title": "View Paper Details",
+                "icon": "$(book)"
+            },
+            {
+                "command": "researchAgent.exportPapers",
+                "title": "Export Papers",
+                "icon": "$(export)"
+            },
+            {
+                "command": "researchAgent.changeGrouping",
+                "title": "Change Paper Grouping",
+                "icon": "$(group-by-ref-type)"
+            },
+            {
+                "command": "researchAgent.viewReport",
+                "title": "View Report",
+                "icon": "$(file-text)"
+            },
+            {
+                "command": "researchAgent.exportReport",
+                "title": "Export Report",
+                "icon": "$(export)"
+            },
+            {
+                "command": "researchAgent.compareReports",
+                "title": "Compare Report Versions",
+                "icon": "$(diff)"
             }
         ],
         "viewsContainers": {
@@ -64,14 +94,59 @@
                 {
                     "command": "auto-researcher.refreshAssetLibrary",
                     "when": "view == assetLibrary",
-                    "group": "navigation",
-                    "icon": "$(refresh)"
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "researchAgent.changeGrouping",
+                    "when": "view == assetLibrary",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "researchAgent.exportPapers",
+                    "when": "view == assetLibrary",
+                    "group": "1_export"
                 },
                 {
                     "command": "auto-researcher.refreshManuscript",
                     "when": "view == manuscript",
-                    "group": "navigation",
-                    "icon": "$(refresh)"
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "researchAgent.viewPaperDetails",
+                    "when": "view == assetLibrary && viewItem == paper",
+                    "group": "inline"
+                },
+                {
+                    "command": "researchAgent.viewPaperDetails",
+                    "when": "view == assetLibrary && viewItem == paper",
+                    "group": "1_view@1"
+                },
+                {
+                    "command": "researchAgent.exportPapers",
+                    "when": "view == assetLibrary && viewItem == paper",
+                    "group": "2_export@1"
+                },
+                {
+                    "command": "researchAgent.viewReport",
+                    "when": "view == manuscript && viewItem == report",
+                    "group": "inline"
+                },
+                {
+                    "command": "researchAgent.viewReport",
+                    "when": "view == manuscript && viewItem == report",
+                    "group": "1_view@1"
+                },
+                {
+                    "command": "researchAgent.exportReport",
+                    "when": "view == manuscript && viewItem == report",
+                    "group": "2_export@1"
+                },
+                {
+                    "command": "researchAgent.compareReports",
+                    "when": "view == manuscript && viewItem == report",
+                    "group": "2_export@2"
                 }
             ]
         }
