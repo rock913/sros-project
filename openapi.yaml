@@ -187,6 +187,16 @@ components:
     AgentOutput:
       type: object
       properties:
+        session_id:
+          type: string
+          format: uuid
+          description: "The UUID of the database session record for this research task"
+          example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        thread_id:
+          type: string
+          format: uuid
+          description: "The UUID of the LangGraph thread (checkpointer state)"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         messages:
           type: array
           items:

@@ -62,10 +62,20 @@ from agent.configuration import Configuration
 # ... existing imports ...
 
 def generate_initial_queries(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Generates the initial set of search queries based on the research topic."""
+    """Generates the initial set of search queries based on the research topic.
+    
+    Phase 3.5.2 Enhancement: Records query_generated event.
+    """
     print("---NODE: generate_initial_queries---")
+    
+    # Import db_manager for event logging
+    from agent import db_manager
+    from datetime import datetime
+    
     cfg = Configuration.from_runnable_config(config)
     research_topic = get_research_topic(state["messages"])
+    session_id = state.get("session_id")
+    
     prompt = query_writer_instructions.format(
         current_date=get_current_date(),
         research_topic=research_topic,
@@ -83,6 +93,38 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
     except ServiceUnavailableError as e:
         print(f"---ERROR: Failed to generate initial queries due to API unavailability: {e}---")
         search_queries = []
+        
+        # Record error event
+        if session_id:
+            try:
+                db_manager.add_session_event(
+                    session_id=session_id,
+                    event_type="error_occurred",
+                    event_data={
+                        "error": str(e),
+                        "node": "generate_initial_queries",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+            except:
+                pass
+    
+    # Phase 3.5.2: Record query_generated event
+    if session_id and search_queries:
+        try:
+            db_manager.add_session_event(
+                session_id=session_id,
+                event_type="queries_generated",
+                event_data={
+                    "queries": search_queries,
+                    "count": len(search_queries),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            print(f"[Session Management] Recorded queries_generated event")
+        except Exception as e:
+            print(f"[Session Management] Failed to record event: {e}")
+    
     print(f"Generated initial queries: {search_queries}")
     return {"search_queries": search_queries, "research_topic": research_topic, "literature_full_text": []}
 
@@ -248,20 +290,38 @@ def get_doi_from_title(title: str) -> str | None:
     return None
 
 def automated_resource_management(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Fetches full-text resource URLs and DOIs, and adds items to Zotero."""
+    """Fetches full-text resource URLs and DOIs, and adds items to Zotero.
+    
+    Phase 3.5.2 Enhancement: Automatically persists papers to database.
+    """
     print("---NODE: automated_resource_management---")
+    
+    # Import db_manager for paper persistence
+    from agent import db_manager
+    from datetime import datetime
+    
+    session_id = state.get("session_id")
     papers_for_ingestion = []
     import re
     test_mode = os.getenv("TEST_MODE") == "1"
     seen_dois = set()
+    
+    # Track papers for database storage
+    papers_to_save = []
+    
     for paper in state["literature_abstracts"]:
         # Normalize for dict or MagicMock
         if isinstance(paper, dict):
             paper_title = paper.get('title')
+            paper_authors = paper.get('authors', [])
+            paper_summary = paper.get('summary', '')
             raw_text = paper.get('raw_text') or paper.get('page_content') or ""
         else:
             paper_title = getattr(paper, 'title', None)
+            paper_authors = getattr(paper, 'authors', [])
+            paper_summary = getattr(paper, 'summary', '')
             raw_text = getattr(paper, 'raw_text', None) or getattr(paper, 'page_content', '') or ""
+        
         doi = None
         # NEW: Extract all DOI occurrences from the block; some parsers may have merged content
         all_dois = re.findall(r'10\.\d{4,9}/[-._;()/:A-Za-z0-9]+', raw_text) if raw_text else []
@@ -287,6 +347,17 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
                     papers_for_ingestion.append({"doi": multi_doi, "url": pdf_url})
                     seen_dois.add(multi_doi)
                     print(f"Found PDF URL for DOI {multi_doi}: {pdf_url}")
+                    
+                    # Phase 3.5.2: Save paper to database
+                    if session_id and multi_doi not in [p.get('doi') for p in papers_to_save]:
+                        papers_to_save.append({
+                            "title": paper_title,
+                            "authors": paper_authors,
+                            "abstract": paper_summary,
+                            "doi": multi_doi,
+                            "url": pdf_url
+                        })
+                    
                     try:
                         zotero_result = zotero_tool.invoke({"paper_info": {"title": paper_title, "doi": multi_doi}})
                         print(f"Zotero result: {zotero_result}")
@@ -338,6 +409,16 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
                 papers_for_ingestion.append({"doi": doi, "url": pdf_url})
                 seen_dois.add(doi)
                 print(f"Found PDF URL for DOI {doi}: {pdf_url}")
+                
+                # Phase 3.5.2: Save paper to database
+                if session_id and doi not in [p.get('doi') for p in papers_to_save]:
+                    papers_to_save.append({
+                        "title": paper_title,
+                        "authors": paper_authors,
+                        "abstract": paper_summary,
+                        "doi": doi,
+                        "url": pdf_url
+                    })
 
             paper_info = {"title": paper_title, "doi": doi}
             try:
@@ -347,6 +428,39 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
                 print(f"Zotero invocation failed for DOI {doi}: {e}")
         else:
             print(f"Unpaywall found no free PDF for DOI: {doi}")
+
+    # Phase 3.5.2: Persist papers to database
+    if session_id and papers_to_save:
+        print(f"[Session Management] Persisting {len(papers_to_save)} papers to database...")
+        for paper_data in papers_to_save:
+            try:
+                db_manager.add_paper(
+                    session_id=session_id,
+                    title=paper_data.get("title") or "Untitled",
+                    authors=paper_data.get("authors") or [],
+                    abstract=paper_data.get("abstract") or "",
+                    doi=paper_data.get("doi"),
+                    arxiv_id=None,  # Could extract from URL if needed
+                    url=paper_data.get("url"),
+                    extra_metadata={
+                        "source": "automated_resource_management",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+                print(f"[Session Management] Saved paper: {paper_data.get('title')[:50]}...")
+            except Exception as e:
+                print(f"[Session Management] Failed to save paper: {e}")
+        
+        # Record papers_collected event
+        db_manager.add_session_event(
+            session_id=session_id,
+            event_type="papers_collected",
+            event_data={
+                "count": len(papers_to_save),
+                "dois": [p.get("doi") for p in papers_to_save],
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
 
     print(f"Resource management prepared {len(papers_for_ingestion)} papers for ingestion: {[p['doi'] for p in papers_for_ingestion]}")
     return {"papers_for_ingestion": papers_for_ingestion}
@@ -489,10 +603,19 @@ def ingest_and_embed_documents(state: AgentState, config: RunnableConfig) -> Age
     retry=retry_if_exception_type((ServiceUnavailableError, RateLimitError)),
 )
 def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Retrieves relevant knowledge from the DB and generates the final report."""
+    """Retrieves relevant knowledge from the DB and generates the final report.
+    
+    Phase 3.5.2 Enhancement: Automatically persists report to database and updates session status.
+    """
     print("---NODE: retrieve_and_synthesize_report---")
+    
+    # Import db_manager for report persistence
+    from agent import db_manager
+    from datetime import datetime
+    
     cfg = Configuration.from_runnable_config(config)
     research_topic = get_research_topic(state["messages"])
+    session_id = state.get("session_id")
 
     # 1. Determine the query embedding for retrieval (fallback: first document embedding)
     print("Retrieving query embedding from database (fallback to first document)...")
@@ -536,6 +659,68 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     except ServiceUnavailableError as e:
         print(f"---ERROR: Failed to generate report due to API unavailability: {e}---")
         report = "Failed to generate the final report due to a temporary API error. Please try again later."
+    
+    # Phase 3.5.2: Persist report to database
+    if session_id and report:
+        print(f"[Session Management] Persisting report to database...")
+        try:
+            # Get existing reports count to determine version number
+            existing_reports = db_manager.list_reports(session_id=session_id)
+            version = len(existing_reports) + 1
+            
+            # Create report record
+            report_record = db_manager.create_report(
+                session_id=session_id,
+                content=report,
+                format="markdown",
+                version=version,
+                extra_metadata={
+                    "paper_count": len(state.get("literature_abstracts", [])),
+                    "word_count": len(report.split()),
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "research_topic": research_topic
+                }
+            )
+            
+            print(f"[Session Management] Saved report version {version} (ID: {report_record['id']})")
+            
+            # Record report_generated event
+            db_manager.add_session_event(
+                session_id=session_id,
+                event_type="report_generated",
+                event_data={
+                    "report_id": report_record["id"],
+                    "version": version,
+                    "word_count": len(report.split()),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            
+            # Update Session status to completed
+            db_manager.update_session(
+                session_id=session_id,
+                status="completed",
+                notes=f"Research completed at {datetime.utcnow().isoformat()}"
+            )
+            
+            print(f"[Session Management] Updated session status to 'completed'")
+            
+        except Exception as e:
+            print(f"[Session Management] Failed to persist report: {e}")
+            # Record error event but don't fail the entire operation
+            try:
+                db_manager.add_session_event(
+                    session_id=session_id,
+                    event_type="error_occurred",
+                    event_data={
+                        "error": str(e),
+                        "node": "retrieve_and_synthesize_report",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+            except:
+                pass
+    
     return {"report": report, "messages": [AIMessage(content=report)]}
 
 

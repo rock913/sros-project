@@ -1,8 +1,9 @@
-from typing import List, TypedDict, Any, Annotated
+from typing import List, TypedDict, Any, Annotated, Optional
 import operator
 from langgraph.graph import add_messages
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
+    # Required fields
     messages: Annotated[list, add_messages]
     research_topic: str
     search_queries: List[str]
@@ -16,3 +17,6 @@ class AgentState(TypedDict):
     knowledge_gap: str
     research_loop_count: int
     report: str
+    # Session management fields (Phase 3.5.2) - Optional
+    session_id: str  # UUID of the Session record in database
+    thread_id: str   # LangGraph thread_id for checkpointer integration

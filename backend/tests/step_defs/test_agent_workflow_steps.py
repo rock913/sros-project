@@ -7,8 +7,7 @@ import io
 from contextlib import redirect_stdout
 import fitz # Added import for fitz
 
-# Import the agent graph and state
-from agent.graph import graph
+# Import the agent state (but NOT the production graph with checkpointer)
 from agent.state import AgentState
 from langchain_core.messages import HumanMessage
 
@@ -156,19 +155,21 @@ def the_agent_is_configured_for_scenario(agent_test_context, scenario_name, topi
 # --- Whens ---
 
 @when(parsers.parse('the user asks "{question}"'))
-def run_agent(configured_agent_context, question):
+def run_agent(configured_agent_context, question, test_graph):
     """
     Invokes the agent graph with the user's question and stores the final state.
+    Uses test_graph fixture (without checkpointer) for testing.
     """
     initial_state = {"messages": [HumanMessage(content=question)]}
-    config = {}
-    # The recursion limit needs to be high enough to accommodate the fan-out and loops
-    config["recursion_limit"] = 10
+    config = {
+        "recursion_limit": 10
+    }
+    # No thread_id needed since test_graph doesn't have checkpointer
 
     f = io.StringIO()
     with redirect_stdout(f):
         # Run the async function synchronously for the test
-        final_state = asyncio.run(graph.ainvoke(initial_state, config=config))
+        final_state = asyncio.run(test_graph.ainvoke(initial_state, config=config))
     
     output = f.getvalue()
     configured_agent_context["captured_output"] = output

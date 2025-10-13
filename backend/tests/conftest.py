@@ -2,6 +2,18 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from agent.database import init_db
+from agent.state import AgentState
+from langgraph.graph import StateGraph, END, START
+from agent.graph import (
+    generate_initial_queries,
+    execute_searches,
+    reflection_and_refinement,
+    automated_resource_management,
+    ingest_and_embed_documents,
+    retrieve_and_synthesize_report,
+    should_continue_searching,
+    continue_to_web_research,
+)
 
 @pytest.fixture(scope='session', autouse=True)
 def db_session():
@@ -13,6 +25,30 @@ def reset_graph_globals():
     from agent import graph
     graph.embeddings = None
     yield
+
+@pytest.fixture
+def test_graph():
+    """
+    Provides a graph compiled WITHOUT checkpointer for testing.
+    This avoids PostgresSaver dependency in unit tests.
+    """
+    builder = StateGraph(AgentState)
+    builder.add_node("generate_initial_queries", generate_initial_queries)
+    builder.add_node("execute_searches", execute_searches)
+    builder.add_node("reflection_and_refinement", reflection_and_refinement)
+    builder.add_node("automated_resource_management", automated_resource_management)
+    builder.add_node("ingest_and_embed_documents", ingest_and_embed_documents)
+    builder.add_node("retrieve_and_synthesize_report", retrieve_and_synthesize_report)
+    
+    builder.add_edge(START, "generate_initial_queries")
+    builder.add_conditional_edges("generate_initial_queries", continue_to_web_research)
+    builder.add_edge("execute_searches", "reflection_and_refinement")
+    builder.add_conditional_edges("reflection_and_refinement", should_continue_searching)
+    builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
+    builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
+    builder.add_edge("retrieve_and_synthesize_report", END)
+    
+    return builder.compile()  # No checkpointer for tests
 
 @pytest.fixture
 def agent_test_context():

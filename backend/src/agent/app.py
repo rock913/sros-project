@@ -3,6 +3,7 @@ import uvicorn
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from uuid import UUID, uuid4
+from datetime import datetime
 
 # Correctly import the 'graph' object from agent.graph
 from agent.graph import graph
@@ -50,6 +51,9 @@ class AgentOutput(BaseModel):
     is_sufficient: bool = Field(default=False, description="Whether the research is sufficient.")
     knowledge_gap: str = Field(default="", description="The identified knowledge gap.")
     report: str = Field(default="", description="The final generated report.")
+    # Phase 3.5.2: Session Management fields
+    session_id: Optional[str] = Field(None, description="The UUID of the associated Session record.")
+    thread_id: Optional[str] = Field(None, description="The LangGraph thread_id for state persistence.")
 
 # 2. Initialize the FastAPI app
 app = FastAPI(
@@ -74,26 +78,68 @@ async def invoke_agent(request: AgentInvokeRequest):
     
     This endpoint accepts a conversation history and optional configuration,
     runs the LangGraph agent, and returns the final state including the research report.
+    
+    **Phase 3.5.2 Enhancement**: Automatically creates a Session record for tracking.
     """
     try:
-        # Convert Pydantic models to dict format expected by LangGraph
+        # 1. Generate or use provided thread_id
+        thread_id = None
+        if request.config and request.config.configurable and request.config.configurable.thread_id:
+            thread_id = request.config.configurable.thread_id
+        else:
+            thread_id = str(uuid4())
+        
+        # 2. Extract user query from messages
+        user_query = ""
+        if request.input.messages:
+            # Get the last user message
+            for msg in reversed(request.input.messages):
+                if msg.role == "user":
+                    user_query = msg.content
+                    break
+        
+        # 3. Create Session record automatically
+        session = db_manager.create_session(
+            thread_id=thread_id,
+            title=f"Research: {user_query[:100]}" if user_query else "Untitled Research",
+            research_topic=user_query,
+            status="active",
+            tags=["auto-created"],
+            notes=f"Started via API at {datetime.utcnow().isoformat()}"
+        )
+        session_id = session["id"]
+        
+        print(f"[Session Management] Created session {session_id} with thread_id {thread_id}")
+        
+        # 4. Record research_started event
+        db_manager.add_session_event(
+            session_id=session_id,
+            event_type="research_started",
+            event_data={
+                "query": user_query,
+                "timestamp": datetime.utcnow().isoformat(),
+                "thread_id": thread_id
+            }
+        )
+        
+        # 5. Convert Pydantic models to dict format expected by LangGraph
         input_data = {
-            "messages": [msg.dict() for msg in request.input.messages]
+            "messages": [msg.dict() for msg in request.input.messages],
+            "session_id": session_id,  # Pass session_id to graph
+            "thread_id": thread_id      # Pass thread_id to graph
         }
         
-        # Prepare config with thread_id if provided
-        config = {}
-        if request.config and request.config.configurable and request.config.configurable.thread_id:
-            config = {
-                "configurable": {
-                    "thread_id": request.config.configurable.thread_id
-                }
+        # 6. Prepare config with thread_id
+        config = {
+            "configurable": {
+                "thread_id": thread_id
             }
+        }
         
-        # Invoke the graph
+        # 7. Invoke the graph
         result = await graph.ainvoke(input_data, config=config)
         
-        # Convert BaseMessage objects to dicts for JSON serialization
+        # 8. Convert BaseMessage objects to dicts for JSON serialization
         messages = []
         for msg in result.get("messages", []):
             if hasattr(msg, 'dict'):
@@ -107,7 +153,7 @@ async def invoke_agent(request: AgentInvokeRequest):
             else:
                 messages.append(msg)
         
-        # Return the result matching our AgentOutput schema
+        # 9. Return the result matching our AgentOutput schema (including session_id)
         return AgentOutput(
             messages=messages,
             research_topic=result.get("research_topic", ""),
@@ -116,9 +162,26 @@ async def invoke_agent(request: AgentInvokeRequest):
             literature_full_text=result.get("literature_full_text", []),
             is_sufficient=result.get("is_sufficient", False),
             knowledge_gap=result.get("knowledge_gap", ""),
-            report=result.get("report", "")
+            report=result.get("report", ""),
+            session_id=session_id,  # Include session_id in response
+            thread_id=thread_id     # Include thread_id in response
         )
     except Exception as e:
+        # Record error event if session was created
+        if 'session_id' in locals():
+            try:
+                db_manager.add_session_event(
+                    session_id=session_id,
+                    event_type="error_occurred",
+                    event_data={
+                        "error": str(e),
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "node": "invoke_agent"
+                    }
+                )
+            except:
+                pass  # Don't fail if event logging fails
+        
         raise HTTPException(status_code=500, detail=f"Agent invocation failed: {str(e)}")
 
 
