@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Any, Annotated, Optional
+from typing import List, TypedDict, Any, Annotated, Optional, Dict
 import operator
 from langgraph.graph import add_messages
 
@@ -20,3 +20,13 @@ class AgentState(TypedDict, total=False):
     # Session management fields (Phase 3.5.2) - Optional
     session_id: str  # UUID of the Session record in database
     thread_id: str   # LangGraph thread_id for checkpointer integration
+    
+    # HITL (Human-in-the-Loop) fields (Phase 3.6) - Optional
+    hitl_pending: Optional[bool]  # True when waiting for user response
+    hitl_request: Optional[Dict[str, Any]]  # Current HITL request data
+    hitl_response: Optional[Dict[str, Any]]  # User's response data
+    hitl_approved: Optional[bool]  # Quick flag for approval status
+    paper_selection_done: Optional[bool]  # Prevent repeated paper selection
+    selected_papers: Optional[List[dict]]  # User-selected papers
+    final_report: Optional[str]  # Final report after revisions
+    stop_research: Optional[bool]  # Flag to stop research (user rejected)

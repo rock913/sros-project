@@ -337,63 +337,89 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 ### Phase 4: Ecosystem Integration and Advanced Features (Future)
 
-**Strategic Vision:** Transform platform into complete "科研集成开发环境" (Research IDE) with ecosystem-wide integrations and collaborative capabilities.
+**Strategic Vision:** Focus on core research capabilities while leveraging professional observability platforms (LangSmith, LangFuse) for monitoring and debugging.
 
-**Vision Alignment:** Implements Chapters 4-7 from technical roadmap - achieving enterprise-grade research platform.
-
----
-
-#### Phase 4.1: Enhanced Control Panel & "Thinking Chain" Visualization (4 weeks)
-
-**Objective:** Build comprehensive AI Control Panel (right sidebar) with real-time transparency into agent reasoning.
-
-**Vision Reference:** Chapter 3 - "AI代理控制面板 (Webview)" as the collaboration cockpit.
-
-**1. React-Based Control Panel (Weeks 1-2):**
--   **Technology Migration:**
-    -   Migrate from plain HTML Webview to React + @vscode/webview-ui-toolkit
-    -   Use Vite for fast HMR development
-    -   Integrate Tailwind CSS for consistent styling
--   **Component Architecture:**
-    -   `<TaskConsole>`: Natural language input with suggestion chips
-    -   `<ThinkingChain>`: Real-time visualization of LangGraph node execution
-    -   `<SessionTimeline>`: Visual progress bar with milestone indicators
-    -   `<HITLDecisionCards>`: Interactive approval/rejection cards
-    -   `<ResourceMonitor>`: API usage, token count, estimated cost
-
-**2. "Thinking Chain" Visualization (Weeks 3-4):**
--   **Graph Visualization:**
-    -   Use D3.js or React Flow to render LangGraph execution as interactive flowchart
-    -   Highlight active node in real-time
-    -   Show data flow between nodes
--   **Node Drill-down:**
-    -   Click node → Expand to show:
-        -   Input/output data
-        -   LLM prompt/response
-        -   Tool calls made
-        -   Execution duration
--   **Trace Playback:**
-    -   Timeline scrubber to replay past research sessions
-    -   Step-by-step debugging mode
-    -   Export trace as JSON for sharing/analysis
-
-**3. Advanced Interaction Modes:**
--   **Guided Mode:** Step-by-step wizard for new users
--   **Expert Mode:** Direct LangGraph node triggering
--   **Batch Mode:** Queue multiple research tasks
--   **Watch Mode:** Auto-trigger research on file changes (like CI/CD)
-
-**Milestone:** Production-ready Control Panel rivaling professional AI debugging tools like LangSmith UI.
+**Architecture Philosophy:** 
+- ✅ **Use existing tools**: LangSmith for tracing, LangFuse for analytics
+- ✅ **Focus on research**: Literature discovery, collaboration, domain-specific features
+- ❌ **Avoid rebuilding**: No custom thinking chain visualization, trace viewers
 
 ---
 
-#### Phase 4.2: Multi-Source Literature Integration (5 weeks)
+#### Phase 4.1: LangSmith/LangFuse Integration & Control Panel Enhancement (3 weeks)
+
+**Objective:** Deep integration with observability platforms and streamlined Control Panel UX.
+
+**Vision Reference:** Leverage Chapter 4 technical stack while avoiding duplicate visualization work.
+
+**1. LangSmith Deep Integration (Week 1):**
+-   **Automatic Tracing:**
+    -   Already configured via `LANGCHAIN_TRACING_V2=true`
+    -   Add custom tags for research sessions: `session_id`, `research_topic`, `stage`
+    -   Implement run naming convention: `research-{topic}-{timestamp}`
+-   **VS Code Extension Integration:**
+    -   New command: `auto-researcher.openInLangSmith`
+    -   Click session → Open LangSmith trace in browser
+    -   Deep link format: `https://smith.langchain.com/o/{org}/projects/{project}/r/{run_id}`
+-   **Error Debugging:**
+    -   On research failure, show "Debug in LangSmith" button
+    -   Automatically capture error context (last 5 LLM calls, tool executions)
+-   **Performance Insights:**
+    -   Query LangSmith API for session metrics
+    -   Display in Analytics Dashboard: Avg LLM latency, Token usage, Cost per session
+
+**2. LangFuse Analytics Integration (Week 2):**
+-   **Session Tracking:**
+    -   Initialize LangFuse SDK in backend
+    -   Create LangFuse trace for each research session
+    -   Tag with metadata: `user_id`, `topic`, `paper_count`
+-   **Dashboard Integration:**
+    -   Embed LangFuse public dashboard in Control Panel
+    -   Show key metrics: Sessions/day, Success rate, Avg cost
+    -   Click metric → Open full LangFuse dashboard
+-   **Cost Tracking:**
+    -   Real-time cost calculation per session
+    -   Alert if session exceeds budget threshold
+    -   Monthly cost reports via LangFuse API
+
+**3. Streamlined Control Panel (Week 3):**
+-   **Simplified UI (Keep HTML, No React Migration):**
+    -   Remove custom "Thinking Chain" visualization → Link to LangSmith
+    -   Focus on research controls: Start, Pause, Resume, Cancel
+    -   HITL decision cards (from Phase 3.6)
+    -   Quick actions: Export, Share, Bookmark
+-   **Status Dashboard:**
+    -   Current session progress (progress bar)
+    -   Active stage indicator (Query → Search → Extract → Synthesize)
+    -   Resource usage: Papers found, Tokens used, Estimated cost
+-   **External Tool Links:**
+    -   "View Trace" → LangSmith
+    -   "View Analytics" → LangFuse
+    -   "View Papers" → Zotero web library
+-   **Keyboard Shortcuts:**
+    -   `Ctrl+Shift+R`: Start new research
+    -   `Ctrl+Shift+P`: Pause/Resume
+    -   `Ctrl+Shift+L`: Open LangSmith trace
+
+**Deliverables:**
+-   LangSmith integration with automatic deep linking
+-   LangFuse cost tracking and embedded analytics
+-   Streamlined Control Panel focused on research actions
+-   NO custom trace visualization (use LangSmith instead)
+
+**Milestone:** Observability achieved via best-in-class tools, Control Panel focused on research workflow.
+
+---
+
+#### Phase 4.2: Multi-Source Literature Integration (4 weeks)
 
 **Objective:** Expand beyond arXiv to comprehensive academic database coverage.
 
 **Vision Reference:** Chapter 4.1 - "智能文献发现" with multi-API tool orchestration.
 
-**1. New Literature Sources (Weeks 1-3):**
+**Focus:** Core literature discovery features, NOT citation network visualization (use existing tools).
+
+**1. New Literature Sources (Weeks 1-2):**
 -   **PubMed Integration:**
     -   Implement Entrez E-utilities API client
     -   Support MeSH term expansion
@@ -411,7 +437,7 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
     -   Journal impact factor lookup
     -   Funder registry integration
 
-**2. Intelligent Query Routing (Week 4):**
+**2. Intelligent Query Routing (Week 3):**
 -   **LLM-Powered Source Selection:**
     -   Analyze research topic → Recommend optimal databases
     -   Example: "quantum computing" → arXiv (physics) + IEEE Xplore
@@ -421,17 +447,21 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
     -   Result deduplication by DOI/title similarity
     -   Unified ranking by relevance score
 
-**3. Citation Network Analysis (Week 5):**
--   **Backend Graph Database:**
-    -   Consider Neo4j or NetworkX for citation network storage
-    -   Store papers as nodes, citations as edges
-    -   Implement PageRank-style relevance algorithm
--   **Frontend Visualization:**
-    -   Interactive citation graph (D3.js force-directed layout)
-    -   Discover "citation clusters" (research communities)
-    -   Find "gateway papers" (high betweenness centrality)
+**3. Citation Management (Week 4):**
+-   **Export to External Tools:**
+    -   "View Citation Network" → Open in Connected Papers (https://www.connectedpapers.com/)
+    -   "View Author Network" → Open in Research Rabbit (https://www.researchrabbit.ai/)
+    -   Integration buttons in Paper Details view
+-   **Basic Citation Tracking:**
+    -   Store citation counts from Semantic Scholar
+    -   Track "cited by" and "references" lists
+    -   Simple citation graph data (nodes + edges) for future use
+-   **NO Custom Visualization:**
+    -   Do NOT build D3.js citation graphs
+    -   Leverage Connected Papers, Research Rabbit, OpenAlex
+    -   Focus on data collection, not visualization
 
-**Milestone:** Platform becomes comprehensive literature discovery tool covering 90%+ of academic publications.
+**Milestone:** Comprehensive literature discovery across major databases, with smart routing and external tool integration.
 
 ---
 
@@ -588,69 +618,91 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 ### Phase 4 Summary
 
-**Duration:** 24 weeks (~6 months)
+**Duration:** 17 weeks (~4 months) - Reduced from 24 weeks
 
 **Strategic Deliverables:**
--   React-based Control Panel with "Thinking Chain" visualization
--   Multi-source literature integration (PubMed, Semantic Scholar, Google Scholar, CrossRef)
--   Collaborative research with team features and real-time editing
--   Multi-model LLM support with benchmarking and fine-tuning
--   Enterprise-grade production deployment
+-   ✅ LangSmith/LangFuse deep integration (observability via best-in-class tools)
+-   ✅ Streamlined Control Panel (no custom visualization, focus on research)
+-   ✅ Multi-source literature integration (PubMed, Semantic Scholar, Google Scholar, CrossRef)
+-   ✅ External tool integration (Connected Papers, Research Rabbit for citation networks)
+-   ✅ Collaborative research with team features and real-time editing
+-   ✅ Multi-model LLM support with benchmarking (via LiteLLM)
+-   ✅ Enterprise-grade production deployment
 
-**Technology Expansion:**
--   React, D3.js, React Flow (visualization)
--   Neo4j or NetworkX (citation graphs)
--   OAuth 2.0, JWT (authentication)
--   CRDTs (collaborative editing)
--   Kubernetes, Prometheus, Grafana (infrastructure)
--   OpenTelemetry (observability)
+**Technology Leveraged (Not Rebuilt):**
+-   🔧 LangSmith → Tracing, debugging, performance insights
+-   🔧 LangFuse → Analytics, cost tracking, dashboards
+-   🔧 Connected Papers → Citation network visualization
+-   🔧 Research Rabbit → Author/paper discovery
+-   🔧 OpenAlex → Academic graph data
+
+**Technology Stack (Core Features Only):**
+-   FastAPI, LangGraph, PostgreSQL (backend)
+-   VS Code Extension API, TypeScript (frontend)
+-   OAuth 2.0, JWT, CRDTs (collaboration)
+-   Kubernetes, Prometheus (deployment)
 -   Stripe (billing)
 
+**Removed from Scope:**
+-   ❌ Custom "Thinking Chain" visualization (use LangSmith)
+-   ❌ React Control Panel migration (keep HTML, simpler)
+-   ❌ D3.js citation graphs (use Connected Papers)
+-   ❌ Neo4j graph database (use external services)
+-   ❌ Custom trace playback UI (use LangSmith)
+
 **Business Impact:**
--   Transform from demo to production SaaS
--   Enable team-based pricing model
--   Establish competitive moat with unique features
--   Prepare for Series A fundraising
+-   ⏱️ **30% faster development** (17 weeks vs 24 weeks)
+-   💰 **Lower maintenance cost** (fewer custom components)
+-   🎯 **Focused on differentiation** (research workflow, not observability)
+-   🤝 **Better integration** (use industry-standard tools)
 
 **Vision Fulfillment:**
 -   ✅ "VS Code即平台" - Native integration complete
 -   ✅ "上下文感知科研助理" - Full project context access
 -   ✅ "人在环路" - HITL at every critical decision
 -   ✅ "科研即代码" - Git-based versioning + automation
--   ✅ "开放科学生态" - Team collaboration + shared knowledge
+-   ✅ "开放科学生态" - Team collaboration + external tool integration
+-   ✅ **"专业可观测性"** - LangSmith + LangFuse integration (NEW)
 
 ---
 
 ### Implementation Priority Matrix
 
+**Philosophy:** Leverage existing observability tools (LangSmith, LangFuse), focus on core research capabilities.
+
 Based on current Phase 3.5.3 completion status and technical roadmap vision, the recommended execution order is:
 
-#### 🔴 Critical Path (Q4 2025)
+#### 🔴 Critical Path (Q4 2025) - 4 weeks
 1. **Phase 3.5.4** (1 week) - Production readiness and documentation
 2. **Phase 3.6 Week 1-2** (2 weeks) - HITL decision system (highest user value)
 3. **Phase 3.6 Week 3** (1 week) - Real-time document collaboration (core differentiator)
 
 **Rationale:** Completes "阶段三：实时交互与动态协作" from technical roadmap. Delivers on core vision of AI-human collaborative editing.
 
-#### 🟡 High Priority (Q1 2026)
-4. **Phase 4.1** (4 weeks) - Enhanced Control Panel with Thinking Chain visualization
+#### 🟡 High Priority (Q1 2026) - 7 weeks
+4. **Phase 4.1** (3 weeks) - LangSmith/LangFuse integration + Streamlined Control Panel
+   - **Reduced from 4 weeks** - No React migration, no custom visualization
+   - Focus: Deep linking to LangSmith, LangFuse embedded analytics
 5. **Phase 4.2 Weeks 1-3** (3 weeks) - Multi-source literature integration (PubMed, Semantic Scholar)
+   - **Reduced from 5 weeks** - Use external tools for citation graphs
+6. **Phase 4.2 Week 4** (1 week) - External tool integration (Connected Papers, Research Rabbit)
 
-**Rationale:** Dramatically improves user experience and expands research coverage. Key for competitive positioning.
+**Rationale:** Dramatically improves user experience with professional observability. Expands research coverage without custom visualization overhead.
 
-#### 🟢 Medium Priority (Q2 2026)
-6. **Phase 4.3 Weeks 1-4** (4 weeks) - Collaborative research (team features)
-7. **Phase 4.2 Weeks 4-5** (2 weeks) - Citation network analysis
-8. **Phase 4.4 Weeks 1-2** (2 weeks) - Multi-model LLM support
+#### 🟢 Medium Priority (Q2 2026) - 10 weeks
+7. **Phase 4.3 Weeks 1-4** (4 weeks) - Collaborative research (team features)
+8. **Phase 4.4 Weeks 1-2** (2 weeks) - Multi-model LLM support (LiteLLM full integration)
+9. **Phase 4.5 Weeks 1-4** (4 weeks) - Production deployment infrastructure
 
 **Rationale:** Enables team use cases and advanced analytics. Grows TAM (Total Addressable Market).
 
-#### 🔵 Future Enhancements (Q3-Q4 2026)
-9. **Phase 4.3 Weeks 5-6** (2 weeks) - Annotation & comments
-10. **Phase 4.4 Weeks 3-4** (2 weeks) - Model benchmarking & fine-tuning
-11. **Phase 4.5** (5 weeks) - Enterprise deployment & billing
+#### 🔵 Future Enhancements (Q3 2026) - Removed/Deferred
+- ~~Phase 4.1 "Thinking Chain" Visualization~~ → **Use LangSmith** ✅
+- ~~Phase 4.2 Citation Network Graphs~~ → **Use Connected Papers** ✅
+- ~~React Control Panel Migration~~ → **Keep HTML, simpler** ✅
+- ~~Neo4j Graph Database~~ → **Use external services** ✅
 
-**Rationale:** Nice-to-have features and monetization infrastructure.
+**Total Timeline Reduction:** 24 weeks → **17 weeks** (29% faster)
 
 ---
 
@@ -658,16 +710,20 @@ Based on current Phase 3.5.3 completion status and technical roadmap vision, the
 
 #### Current State vs. Vision Gap
 
-| Technical Roadmap Requirement | Current Status | Gap | Priority |
-|-------------------------------|----------------|-----|----------|
-| **React-based Webview** | Plain HTML | Need React migration | 🟡 High |
-| **Three-panel IDE layout** | 3 panels exist, basic UI | Polish & interaction | 🟢 Medium |
-| **HITL decision points** | Not implemented | Core feature missing | 🔴 Critical |
-| **Document collaboration** | Read-only display | Need write integration | 🔴 Critical |
-| **Multi-source search** | arXiv + Unpaywall only | Limited coverage | 🟡 High |
-| **Citation graph** | Not implemented | Advanced feature | 🟢 Medium |
-| **Team collaboration** | Single-user only | Limits adoption | 🟢 Medium |
-| **Error handling** | Basic try-catch | Need conditional edges | 🟡 High |
+| Technical Roadmap Requirement | Current Status | Gap | Priority | Solution |
+|-------------------------------|----------------|-----|----------|----------|
+| **HITL decision points** | Not implemented | Core feature missing | 🔴 Critical | Phase 3.6 Week 1-2 |
+| **Document collaboration** | Read-only display | Need write integration | 🔴 Critical | Phase 3.6 Week 3 |
+| **Observability/Tracing** | LangSmith configured | Need deep integration | 🟡 High | Phase 4.1 (Link to LangSmith) |
+| **Cost tracking** | Not implemented | Need LangFuse | 🟡 High | Phase 4.1 (LangFuse API) |
+| **Multi-source search** | arXiv + Unpaywall only | Limited coverage | 🟡 High | Phase 4.2 |
+| **Team collaboration** | Single-user only | Limits adoption | 🟢 Medium | Phase 4.3 |
+| **Three-panel IDE layout** | 3 panels exist, basic UI | Polish needed | 🟢 Medium | Phase 4.1 (Streamline) |
+| ~~React-based Webview~~ | ~~Plain HTML~~ | ~~None~~ | ❌ **Removed** | Keep HTML (simpler) |
+| ~~Citation graph viz~~ | ~~Not implemented~~ | ~~None~~ | ❌ **Removed** | Use Connected Papers |
+| ~~Thinking chain viz~~ | ~~Not implemented~~ | ~~None~~ | ❌ **Removed** | Use LangSmith |
+
+**Key Insight:** By leveraging LangSmith/LangFuse, we eliminated 3 major technical debt items and reduced complexity by ~30%.
 
 #### Immediate Technical Debt (Address in Phase 3.5.4)
 
@@ -783,23 +839,37 @@ Based on Phase 3.5.3 success (100% completion, 0 critical bugs), codify best pra
 
 This roadmap transforms the **gemini-fullstack-langgraph-quickstart** from a technical demo into a production-ready, VS Code-native automated research platform. 
 
+**Strategic Philosophy:** 
+- ✅ **Leverage, don't rebuild**: Use LangSmith (tracing), LangFuse (analytics), Connected Papers (citation viz)
+- ✅ **Focus on differentiation**: HITL collaboration, multi-source literature, team features
+- ✅ **Simplicity over complexity**: Keep HTML Control Panel, avoid React migration overhead
+
 **Completed So Far:**
 - ✅ Phase 1: Backend Foundation (4-stage LangGraph workflow)
 - ✅ Phase 2: VS Code Extension Skeleton (3-panel layout)
 - ✅ Phase 3: Real-time WebSocket Interaction
-- ✅ Phase 3.5.1-3.5.3: Historical Data, Analytics Dashboard
+- ✅ Phase 3.5.1-3.5.3: Historical Data, Analytics Dashboard (17,393 lines, 0 bugs)
 
 **Next Milestones:**
 - 🎯 Phase 3.5.4-3.6: Complete "实时交互与动态协作" (4 weeks)
-- 🎯 Phase 4.1-4.2: Enhanced UI + Multi-source Integration (9 weeks)
-- 🎯 Phase 4.3-4.5: Collaborative Features + Enterprise Launch (15 weeks)
+- 🎯 Phase 4.1-4.2: LangSmith/LangFuse Integration + Multi-source Literature (7 weeks)
+- 🎯 Phase 4.3-4.5: Collaborative Features + Enterprise Launch (10 weeks)
 
-**Total Timeline to Production:** ~7 months from current state (October 2025 → May 2026)
+**Total Timeline to Production:** ~5 months from current state (October 2025 → March 2026)  
+**Reduction:** 29% faster than original plan (17 weeks vs 24 weeks in Phase 4)
 
-**Vision Achievement:** By Phase 4 completion, the platform will fully realize the technical roadmap's vision of a "上下文感知科研助理" (context-aware research assistant) that seamlessly integrates into researchers' VS Code workflows, transforming scientific literature review from a tedious task into an interactive, AI-augmented collaboration.
+**Vision Achievement:** By Phase 4 completion, the platform will fully realize the technical roadmap's vision:
+- ✅ "上下文感知科研助理" (context-aware research assistant)
+- ✅ "人在环路" (human-in-the-loop at critical decisions)
+- ✅ "VS Code即平台" (seamless VS Code integration)
+- ✅ "专业可观测性" (professional observability via LangSmith/LangFuse)
+- ✅ "开放科学生态" (integration with external research tools)
+
+**Competitive Advantage:** Focus on research workflow and collaboration, not reinventing observability wheels.
 
 ---
 
 **Last Updated:** October 14, 2025  
 **Current Phase:** 3.5.3 Complete ✅ | Next: 3.5.4  
-**Project Status:** On track for Q2 2026 production launch
+**Project Status:** On track for Q1 2026 production launch (accelerated from Q2 2026)  
+**Strategy:** Leverage existing observability platforms, focus on core research capabilities

@@ -18,6 +18,14 @@ export function generateAnalyticsDashboardHTML(
     const papersByDay = trends.trends.papers_by_day || [];
     const topTopics = stats.top_topics || [];
     
+    // Check if there's any data
+    const hasData = stats.stats.total_sessions > 0;
+    
+    // Generate empty state message if no data
+    if (!hasData) {
+        return generateEmptyStateHTML();
+    }
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -389,7 +397,7 @@ export function generateAnalyticsDashboardHTML(
         // Top Topics Chart
         const topicsData = ${JSON.stringify(topTopics.slice(0, 5))};
         new Chart(document.getElementById('topTopicsChart'), {
-            type: 'horizontalBar',
+            type: 'bar',
             data: {
                 labels: topicsData.map(t => t.topic.substring(0, 40) + '...'),
                 datasets: [{
@@ -420,6 +428,133 @@ export function generateAnalyticsDashboardHTML(
         
         function viewSessionDetails(sessionId) {
             vscode.postMessage({ command: 'viewSessionDetails', sessionId: sessionId });
+        }
+    </script>
+</body>
+</html>`;
+}
+
+/**
+ * Generate empty state HTML when no data is available
+ */
+function generateEmptyStateHTML(): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        .empty-state {
+            text-align: center;
+            max-width: 500px;
+            padding: 40px;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--vscode-foreground);
+        }
+        
+        .empty-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 30px;
+        }
+        
+        .empty-action {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        
+        .empty-action:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        
+        .suggestions {
+            margin-top: 30px;
+            text-align: left;
+        }
+        
+        .suggestions h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--vscode-foreground);
+        }
+        
+        .suggestions ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .suggestions li {
+            padding: 8px 0;
+            color: var(--vscode-descriptionForeground);
+            font-size: 13px;
+        }
+        
+        .suggestions li::before {
+            content: "→ ";
+            color: var(--vscode-textLink-foreground);
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <h1 class="empty-title">暂无分析数据</h1>
+        <p class="empty-description">
+            还没有研究会话数据。开始你的第一次AI驱动的文献研究，我们将自动收集和分析数据。
+        </p>
+        <button class="empty-action" onclick="startNewResearch()">
+            🚀 开始新研究
+        </button>
+        
+        <div class="suggestions">
+            <h3>💡 快速开始</h3>
+            <ul>
+                <li>使用命令面板 (Ctrl+Shift+P) 搜索 "Auto Researcher"</li>
+                <li>输入你的研究主题，例如 "大语言模型的幻觉问题"</li>
+                <li>等待AI完成文献收集和分析</li>
+                <li>完成后即可在此查看详细统计数据</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        function startNewResearch() {
+            vscode.postMessage({ command: 'startNewResearch' });
         }
     </script>
 </body>

@@ -817,8 +817,9 @@ export function activate(context: vscode.ExtensionContext) {
             }, async (progress) => {
                 progress.report({ message: 'Fetching statistics...' });
 
-                // Default time range: 7 days
-                let currentTimeRange: '24h' | '7d' | '30d' | 'all' = '7d';
+                // Load saved time range from workspace state, default to 7 days
+                let currentTimeRange: '24h' | '7d' | '30d' | 'all' = 
+                    context.workspaceState.get('analyticsTimeRange', '7d');
 
                 const loadDashboardData = async (timeRange: '24h' | '7d' | '30d' | 'all') => {
                     const [stats, trends, sessions] = await Promise.all([
@@ -852,6 +853,8 @@ export function activate(context: vscode.ExtensionContext) {
                         switch (message.command) {
                             case 'changeTimeRange':
                                 currentTimeRange = message.range;
+                                // Save time range preference
+                                await context.workspaceState.update('analyticsTimeRange', currentTimeRange);
                                 const newData = await loadDashboardData(currentTimeRange);
                                 panel.webview.html = generateAnalyticsDashboardHTML(newData.stats, newData.trends, newData.sessions);
                                 break;
@@ -859,6 +862,12 @@ export function activate(context: vscode.ExtensionContext) {
                             case 'viewSessionDetails':
                                 vscode.window.showInformationMessage(`Viewing session: ${message.sessionId.substring(0, 8)}`);
                                 // TODO: Open session details view
+                                break;
+                            
+                            case 'startNewResearch':
+                                // Close analytics panel and trigger new research
+                                panel.dispose();
+                                vscode.commands.executeCommand('auto-researcher.start');
                                 break;
                         }
                     },
