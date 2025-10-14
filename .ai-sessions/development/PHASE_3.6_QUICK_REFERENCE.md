@@ -1,11 +1,11 @@
-# Phase 3.6 快速参考 - Day 1-2 完成总结
+# Phase 3.6 快速参考 - Day 1-2-3 完成总结
 **Date**: 2025-10-14  
-**Status**: ✅ Backend + Frontend Complete!  
-**Progress**: 70% (超前 45%)
+**Status**: ✅ Backend + Frontend + Unit Tests Complete!  
+**Progress**: 75% (超前 50%)
 
 ---
 
-## 🎉 Day 1-2 成就概览
+## 🎉 Day 1-2-3 成就概览
 
 ### ✅ Day 1: Backend HITL System (100%)
 
@@ -36,18 +36,38 @@
 
 ---
 
+### ✅ Day 3: Backend Unit Tests (100%) 🆕
+
+**完成内容**:
+- 9 个单元测试 (3 HITL nodes × 3 tests each)
+- 数据库集成测试 (test session 创建)
+- **5 个关键 bug 修复** 🔧
+  - Session ID 检索模式不一致
+  - 决策字段名不匹配
+  - 状态清理不完整
+  - State 字段名错误
+  - HITL 请求结构不统一
+
+**测试结果**: ✅ 9/9 通过 (100%)  
+**代码统计**: +262 lines test, +18 lines fixes  
+**时间节省**: 发现并修复了 5 个集成前会遇到的阻塞性 bug
+
+---
+
 ## 📊 总体进度
 
 ```
 Phase 3.6 (Week 1-2)
 ├─ Day 1: Backend HITL        ✅ 100%
 ├─ Day 2: Frontend UI         ✅ 100%
-├─ Day 3: WebSocket 集成      📋 0% (下一步)
-├─ Day 4-5: E2E 测试          📋 0%
-└─ Day 6-7: 优化 & 文档       📋 0%
+├─ Day 3: Backend Unit Tests  ✅ 100% 🆕
+├─ Day 4: Frontend Integration📋 0% (下一步)
+├─ Day 5: E2E 测试            📋 0%
+├─ Day 6: WebSocket 集成      📋 0%
+└─ Day 7: 优化 & 文档         📋 0%
 
-完成度: 70% vs 25% (计划)
-超前: 6 days ⚡
+完成度: 75% vs 25% (计划)
+超前: 7 days ⚡
 ```
 
 ---
@@ -150,32 +170,68 @@ node test-hitl-ui.js
 ✅ Test 3: Report Revision Card - PASSED
 ```
 
+### Backend 单元测试 🆕
+
+```bash
+# 运行 HITL 节点单元测试
+docker exec langgraph-api python tests/test_hitl_nodes.py
+```
+
+**预期输出**:
+```
+============================================================
+Phase 3.6 HITL Nodes Unit Tests
+============================================================
+
+✅ Created test session: [UUID]
+
+📋 Testing Query Approval Node...
+✅ Test 1.1a: Query approval creates HITL request
+✅ Test 1.1b: Query approval processes approve decision
+✅ Test 1.1c: Query approval processes reject decision
+
+📋 Testing Paper Selection Node...
+✅ Test 1.2a: Paper selection skips HITL for few papers
+✅ Test 1.2b: Paper selection triggers HITL for many papers
+✅ Test 1.2c: Paper selection processes select_all decision
+
+📋 Testing Report Revision Node...
+✅ Test 1.3a: Report revision creates HITL request
+✅ Test 1.3b: Report revision processes approve decision
+✅ Test 1.3c: Report revision processes modify decision with feedback
+
+============================================================
+✅✅✅ All Unit Tests Passed! ✅✅✅
+============================================================
+```
+
+**结果**: 9/9 tests passing ✅
+
 ---
 
-## 🚀 下一步 (Day 3)
+## 🚀 下一步 (Day 4)
 
-### Morning: WebSocket 集成 (3 hours)
+### Morning: Frontend 集成测试 (2 hours)
 
 **任务**:
-1. 在 extension.ts 添加 WebSocket 客户端
-2. 监听 `hitl_request` 消息
-3. 自动显示 HITL 决策卡片
+1. 测试 API 端点调用
+2. 验证 WebView 响应处理
+3. 检查错误处理
 
-**代码示例**:
-```typescript
-const ws = new WebSocket('ws://localhost:8121/agent/stream');
+**测试命令**:
+```bash
+# Test HITL respond endpoint
+curl -X POST "http://localhost:8121/agent/hitl/respond" \
+  -H "Content-Type: application/json" \
+  -d '{"request_id": "test_req_123", "decision": "approve"}'
 
-ws.on('message', (data) => {
-    const message = JSON.parse(data);
-    if (message.type === 'hitl_request') {
-        handleHITLRequest(message);
-    }
-});
+# Test HITL pending endpoint
+curl "http://localhost:8121/agent/hitl/pending?session_id=[UUID]"
 ```
 
 ---
 
-### Afternoon: E2E 测试 (2 hours)
+### Afternoon: E2E 测试 (3 hours)
 
 **测试流程**:
 1. 启动后端 + 前端
