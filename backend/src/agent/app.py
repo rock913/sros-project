@@ -832,48 +832,29 @@ async def respond_to_hitl(
             
             thread_id = str(thread_id_result[0])
         
-        # 3. Resume LangGraph execution with user's response
-        # We need to update the graph state with user's response
-        # This will be handled by the graph's interrupt/resume mechanism
-        
-        # For now, we'll use graph.aupdate_state to inject the user's response
-        from agent.graph import graph
-        
-        # Prepare state update with user's response
-        state_update = {
-            "hitl_response": {
-                "request_id": request_id,
-                "decision": decision,
-                "modified_data": modified_data,
-                "timestamp": datetime.utcnow().isoformat()
-            },
-            "hitl_pending": False  # Clear pending flag
-        }
-        
-        # Update graph state and resume execution
-        config = {
-            "configurable": {
-                "thread_id": thread_id
-            }
-        }
-        
-        # Use graph.update_state to inject user's response
-        # This will resume the graph from the interrupt point
-        await graph.aupdate_state(config, state_update)
+        # 3. Decision recorded successfully
+        # Note: Graph resumption requires client to re-invoke the stream endpoint
+        # or use the WebSocket to continue execution with the recorded response
         
         return {
-            "success": True,
+            "status": "success",
             "message": f"HITL response recorded for request {request_id}",
             "decision": decision,
             "session_id": session_id,
             "thread_id": thread_id,
-            "next_action": "Graph execution will resume automatically"
+            "next_action": "Use /agent/stream endpoint with recorded response to resume graph execution"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing HITL response: {str(e)}")
+        import traceback
+        error_msg = str(e) if str(e) else repr(e)
+        traceback.print_exc()  # Log full traceback for debugging
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error processing HITL response: {error_msg}\nType: {type(e).__name__}"
+        )
 
 
 @app.get("/agent/hitl/pending", tags=["HITL"])
