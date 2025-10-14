@@ -13,6 +13,7 @@ from agent.state import AgentState
 import agent.db_manager as db_manager
 import agent.analytics as analytics
 from agent.models import Session, Paper, Report, SessionEvent
+from agent.document_utils import DocumentDiffer, ConflictDetector
 
 from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -1158,8 +1159,12 @@ async def stream_agent_progress(websocket: WebSocket):
         # Stream graph execution using astream_events for fine-grained control
         # This allows us to detect HITL requests in real-time
         async def stream_with_hitl_detection():
-            """Stream graph execution and detect HITL requests"""
+            """Stream graph execution and detect HITL requests and document updates"""
             final_result = None
+            
+            # Initialize document differ for streaming updates
+            differ = DocumentDiffer()
+            last_report_version = ""
             
             # Use astream to get state updates after each node
             async for chunk in graph.astream(input_data, config=config):
@@ -1171,6 +1176,42 @@ async def stream_agent_progress(websocket: WebSocket):
                         "node": node_name,
                         "message": f"Processing {node_name}..."
                     })
+                    
+                    # 📝 DOCUMENT UPDATE: Check for partial report updates
+                    # Note: "report" is set by retrieve_and_synthesize_report node
+                    #       "final_report" is set by report_revision_node (HITL)
+                    current_report = state_update.get("report") or state_update.get("final_report", "")
+                    if current_report and current_report != last_report_version:
+                        # Generate incremental diff
+                        diffs = differ.generate_paragraph_diff(last_report_version, current_report)
+                        
+                        # Send only changed paragraphs to frontend
+                        for diff in diffs:
+                            if diff["action"] != "unchanged":
+                                # Create document update message
+                                update_msg = differ.generate_update_message(
+                                    diff,
+                                    rationale=f"AI generating report in {node_name}"
+                                )
+                                update_msg["session_id"] = session_id
+                                update_msg["node"] = node_name
+                                
+                                await websocket.send_json(update_msg)
+                                
+                                # Log document update
+                                db_manager.log_event(
+                                    session_id=session_id,
+                                    event_type="document_update",
+                                    event_data={
+                                        "action": diff["action"],
+                                        "paragraph_index": diff["paragraph_index"],
+                                        "node": node_name,
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
+                        
+                        # Update last known version
+                        last_report_version = current_report
                     
                     # 🔔 HITL Detection: Check if node set hitl_pending flag
                     if state_update.get("hitl_pending"):
