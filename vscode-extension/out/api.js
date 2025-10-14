@@ -16,6 +16,7 @@ exports.getSessionsList = getSessionsList;
 exports.getSessionStats = getSessionStats;
 exports.getPaperTrends = getPaperTrends;
 exports.getSessionDetails = getSessionDetails;
+exports.getSessionDetailsV2 = getSessionDetailsV2;
 const axios_1 = require("axios");
 const API_BASE_URL = 'http://langgraph-api:8000';
 /**
@@ -284,11 +285,6 @@ async function startResearchStream(topic, callbacks, threadId) {
                         console.log('[WebSocket] Progress:', message.node);
                         callbacks.onProgress?.(message);
                         break;
-                    // Phase 3.6 Week 3: Document collaboration - handle document updates
-                    case 'document_update':
-                        console.log('[WebSocket] Document update:', message.action, 'paragraph', message.paragraph_index);
-                        callbacks.onDocumentUpdate?.(message);
-                        break;
                     case 'complete':
                         console.log('[WebSocket] Research completed:', message);
                         callbacks.onComplete?.(message);
@@ -362,5 +358,18 @@ async function getPaperTrends(timeRange = '7d') {
 async function getSessionDetails(sessionId) {
     const response = await axios_1.default.get(`${API_BASE_URL}/analytics/sessions/${sessionId}`);
     return response.data;
+}
+/**
+ * Get comprehensive session details (Phase 3.5.4)
+ */
+async function getSessionDetailsV2(sessionId) {
+    try {
+        const response = await axios_1.default.get(`${API_BASE_URL}/sessions/${sessionId}/details`);
+        return response.data;
+    }
+    catch (error) {
+        console.error('Error fetching session details:', error);
+        throw error;
+    }
 }
 //# sourceMappingURL=api.js.map

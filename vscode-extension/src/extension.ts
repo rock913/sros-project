@@ -14,9 +14,12 @@ import {
     // Phase 3.5.3 Week 3: Analytics imports
     getSessionStats,
     getPaperTrends,
-    getSessionsList
+    getSessionsList,
+    // Phase 3.5.4: Session Details imports
+    getSessionDetailsV2
 } from './api';
 import { generateAnalyticsDashboardHTML } from './analyticsWebview';
+import { generateSessionDetailsHTML } from './sessionDetailsWebview';
 // Phase 3.6: HITL imports
 import { generateHITLDecisionCardHTML, HITLRequest } from './hitlWebview';
 // Phase 3.6 Week 3: Document Collaboration imports
@@ -991,6 +994,102 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Phase 3.5.4: View Session Details Command
+    const viewSessionDetailsCommand = vscode.commands.registerCommand('auto-researcher.viewSessionDetails', async (sessionId?: string) => {
+        try {
+            // If no sessionId provided, prompt user to enter one
+            if (!sessionId) {
+                sessionId = await vscode.window.showInputBox({
+                    prompt: 'Enter Session ID',
+                    placeHolder: 'e.g., 4565e1f6-1c57-4658-a603-0ea242ffb241',
+                    validateInput: (value) => {
+                        if (!value) {
+                            return 'Session ID is required';
+                        }
+                        // Basic UUID format validation
+                        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                        if (!uuidPattern.test(value)) {
+                            return 'Invalid UUID format';
+                        }
+                        return null;
+                    }
+                });
+                
+                if (!sessionId) {
+                    return; // User cancelled
+                }
+            }
+            
+            vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Loading session details...',
+                cancellable: false
+            }, async () => {
+                // Create webview panel
+                const panel = vscode.window.createWebviewPanel(
+                    'sessionDetails',
+                    `Session: ${sessionId?.substring(0, 8)}...`,
+                    vscode.ViewColumn.One,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true
+                    }
+                );
+                
+                // Show loading indicator
+                panel.webview.html = '<html><body><h2 style="text-align:center; margin-top: 100px;">Loading session details...</h2></body></html>';
+                
+                // Fetch session data
+                const data = await getSessionDetailsV2(sessionId!);
+                
+                // Update panel title with session title
+                panel.title = `Session: ${data.session.title || sessionId!.substring(0, 8)}`;
+                
+                // Render HTML
+                panel.webview.html = generateSessionDetailsHTML(sessionId!, data);
+                
+                // Handle webview messages
+                panel.webview.onDidReceiveMessage(
+                    async (message) => {
+                        switch (message.command) {
+                            case 'exportSession':
+                                vscode.window.showInformationMessage('Export feature will be implemented in Phase 4');
+                                break;
+                            case 'openLangSmith':
+                                vscode.window.showInformationMessage('LangSmith integration will be implemented in Phase 4.1');
+                                break;
+                            case 'refreshDetails':
+                                // Reload session data
+                                const refreshedData = await getSessionDetailsV2(message.sessionId);
+                                panel.webview.html = generateSessionDetailsHTML(message.sessionId, refreshedData);
+                                vscode.window.showInformationMessage('Session details refreshed!');
+                                break;
+                            case 'deleteSession':
+                                const confirm = await vscode.window.showWarningMessage(
+                                    `Are you sure you want to delete session ${message.sessionId}?`,
+                                    { modal: true },
+                                    'Delete'
+                                );
+                                if (confirm === 'Delete') {
+                                    // TODO: Call delete API
+                                    vscode.window.showInformationMessage('Delete feature will be implemented soon');
+                                    panel.dispose();
+                                }
+                                break;
+                        }
+                    },
+                    undefined,
+                    context.subscriptions
+                );
+                
+                vscode.window.showInformationMessage('Session details loaded successfully!');
+            });
+            
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Failed to load session details: ${error.message}`);
+        }
+    });
+
     // Phase 3.6: HITL Test Command
     const testHITLCommand = vscode.commands.registerCommand('auto-researcher.testHITL', async () => {
         const decisionType = await vscode.window.showQuickPick(
@@ -1154,6 +1253,7 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         compareReportsCommand,
         changeGroupingCommand,
         showAnalyticsCommand,
+        viewSessionDetailsCommand,
         testHITLCommand,
         testDocCollabCommand
     );

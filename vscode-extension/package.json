@@ -66,6 +66,11 @@
                 "icon": "$(graph)"
             },
             {
+                "command": "auto-researcher.viewSessionDetails",
+                "title": "View Session Details",
+                "icon": "$(info)"
+            },
+            {
                 "command": "auto-researcher.testDocumentCollaboration",
                 "title": "Test Document Collaboration",
                 "icon": "$(edit)"

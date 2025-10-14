@@ -353,14 +353,12 @@ export async function getAllSessions(options?: {
 // ==================== WebSocket Streaming ====================
 
 import * as WebSocket from 'ws';
-import { DocumentUpdate } from './documentCollaboration';
 
 export interface ResearchProgressCallback {
   onStarted?: (data: { session_id: string; thread_id: string }) => void;
   onProgress?: (data: { node: string; message?: string }) => void;
   onComplete?: (data: { session_id: string; thread_id: string }) => void;
   onError?: (error: string) => void;
-  onDocumentUpdate?: (update: DocumentUpdate) => void; // Phase 3.6 Week 3: Document collaboration
 }
 
 /**
@@ -402,12 +400,6 @@ export async function startResearchStream(
           case 'progress':
             console.log('[WebSocket] Progress:', message.node);
             callbacks.onProgress?.(message);
-            break;
-          
-          // Phase 3.6 Week 3: Document collaboration - handle document updates
-          case 'document_update':
-            console.log('[WebSocket] Document update:', message.action, 'paragraph', message.paragraph_index);
-            callbacks.onDocumentUpdate?.(message as DocumentUpdate);
             break;
           
           case 'complete':
@@ -646,4 +638,17 @@ export async function getSessionDetails(
     `${API_BASE_URL}/analytics/sessions/${sessionId}`
   );
   return response.data;
+}
+
+/**
+ * Get comprehensive session details (Phase 3.5.4)
+ */
+export async function getSessionDetailsV2(sessionId: string): Promise<any> {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/sessions/${sessionId}/details`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching session details:', error);
+    throw error;
+  }
 }
