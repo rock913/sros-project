@@ -436,6 +436,101 @@ def delete_session_endpoint(session_id: str = Path(..., description="Session UUI
         raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
 
 
+@app.get("/sessions/{session_id}/details", tags=["Sessions"])
+def get_session_details(session_id: str = Path(..., description="Session UUID")):
+    """
+    Get comprehensive session details including events, papers, reports, and statistics.
+    
+    Returns:
+        - session: Basic session information
+        - events: Event timeline (most recent 50 events)
+        - papers: List of papers associated with this session
+        - reports: List of report versions
+        - stats: Aggregated statistics
+    """
+    try:
+        from dateutil.parser import parse
+        from datetime import datetime
+        
+        session_uuid = UUID(session_id)
+        
+        # Get basic session info
+        session = db_manager.get_session_by_id(session_uuid)
+        if not session:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        # Get events timeline (limit to 50 most recent)
+        events_list = db_manager.list_events(session_uuid, limit=50)
+        
+        # Get papers
+        papers_list = db_manager.list_papers(session_id=session_uuid)
+        
+        # Get reports
+        reports_list = db_manager.list_reports(session_id=session_uuid)
+        
+        # Calculate statistics
+        def calculate_duration(events: list) -> int:
+            """Calculate session duration in seconds"""
+            if not events:
+                return 0
+            
+            try:
+                timestamps = [e.get("created_at") for e in events if e.get("created_at")]
+                if not timestamps:
+                    return 0
+                
+                start = min(timestamps)
+                end = max(timestamps)
+                
+                # Parse ISO timestamps
+                start_dt = parse(start) if isinstance(start, str) else start
+                end_dt = parse(end) if isinstance(end, str) else end
+                
+                duration = (end_dt - start_dt).total_seconds()
+                return int(duration)
+            except Exception as e:
+                logger.warning(f"Error calculating duration: {e}")
+                return 0
+        
+        def estimate_cost(events: list) -> float:
+            """Estimate session cost based on token usage"""
+            total_tokens = 0
+            
+            for event in events:
+                if event.get("event_type") == "llm_call":
+                    data = event.get("event_data", {})
+                    total_tokens += data.get("input_tokens", 0)
+                    total_tokens += data.get("output_tokens", 0)
+            
+            # Simple estimation: $0.01 per 1000 tokens (Gemini pricing approximation)
+            return round(total_tokens / 1000 * 0.01, 4)
+        
+        stats = {
+            "total_events": len(events_list),
+            "duration_seconds": calculate_duration(events_list),
+            "paper_count": len(papers_list),
+            "report_count": len(reports_list),
+            "status": session.get("status", "unknown"),
+            "cost_estimate": estimate_cost(events_list)
+        }
+        
+        return {
+            "session": session,
+            "events": events_list,
+            "papers": papers_list,
+            "reports": reports_list,
+            "stats": stats
+        }
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session details: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving session details: {str(e)}")
+
+
 @app.get("/sessions/{session_id}/events", tags=["Sessions"])
 def list_session_events(
     session_id: str = Path(..., description="Session UUID"),
