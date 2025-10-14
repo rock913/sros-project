@@ -6,6 +6,8 @@ exports.deactivate = deactivate;
 const vscode = require("vscode");
 const api_1 = require("./api");
 const analyticsWebview_1 = require("./analyticsWebview");
+// Phase 3.6: HITL imports
+const hitlWebview_1 = require("./hitlWebview");
 /**
  * Generates enhanced HTML for the AI Control Panel webview
  */
@@ -533,6 +535,82 @@ class ReportTreeItem extends vscode.TreeItem {
         return tooltip;
     }
 }
+/**
+ * Phase 3.6: HITL Decision Handler
+ * Handles HITL requests from backend and displays decision cards
+ */
+async function handleHITLRequest(request, context) {
+    console.log(`[HITL] Received ${request.decision_type} request: ${request.request_id}`);
+    // Create webview panel for HITL decision
+    const panel = vscode.window.createWebviewPanel('hitlDecision', `HITL: ${getDecisionTypeLabel(request.decision_type)}`, vscode.ViewColumn.One, {
+        enableScripts: true,
+        retainContextWhenHidden: true
+    });
+    // Generate and set HTML content
+    panel.webview.html = (0, hitlWebview_1.generateHITLDecisionCardHTML)(request);
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(async (message) => {
+        switch (message.type) {
+            case 'hitl_response':
+                await sendHITLResponse(message.request_id, message.decision, message.modified_data);
+                panel.dispose();
+                vscode.window.showInformationMessage(`✅ HITL response sent: ${message.decision}`);
+                break;
+            case 'copy_to_clipboard':
+                await vscode.env.clipboard.writeText(message.text);
+                break;
+            case 'close_webview':
+                panel.dispose();
+                break;
+        }
+    }, undefined, context.subscriptions);
+    // Show notification
+    vscode.window.showInformationMessage(`🔔 HITL Decision Required: ${getDecisionTypeLabel(request.decision_type)}`, 'Open Decision Card').then(selection => {
+        if (selection) {
+            panel.reveal();
+        }
+    });
+}
+/**
+ * Send HITL response to backend
+ */
+async function sendHITLResponse(requestId, decision, modifiedData) {
+    try {
+        const backendUrl = vscode.workspace.getConfiguration('auto-researcher').get('backendUrl') || 'http://localhost:8121';
+        const response = await fetch(`${backendUrl}/agent/hitl/respond`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                request_id: requestId,
+                decision: decision,
+                modified_data: modifiedData
+            })
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        console.log(`[HITL] Response sent successfully:`, data);
+    }
+    catch (error) {
+        console.error('[HITL] Failed to send response:', error);
+        vscode.window.showErrorMessage(`Failed to send HITL response: ${error.message}`);
+        throw error;
+    }
+}
+/**
+ * Get human-readable label for decision type
+ */
+function getDecisionTypeLabel(type) {
+    switch (type) {
+        case 'query_approval': return 'Query Approval';
+        case 'paper_selection': return 'Paper Selection';
+        case 'report_revision': return 'Report Revision';
+        default: return type;
+    }
+}
 function activate(context) {
     console.log('Congratulations, your extension "auto-researcher" is now active!');
     // Create provider instances
@@ -743,7 +821,102 @@ function activate(context) {
             vscode.window.showErrorMessage(`Failed to load Analytics Dashboard: ${error}`);
         }
     });
-    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand);
+    // Phase 3.6: HITL Test Command
+    const testHITLCommand = vscode.commands.registerCommand('auto-researcher.testHITL', async () => {
+        const decisionType = await vscode.window.showQuickPick(['Query Approval', 'Paper Selection', 'Report Revision'], { placeHolder: 'Select HITL decision type to test' });
+        if (!decisionType) {
+            return;
+        }
+        // Create mock HITL request
+        let mockRequest;
+        if (decisionType === 'Query Approval') {
+            mockRequest = {
+                request_id: 'test_' + Date.now(),
+                decision_type: 'query_approval',
+                prompt: 'Please review and approve the generated queries',
+                options: ['approve', 'modify', 'reject'],
+                context: {
+                    research_topic: 'Artificial Intelligence in Healthcare',
+                    queries: [
+                        'artificial intelligence healthcare applications',
+                        'machine learning medical diagnosis',
+                        'AI patient care optimization',
+                        'deep learning radiology imaging'
+                    ]
+                },
+                timeout_seconds: 300,
+                session_id: 'test-session',
+                thread_id: 'test-thread'
+            };
+        }
+        else if (decisionType === 'Paper Selection') {
+            mockRequest = {
+                request_id: 'test_' + Date.now(),
+                decision_type: 'paper_selection',
+                prompt: 'Select papers to analyze',
+                options: ['select_all', 'select_subset', 'reject'],
+                context: {
+                    total_count: 45,
+                    papers: Array.from({ length: 25 }, (_, i) => ({
+                        title: `Research Paper ${i + 1}: Impact of AI on Medical Outcomes`,
+                        authors: ['Smith, J.', 'Johnson, K.', 'Williams, M.'],
+                        year: 2023 - (i % 3),
+                        doi: `10.1234/example.${i}`,
+                        abstract: 'This paper explores the intersection of artificial intelligence and healthcare, focusing on diagnostic accuracy and patient outcomes...'
+                    })),
+                    recommendation: 'Select 10-15 most relevant papers for detailed analysis'
+                },
+                timeout_seconds: 600,
+                session_id: 'test-session',
+                thread_id: 'test-thread'
+            };
+        }
+        else { // Report Revision
+            mockRequest = {
+                request_id: 'test_' + Date.now(),
+                decision_type: 'report_revision',
+                prompt: 'Please review the research report',
+                options: ['approve', 'modify', 'reject'],
+                context: {
+                    research_topic: 'Artificial Intelligence in Healthcare',
+                    report: `# Research Report: Artificial Intelligence in Healthcare
+
+## Executive Summary
+
+This report examines the current state and future prospects of artificial intelligence applications in healthcare. Through analysis of 25 recent papers, we identify key trends, challenges, and opportunities in this rapidly evolving field.
+
+## Key Findings
+
+1. **Diagnostic Accuracy**: AI systems have demonstrated accuracy rates comparable to or exceeding human experts in several domains, particularly in radiology and pathology.
+
+2. **Patient Outcomes**: Studies show significant improvements in patient outcomes when AI-assisted decision support systems are properly integrated into clinical workflows.
+
+3. **Challenges**: Major barriers include data privacy concerns, regulatory compliance, and the need for extensive validation in diverse clinical settings.
+
+## Methodology
+
+We analyzed 25 peer-reviewed papers published between 2021-2024, focusing on empirical studies with quantitative results. Papers were selected based on citation count, journal impact factor, and relevance to clinical applications.
+
+## Recommendations
+
+- Continued investment in robust validation studies
+- Development of explainable AI systems for clinical use
+- Establishment of clear regulatory frameworks
+
+## Conclusion
+
+AI holds tremendous promise for transforming healthcare delivery, but successful implementation requires careful attention to validation, integration, and regulatory considerations.`,
+                    word_count: 187,
+                    paper_count: 25
+                },
+                timeout_seconds: 900,
+                session_id: 'test-session',
+                thread_id: 'test-thread'
+            };
+        }
+        await handleHITLRequest(mockRequest, context);
+    });
+    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, testHITLCommand);
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);
