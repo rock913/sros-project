@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uvicorn
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -301,6 +302,140 @@ def get_agent_state_by_thread(
 def ok():
     """Health check endpoint to verify the API is running."""
     return {"status": "ok"}
+
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    """
+    Enhanced health check endpoint with dependency validation.
+    
+    Phase 3.5.4: Production Readiness
+    
+    Returns:
+        - status: overall (healthy | degraded | unhealthy)
+        - version: API version
+        - timestamp: current server time
+        - dependencies: status of each dependency
+        - performance: response time metrics
+    """
+    import time
+    from datetime import datetime
+    
+    start_time = time.time()
+    
+    # Initialize response
+    health_status = {
+        "status": "healthy",
+        "version": "3.5.4",
+        "timestamp": datetime.utcnow().isoformat(),
+        "dependencies": {},
+        "performance": {}
+    }
+    
+    dependency_checks = []
+    
+    # 1. Database Check
+    try:
+        db_start = time.time()
+        # Simple query to verify connection
+        test_session = db_manager.get_session_by_id(UUID('00000000-0000-0000-0000-000000000000'))
+        db_time = (time.time() - db_start) * 1000
+        
+        health_status["dependencies"]["database"] = {
+            "status": "healthy",
+            "response_time_ms": round(db_time, 2),
+            "type": "postgresql"
+        }
+        dependency_checks.append(True)
+    except Exception as e:
+        health_status["dependencies"]["database"] = {
+            "status": "unhealthy",
+            "error": str(e)[:100],
+            "type": "postgresql"
+        }
+        dependency_checks.append(False)
+    
+    # 2. LangGraph Graph Check
+    try:
+        langgraph_start = time.time()
+        # Check if graph is accessible
+        _ = graph.get_graph()
+        langgraph_time = (time.time() - langgraph_start) * 1000
+        
+        health_status["dependencies"]["langgraph"] = {
+            "status": "healthy",
+            "response_time_ms": round(langgraph_time, 2),
+            "type": "graph"
+        }
+        dependency_checks.append(True)
+    except Exception as e:
+        health_status["dependencies"]["langgraph"] = {
+            "status": "degraded",
+            "error": str(e)[:100],
+            "type": "graph"
+        }
+        # LangGraph is not critical for all endpoints
+        dependency_checks.append(True)
+    
+    # 3. Environment Variables Check
+    required_env_vars = ["GEMINI_API_KEY", "UNPAYWALL_EMAIL"]
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        health_status["dependencies"]["environment"] = {
+            "status": "degraded",
+            "missing_variables": missing_vars
+        }
+        dependency_checks.append(False)
+    else:
+        health_status["dependencies"]["environment"] = {
+            "status": "healthy",
+            "configured_variables": len(required_env_vars)
+        }
+        dependency_checks.append(True)
+    
+    # 4. File System Check (for logs, cache)
+    try:
+        import tempfile
+        fs_start = time.time()
+        with tempfile.NamedTemporaryFile(delete=True) as tmp:
+            tmp.write(b"health_check")
+            tmp.flush()
+        fs_time = (time.time() - fs_start) * 1000
+        
+        health_status["dependencies"]["filesystem"] = {
+            "status": "healthy",
+            "response_time_ms": round(fs_time, 2)
+        }
+        dependency_checks.append(True)
+    except Exception as e:
+        health_status["dependencies"]["filesystem"] = {
+            "status": "unhealthy",
+            "error": str(e)[:100]
+        }
+        dependency_checks.append(False)
+    
+    # Calculate overall status
+    total_checks = len(dependency_checks)
+    healthy_checks = sum(dependency_checks)
+    
+    if healthy_checks == total_checks:
+        health_status["status"] = "healthy"
+    elif healthy_checks >= total_checks * 0.75:
+        health_status["status"] = "degraded"
+    else:
+        health_status["status"] = "unhealthy"
+    
+    # Performance metrics
+    total_time = (time.time() - start_time) * 1000
+    health_status["performance"] = {
+        "total_response_time_ms": round(total_time, 2),
+        "healthy_dependencies": healthy_checks,
+        "total_dependencies": total_checks,
+        "health_percentage": round((healthy_checks / total_checks) * 100, 1)
+    }
+    
+    return health_status
 
 
 # ==================== Session Management Endpoints ====================
