@@ -64,6 +64,11 @@
                 "command": "auto-researcher.showAnalytics",
                 "title": "Show Analytics Dashboard",
                 "icon": "$(graph)"
+            },
+            {
+                "command": "auto-researcher.testDocumentCollaboration",
+                "title": "Test Document Collaboration",
+                "icon": "$(edit)"
             }
         ],
         "viewsContainers": {
