@@ -59,6 +59,11 @@
                 "command": "researchAgent.compareReports",
                 "title": "Compare Report Versions",
                 "icon": "$(diff)"
+            },
+            {
+                "command": "auto-researcher.showAnalytics",
+                "title": "Show Analytics Dashboard",
+                "icon": "$(graph)"
             }
         ],
         "viewsContainers": {
@@ -90,6 +95,11 @@
                     "command": "auto-researcher.showControlPanel",
                     "when": "view == 'auto-researcher-sidebar'",
                     "group": "navigation"
+                },
+                {
+                    "command": "auto-researcher.showAnalytics",
+                    "when": "view == assetLibrary || view == manuscript",
+                    "group": "navigation@0"
                 },
                 {
                     "command": "auto-researcher.refreshAssetLibrary",
@@ -150,7 +160,8 @@
                 }
             ]
         }
-    },    "scripts": {
+    },
+    "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
@@ -173,6 +184,8 @@
         "typescript": "^5.3.3"
     },
     "dependencies": {
-        "axios": "^1.12.2"
+        "@types/ws": "^8.18.1",
+        "axios": "^1.12.2",
+        "ws": "^8.18.3"
     }
 }

@@ -10,11 +10,13 @@ from agent.graph import graph
 from agent.database import init_db, get_all_documents
 from agent.state import AgentState
 import agent.db_manager as db_manager
+import agent.analytics as analytics
 from agent.models import Session, Paper, Report, SessionEvent
 
-from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from starlette.websockets import WebSocketState
 # Remove LangServe to avoid Pydantic conflicts
 # from langserve import add_routes
 
@@ -672,6 +674,105 @@ def compare_reports(
         raise HTTPException(status_code=500, detail=f"Error comparing reports: {str(e)}")
 
 
+# ==================== Analytics Endpoints (Phase 3.5.3) ====================
+
+@app.get("/analytics/sessions", tags=["Analytics"])
+def get_sessions_list(
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    status: Optional[str] = Query(None, regex="^(active|completed|archived)$", description="Filter by status"),
+    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    sort_by: str = Query("created_at", regex="^(created_at|duration|papers_count)$"),
+    order: str = Query("desc", regex="^(asc|desc)$")
+):
+    """
+    Phase 3.5.3: Get paginated list of sessions with filtering and sorting.
+    
+    Returns:
+        - sessions: List of session summaries
+        - total: Total matching sessions
+        - pagination info
+    """
+    try:
+        result = analytics.get_sessions_list(
+            limit=limit,
+            offset=offset,
+            status=status,
+            user_id=user_id,
+            sort_by=sort_by,
+            order=order
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching sessions: {str(e)}")
+
+
+@app.get("/analytics/sessions/stats", tags=["Analytics"])
+def get_sessions_statistics(
+    time_range: str = Query("7d", regex="^(24h|7d|30d|all)$", description="Time range"),
+    user_id: Optional[str] = Query(None, description="Filter by user ID")
+):
+    """
+    Phase 3.5.3: Get aggregated statistics across sessions.
+    
+    Returns:
+        - stats: Aggregated metrics (total, completed, success rate, averages)
+        - daily_breakdown: Sessions per day
+        - top_topics: Most researched topics
+    """
+    try:
+        result = analytics.get_sessions_stats(
+            time_range=time_range,
+            user_id=user_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating statistics: {str(e)}")
+
+
+@app.get("/analytics/sessions/{session_id}", tags=["Analytics"])
+def get_session_analytics(session_id: str = Path(..., description="Session UUID")):
+    """
+    Phase 3.5.3: Get detailed analytics for a specific session.
+    
+    Returns:
+        - session: Complete session metadata
+        - events: Chronological event timeline
+        - timeline: Phase breakdown analysis
+    """
+    try:
+        session_uuid = UUID(session_id)
+        result = analytics.get_session_details(session_uuid)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        return result
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching session analytics: {str(e)}")
+
+
+@app.get("/analytics/papers/trends", tags=["Analytics"])
+def get_papers_trends(
+    time_range: str = Query("7d", regex="^(24h|7d|30d|all)$", description="Time range")
+):
+    """
+    Phase 3.5.3: Get paper collection trends and distribution.
+    
+    Returns:
+        - trends: Paper counts, daily breakdown, venue distribution, year distribution
+    """
+    try:
+        result = analytics.get_papers_trends(time_range=time_range)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing paper trends: {str(e)}")
+
+
 @app.get("/reports/{report_id}", tags=["Reports"])
 def get_report_details(report_id: str = Path(..., description="Report UUID")):
     """Get detailed information for a specific report."""
@@ -769,6 +870,184 @@ def export_report(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error exporting report: {str(e)}")
+
+
+# ==================== WebSocket Streaming ====================
+@app.websocket("/agent/stream")
+async def stream_agent_progress(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time agent progress streaming.
+    
+    Client sends:
+    {
+        "messages": [{"role": "user", "content": "research topic"}],
+        "thread_id": "optional-uuid"
+    }
+    
+    Server streams:
+    {
+        "type": "started",
+        "session_id": "uuid",
+        "thread_id": "uuid"
+    }
+    {
+        "type": "progress",
+        "node": "node_name",
+        "data": {...state_update...}
+    }
+    {
+        "type": "complete",
+        "session_id": "uuid",
+        "thread_id": "uuid"
+    }
+    """
+    await websocket.accept()
+    thread_id = None
+    session_id = None
+    
+    try:
+        # 1. Receive initial request
+        data = await websocket.receive_json()
+        
+        # 2. Generate or use provided thread_id
+        thread_id = data.get("thread_id") or str(uuid4())
+        messages = data.get("messages", [])
+        
+        if not messages:
+            await websocket.send_json({
+                "type": "error",
+                "message": "No messages provided"
+            })
+            await websocket.close()
+            return
+        
+        # 3. Extract research topic
+        user_query = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_query = msg.get("content", "")
+                break
+        
+        # 4. Create Session record
+        session = db_manager.create_session(
+            thread_id=thread_id,
+            title=f"Research: {user_query[:100]}" if user_query else "Untitled",
+            research_topic=user_query,
+            tags=["websocket", "streaming"],
+            notes=f"Started via WebSocket at {datetime.utcnow().isoformat()}"
+        )
+        session_id = session["id"]
+        
+        print(f"[WebSocket] Created session {session_id} with thread_id {thread_id}")
+        
+        # 5. Log research_started event
+        db_manager.log_event(
+            session_id=session_id,
+            event_type="research_started",
+            event_data={
+                "query": user_query,
+                "thread_id": thread_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+        
+        # 6. Send acknowledgment
+        await websocket.send_json({
+            "type": "started",
+            "session_id": session_id,
+            "thread_id": thread_id
+        })
+        
+        # 7. Prepare input and config
+        config = {"configurable": {"thread_id": thread_id}}
+        input_data = {
+            "messages": messages,
+            "session_id": session_id,
+            "thread_id": thread_id
+        }
+        
+        # 8. Run agent execution 
+        # Note: Using sync invoke in executor due to PostgresSaver not supporting async operations
+        await websocket.send_json({
+            "type": "progress",
+            "node": "agent_start",
+            "message": "Starting research agent..."
+        })
+        
+        # Run sync invoke in thread pool
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: graph.invoke(input_data, config=config)
+        )
+        
+        # Send completion with result summary
+        await websocket.send_json({
+            "type": "progress",
+            "node": "agent_complete",
+            "message": f"Research completed. Found {len(result.get('literature_abstracts', []))} papers."
+        })
+        
+        # 9. Update session status
+        db_manager.update_session(session_id, status="completed")
+        
+        # 10. Log completion event
+        db_manager.log_event(
+            session_id=session_id,
+            event_type="research_completed",
+            event_data={
+                "timestamp": datetime.utcnow().isoformat(),
+                "thread_id": thread_id
+            }
+        )
+        
+        # 11. Send completion signal
+        await websocket.send_json({
+            "type": "complete",
+            "session_id": session_id,
+            "thread_id": thread_id
+        })
+        
+    except WebSocketDisconnect:
+        print(f"[WebSocket] Client disconnected: thread_id={thread_id}")
+        if session_id:
+            db_manager.update_session(session_id, status="interrupted")
+            db_manager.log_event(
+                session_id=session_id,
+                event_type="connection_lost",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "thread_id": thread_id
+                }
+            )
+    
+    except Exception as e:
+        import traceback
+        error_msg = str(e) or "Unknown error"
+        print(f"[WebSocket] Error: {error_msg}")
+        print(f"[WebSocket] Traceback: {traceback.format_exc()}")
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.send_json({
+                "type": "error",
+                "message": error_msg
+            })
+        if session_id:
+            db_manager.update_session(session_id, status="failed")
+            db_manager.log_event(
+                session_id=session_id,
+                event_type="error_occurred",
+                event_data={
+                    "error": error_msg,
+                    "traceback": traceback.format_exc(),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "thread_id": thread_id
+                }
+            )
+    
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
 
 
 # ==================== Startup & Main ====================

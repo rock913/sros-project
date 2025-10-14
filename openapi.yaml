@@ -4,7 +4,126 @@ info:
   description: |
     API for the autonomous research agent, enabling interaction with the LangGraph backend.
     
-    **State Persistence**: The agent uses LangGraph's PostgresSaver checkpointer to persist state 
+                 $ref: '#/components/schemas/AgentOutput'
+        '404':
+          description: "Thread not found or no checkpoints exist."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  /agent/stream:
+    get:
+      summary: "WebSocket Stream for Real-time Agent Execution"
+      description: |
+        **Phase 3: Real-time Interaction**
+        
+        Establishes a WebSocket connection for streaming agent execution progress in real-time.
+        This endpoint enables live monitoring of research tasks as they execute.
+        
+        **Protocol**: WebSocket (ws:// or wss://)
+        
+        **Connection Flow**:
+        1. Client establishes WebSocket connection to `ws://host:port/agent/stream`
+        2. Client sends JSON request with research topic and optional config
+        3. Server responds with real-time progress messages
+        4. Connection closes when research completes or errors occur
+        
+        **Request Format** (sent after connection):
+        ```json
+        {
+          "topic": "What are the applications of quantum computing?",
+          "user_id": "optional_user_id",
+          "config": {
+            "recursion_limit": 50
+          }
+        }
+        ```
+        
+        **Response Message Types**:
+        
+        1. **started** - Research session initialized
+        ```json
+        {
+          "type": "started",
+          "session_id": "uuid",
+          "thread_id": "uuid",
+          "topic": "research topic"
+        }
+        ```
+        
+        2. **progress** - Agent node execution update
+        ```json
+        {
+          "type": "progress",
+          "node": "node_name",
+          "message": "optional description",
+          "data": {}
+        }
+        ```
+        
+        3. **complete** - Research finished successfully
+        ```json
+        {
+          "type": "complete",
+          "session_id": "uuid",
+          "thread_id": "uuid",
+          "final_state": {}
+        }
+        ```
+        
+        4. **error** - Error occurred during execution
+        ```json
+        {
+          "type": "error",
+          "error": "error message",
+          "session_id": "uuid"
+        }
+        ```
+        
+        **Session Management**:
+        - Automatic session creation in database
+        - Event logging for each progress update
+        - Final status update (completed/failed) on close
+        
+        **Error Handling**:
+        - WebSocket disconnection stops agent execution
+        - Partial results saved in database with 'failed' status
+        - Client reconnection requires new WebSocket connection
+        
+        **Implementation Notes**:
+        - Uses `run_in_executor` due to PostgresSaver sync limitation
+        - Supports concurrent WebSocket connections
+        - Thread-safe database operations
+        
+        **Example Usage**:
+        ```javascript
+        const ws = new WebSocket('ws://localhost:8121/agent/stream');
+        
+        ws.on('open', () => {
+          ws.send(JSON.stringify({
+            topic: 'AI in healthcare',
+            user_id: 'user123'
+          }));
+        });
+        
+        ws.on('message', (data) => {
+          const msg = JSON.parse(data);
+          console.log(msg.type, msg);
+        });
+        ```
+      tags:
+        - Agent
+        - WebSocket
+      responses:
+        '101':
+          description: "WebSocket connection established. Switching protocols."
+        '400':
+          description: "Invalid request format or missing required fields."
+        '500':
+          description: "Internal server error during agent execution." Persistence**: The agent uses LangGraph's PostgresSaver checkpointer to persist state 
     across invocations. Each research session is identified by a `thread_id` (UUID format), 
     enabling multi-session support, state recovery, and conversation history.
     
@@ -573,6 +692,372 @@ paths:
                   detail:
                     type: string
 
+  # ==================== Analytics Endpoints (Phase 3.5.3) ====================
+  
+  /analytics/sessions:
+    get:
+      summary: "Get Sessions List with Pagination"
+      description: |
+        **Phase 3.5.3: Analytics & Visualization**
+        
+        Retrieve a paginated list of research sessions with optional filtering and sorting.
+        
+        **Use Cases**:
+        - Display session history in dashboard
+        - Filter by status or user
+        - Sort by various metrics
+        - Implement pagination for large datasets
+        
+        **Response includes**:
+        - Session metadata (id, title, topic, status)
+        - Timestamps (created_at, completed_at, duration)
+        - Metrics (papers_count, queries_count, events_count)
+        - Pagination info (total, has_more)
+      tags:
+        - Analytics
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+            minimum: 1
+          description: "Maximum number of sessions to return"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: "Number of sessions to skip (for pagination)"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, completed, archived]
+          description: "Filter by session status"
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: "Filter by user ID"
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, duration, papers_count]
+            default: created_at
+          description: "Field to sort by"
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: "Sort order (ascending or descending)"
+      responses:
+        '200':
+          description: "Paginated list of sessions"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionSummary'
+                  total:
+                    type: integer
+                    description: "Total number of sessions matching filters"
+                    example: 150
+                  limit:
+                    type: integer
+                    example: 50
+                  offset:
+                    type: integer
+                    example: 0
+                  has_more:
+                    type: boolean
+                    description: "Whether more results are available"
+                    example: true
+        '400':
+          description: "Invalid query parameters"
+  
+  /analytics/sessions/{session_id}:
+    get:
+      summary: "Get Detailed Session Analytics"
+      description: |
+        **Phase 3.5.3: Analytics & Visualization**
+        
+        Retrieve comprehensive analytics for a specific research session.
+        
+        **Response includes**:
+        - Complete session metadata
+        - All session events (timeline)
+        - Phase breakdown (initialization, research, report generation)
+        - Performance metrics
+        
+        **Use Cases**:
+        - Detailed session inspection
+        - Debug session execution
+        - Performance analysis
+        - Timeline visualization
+      tags:
+        - Analytics
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the session to analyze"
+      responses:
+        '200':
+          description: "Detailed session analytics"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/SessionSummary'
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionEvent'
+                    description: "Chronological list of all session events"
+                  timeline:
+                    type: object
+                    properties:
+                      total_duration_seconds:
+                        type: number
+                        example: 900
+                      phases:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            phase:
+                              type: string
+                              enum: [initialization, research, report_generation]
+                            duration_seconds:
+                              type: number
+                            percentage:
+                              type: number
+                        example:
+                          - phase: "initialization"
+                            duration_seconds: 10
+                            percentage: 1.1
+                          - phase: "research"
+                            duration_seconds: 600
+                            percentage: 66.7
+        '404':
+          description: "Session not found"
+  
+  /analytics/sessions/stats:
+    get:
+      summary: "Get Aggregated Session Statistics"
+      description: |
+        **Phase 3.5.3: Analytics & Visualization**
+        
+        Retrieve aggregated statistics across all or filtered sessions.
+        
+        **Metrics included**:
+        - Total/completed/failed/running session counts
+        - Success rate
+        - Average papers per session
+        - Average queries per session
+        - Average duration
+        - Daily breakdown
+        - Top research topics
+        
+        **Use Cases**:
+        - Dashboard summary cards
+        - Performance monitoring
+        - Trend analysis
+        - User analytics
+      tags:
+        - Analytics
+      parameters:
+        - name: time_range
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, all]
+            default: 7d
+          description: "Time range for statistics calculation"
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: "Filter statistics by user ID"
+      responses:
+        '200':
+          description: "Aggregated statistics"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_range:
+                    type: string
+                    example: "7d"
+                  stats:
+                    type: object
+                    properties:
+                      total_sessions:
+                        type: integer
+                        example: 150
+                      completed_sessions:
+                        type: integer
+                        example: 120
+                      failed_sessions:
+                        type: integer
+                        example: 10
+                      running_sessions:
+                        type: integer
+                        example: 20
+                      success_rate:
+                        type: number
+                        format: float
+                        example: 80.0
+                      total_papers_collected:
+                        type: integer
+                        example: 2250
+                      total_queries_generated:
+                        type: integer
+                        example: 750
+                      avg_papers_per_session:
+                        type: number
+                        format: float
+                        example: 15.0
+                      avg_queries_per_session:
+                        type: number
+                        format: float
+                        example: 5.0
+                      avg_duration_seconds:
+                        type: number
+                        format: float
+                        example: 890
+                  daily_breakdown:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2025-10-14"
+                        sessions:
+                          type: integer
+                        completed:
+                          type: integer
+                        failed:
+                          type: integer
+                        avg_duration:
+                          type: number
+                  top_topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        topic:
+                          type: string
+                        count:
+                          type: integer
+                        avg_papers:
+                          type: number
+        '400':
+          description: "Invalid parameters"
+  
+  /analytics/papers/trends:
+    get:
+      summary: "Get Paper Collection Trends"
+      description: |
+        **Phase 3.5.3: Analytics & Visualization**
+        
+        Analyze trends in paper collection over time.
+        
+        **Metrics included**:
+        - Total/unique paper counts
+        - Papers per day timeline
+        - Top venues/publishers
+        - Papers by publication year
+        - Collection rate trends
+        
+        **Use Cases**:
+        - Trend visualization (charts)
+        - Source analysis
+        - Collection performance monitoring
+      tags:
+        - Analytics
+      parameters:
+        - name: time_range
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, all]
+            default: 7d
+          description: "Time range for trend analysis"
+      responses:
+        '200':
+          description: "Paper collection trends"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_range:
+                    type: string
+                    example: "7d"
+                  trends:
+                    type: object
+                    properties:
+                      total_papers:
+                        type: integer
+                        example: 2250
+                      unique_papers:
+                        type: integer
+                        example: 1800
+                      avg_papers_per_day:
+                        type: number
+                        example: 321
+                      papers_by_day:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            papers_count:
+                              type: integer
+                      top_venues:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            venue:
+                              type: string
+                            papers_count:
+                              type: integer
+                            percentage:
+                              type: number
+                      papers_by_year:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            year:
+                              type: integer
+                            count:
+                              type: integer
+        '400':
+          description: "Invalid parameters"
+
 components:
   schemas:
     AgentOutput:
@@ -686,3 +1171,102 @@ components:
         - version
         - content
         - created_at
+    
+    # ==================== Analytics Schemas (Phase 3.5.3) ====================
+    
+    SessionSummary:
+      type: object
+      description: "Condensed session information for analytics views"
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        thread_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          example: "vscode_user"
+        title:
+          type: string
+          example: "Research on Quantum Computing"
+        research_topic:
+          type: string
+          example: "What are the applications of quantum computing?"
+        status:
+          type: string
+          enum: [active, completed, archived, failed]
+          example: "completed"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-14T10:00:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-10-14T10:15:00Z"
+        duration_seconds:
+          type: number
+          format: float
+          nullable: true
+          example: 900.5
+        papers_count:
+          type: integer
+          example: 15
+        queries_count:
+          type: integer
+          example: 5
+        loops_count:
+          type: integer
+          example: 3
+        events_count:
+          type: integer
+          example: 42
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["quantum", "cryptography"]
+      required:
+        - session_id
+        - thread_id
+        - status
+        - created_at
+    
+    SessionEvent:
+      type: object
+      description: "Individual event in session timeline"
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          example: "agent_start"
+          description: "Type of event (agent_start, query_generated, paper_retrieved, etc.)"
+        node_name:
+          type: string
+          nullable: true
+          example: "researcher"
+          description: "Agent node that generated this event"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-14T10:00:05Z"
+        metadata:
+          type: object
+          description: "Additional event-specific data"
+          example:
+            message: "Starting research"
+            papers_found: 5
+      required:
+        - event_id
+        - session_id
+        - event_type
+        - timestamp

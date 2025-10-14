@@ -97,7 +97,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
         # Record error event
         if session_id:
             try:
-                db_manager.add_session_event(
+                db_manager.log_event(
                     session_id=session_id,
                     event_type="error_occurred",
                     event_data={
@@ -112,7 +112,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
     # Phase 3.5.2: Record query_generated event
     if session_id and search_queries:
         try:
-            db_manager.add_session_event(
+            db_manager.log_event(
                 session_id=session_id,
                 event_type="queries_generated",
                 event_data={
@@ -452,7 +452,7 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
                 print(f"[Session Management] Failed to save paper: {e}")
         
         # Record papers_collected event
-        db_manager.add_session_event(
+        db_manager.log_event(
             session_id=session_id,
             event_type="papers_collected",
             event_data={
@@ -685,7 +685,7 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
             print(f"[Session Management] Saved report version {version} (ID: {report_record['id']})")
             
             # Record report_generated event
-            db_manager.add_session_event(
+            db_manager.log_event(
                 session_id=session_id,
                 event_type="report_generated",
                 event_data={
@@ -709,7 +709,7 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
             print(f"[Session Management] Failed to persist report: {e}")
             # Record error event but don't fail the entire operation
             try:
-                db_manager.add_session_event(
+                db_manager.log_event(
                     session_id=session_id,
                     event_type="error_occurred",
                     event_data={

@@ -10,8 +10,13 @@ import {
     exportReport,
     compareReports,
     PaperDetail,
-    ReportDetail
+    ReportDetail,
+    // Phase 3.5.3 Week 3: Analytics imports
+    getSessionStats,
+    getPaperTrends,
+    getSessionsList
 } from './api';
+import { generateAnalyticsDashboardHTML } from './analyticsWebview';
 
 /**
  * Generates enhanced HTML for the AI Control Panel webview
@@ -801,6 +806,74 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Papers grouped by ${groupBy}`);
     });
 
+    // Phase 3.5.3 Week 3: Analytics Dashboard Command
+    const showAnalyticsCommand = vscode.commands.registerCommand('auto-researcher.showAnalytics', async () => {
+        try {
+            // Show loading notification
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Loading Analytics Dashboard...',
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ message: 'Fetching statistics...' });
+
+                // Default time range: 7 days
+                let currentTimeRange: '24h' | '7d' | '30d' | 'all' = '7d';
+
+                const loadDashboardData = async (timeRange: '24h' | '7d' | '30d' | 'all') => {
+                    const [stats, trends, sessions] = await Promise.all([
+                        getSessionStats(timeRange),
+                        getPaperTrends(timeRange),
+                        getSessionsList({ limit: 50, sort_by: 'created_at', order: 'desc' })
+                    ]);
+
+                    return { stats, trends, sessions };
+                };
+
+                const { stats, trends, sessions } = await loadDashboardData(currentTimeRange);
+
+                // Create webview panel
+                const panel = vscode.window.createWebviewPanel(
+                    'analyticsDashboard',
+                    '📊 Analytics Dashboard',
+                    vscode.ViewColumn.One,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true
+                    }
+                );
+
+                // Set initial HTML
+                panel.webview.html = generateAnalyticsDashboardHTML(stats, trends, sessions);
+
+                // Handle messages from webview
+                panel.webview.onDidReceiveMessage(
+                    async (message) => {
+                        switch (message.command) {
+                            case 'changeTimeRange':
+                                currentTimeRange = message.range;
+                                const newData = await loadDashboardData(currentTimeRange);
+                                panel.webview.html = generateAnalyticsDashboardHTML(newData.stats, newData.trends, newData.sessions);
+                                break;
+
+                            case 'viewSessionDetails':
+                                vscode.window.showInformationMessage(`Viewing session: ${message.sessionId.substring(0, 8)}`);
+                                // TODO: Open session details view
+                                break;
+                        }
+                    },
+                    undefined,
+                    context.subscriptions
+                );
+
+                vscode.window.showInformationMessage('Analytics Dashboard loaded successfully!');
+            });
+
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to load Analytics Dashboard: ${error}`);
+        }
+    });
+
     context.subscriptions.push(
         showControlPanelCommand,
         refreshAssetLibraryCommand,
@@ -810,7 +883,8 @@ export function activate(context: vscode.ExtensionContext) {
         viewReportCommand,
         exportReportCommand,
         compareReportsCommand,
-        changeGroupingCommand
+        changeGroupingCommand,
+        showAnalyticsCommand
     );
 
     checkHealth()

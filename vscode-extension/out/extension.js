@@ -5,6 +5,7 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = require("vscode");
 const api_1 = require("./api");
+const analyticsWebview_1 = require("./analyticsWebview");
 /**
  * Generates enhanced HTML for the AI Control Panel webview
  */
@@ -686,7 +687,56 @@ function activate(context) {
         assetLibraryProvider.setGrouping(groupMap[groupBy]);
         vscode.window.showInformationMessage(`Papers grouped by ${groupBy}`);
     });
-    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand);
+    // Phase 3.5.3 Week 3: Analytics Dashboard Command
+    const showAnalyticsCommand = vscode.commands.registerCommand('auto-researcher.showAnalytics', async () => {
+        try {
+            // Show loading notification
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Loading Analytics Dashboard...',
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ message: 'Fetching statistics...' });
+                // Default time range: 7 days
+                let currentTimeRange = '7d';
+                const loadDashboardData = async (timeRange) => {
+                    const [stats, trends, sessions] = await Promise.all([
+                        (0, api_1.getSessionStats)(timeRange),
+                        (0, api_1.getPaperTrends)(timeRange),
+                        (0, api_1.getSessionsList)({ limit: 50, sort_by: 'created_at', order: 'desc' })
+                    ]);
+                    return { stats, trends, sessions };
+                };
+                const { stats, trends, sessions } = await loadDashboardData(currentTimeRange);
+                // Create webview panel
+                const panel = vscode.window.createWebviewPanel('analyticsDashboard', '📊 Analytics Dashboard', vscode.ViewColumn.One, {
+                    enableScripts: true,
+                    retainContextWhenHidden: true
+                });
+                // Set initial HTML
+                panel.webview.html = (0, analyticsWebview_1.generateAnalyticsDashboardHTML)(stats, trends, sessions);
+                // Handle messages from webview
+                panel.webview.onDidReceiveMessage(async (message) => {
+                    switch (message.command) {
+                        case 'changeTimeRange':
+                            currentTimeRange = message.range;
+                            const newData = await loadDashboardData(currentTimeRange);
+                            panel.webview.html = (0, analyticsWebview_1.generateAnalyticsDashboardHTML)(newData.stats, newData.trends, newData.sessions);
+                            break;
+                        case 'viewSessionDetails':
+                            vscode.window.showInformationMessage(`Viewing session: ${message.sessionId.substring(0, 8)}`);
+                            // TODO: Open session details view
+                            break;
+                    }
+                }, undefined, context.subscriptions);
+                vscode.window.showInformationMessage('Analytics Dashboard loaded successfully!');
+            });
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to load Analytics Dashboard: ${error}`);
+        }
+    });
+    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand);
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);

@@ -46,6 +46,7 @@ class Session(Base):
     research_topic = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    completed_at = Column(DateTime, nullable=True, comment="Timestamp when session completed")
     status = Column(
         String(50), 
         default='active',

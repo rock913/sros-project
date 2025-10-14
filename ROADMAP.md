@@ -87,61 +87,73 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 **Milestone M1 (Week 2):** Complete session management infrastructure with full CRUD operations and persistent storage.
 
-#### Phase 3.5.2: Literature Library & Report History (Weeks 3-4)
+#### Phase 3.5.2: Literature Library & Report History (Weeks 3-4) ✅ COMPLETE
+
+**Status:** ✅ Completed on 2025-10-13  
 **Objective:** Implement comprehensive historical tracking for papers and reports.
 
-1.  **Backend API - Paper Management:**
-    -   `GET /papers` - List all papers with advanced filtering (session, source, date, keyword)
-    -   `GET /papers/{paper_id}` - Detailed paper information
-    -   `GET /papers/export` - Export to BibTeX/RIS/JSON formats
-    -   Implement full-text search across titles/abstracts
+1.  **Backend API - Paper Management:** ✅
+    -   ✅ `GET /papers` - List all papers with advanced filtering (session, source, date, keyword)
+    -   ✅ `GET /papers/{paper_id}` - Detailed paper information
+    -   ✅ `GET /papers/export` - Export to BibTeX/RIS/JSON formats
+    -   ✅ Implement full-text search across titles/abstracts
 
-2.  **Backend API - Report Management:**
-    -   `GET /reports` - List all report versions
-    -   `GET /reports/{report_id}` - Retrieve specific report version
-    -   `GET /sessions/{session_id}/reports/latest` - Get most recent report
-    -   `GET /reports/{id1}/compare/{id2}` - Generate diff between report versions
-    -   `GET /reports/{report_id}/export` - Export to Markdown/HTML/PDF
+2.  **Backend API - Report Management:** ✅
+    -   ✅ `GET /reports` - List all report versions
+    -   ✅ `GET /reports/{report_id}` - Retrieve specific report version
+    -   ✅ `GET /sessions/{session_id}/reports/latest` - Get most recent report
+    -   ✅ `GET /reports/compare` - Generate diff between report versions (query params: report_id_1, report_id_2)
+    -   ✅ `GET /reports/{report_id}/export` - Export to Markdown/HTML/PDF (PDF returns 501)
 
-3.  **Frontend - Enhanced Library TreeView:**
-    -   Refactor `AssetLibraryProvider` to display all historical papers
-    -   Multi-dimensional grouping (by session, source, date, author)
-    -   Paper detail Webview with full metadata
-    -   Context menu: Export, View Details, Open URL, Copy Citation
+3.  **Frontend - Enhanced Library TreeView:** ✅
+    -   ✅ Refactor `AssetLibraryProvider` to display all historical papers
+    -   ✅ Multi-dimensional grouping (by session, source, date)
+    -   ✅ Paper detail Webview with full metadata
+    -   ✅ Context menu: Export, View Details
 
-4.  **Frontend - Enhanced Documents TreeView:**
-    -   Refactor `ManuscriptProvider` to show report version history
-    -   Group by session with version indicators
-    -   Report detail Webview with Markdown rendering
-    -   Context menu: Export, Compare Versions, View Session
+4.  **Frontend - Enhanced Documents TreeView:** ✅
+    -   ✅ Refactor `ManuscriptProvider` to show report version history
+    -   ✅ Group by session with version indicators
+    -   ✅ Click to open report in markdown editor
+    -   ✅ Context menu: Export, Compare Versions
 
-**Milestone M2 (Week 4):** Complete historical literature and report management with full export capabilities.
+**Testing:** ✅
+-   ✅ Backend: 25/25 tests passed (100%)
+-   ✅ Frontend: 15/15 tests passed (100%)
+-   ✅ Test scripts: `test-phase3.5.2.sh`, `test-extension-api.sh`
+-   ✅ Documentation: `doc/PHASE_3.5.2_TESTING_GUIDE.md`
 
-#### Phase 3.5.3: Advanced Analytics & Visualization (Weeks 5-6)
+**Milestone M2 (Week 4):** ✅ Complete historical literature and report management with full export capabilities.
+
+**Git Commit:** `147ba96` - feat(phase3.5.2): complete Literature Library & Report History with 100% test coverage
+
+#### Phase 3.5.3: Advanced Analytics & Visualization (Weeks 5-6) 🚀 IN PROGRESS
+
+**Status:** 🚀 Starting 2025-10-14 (Planned completion: 2025-10-27)  
 **Objective:** Provide insights through statistical analysis and data visualization.
+
+**Detailed Plan:** See `.ai-sessions/development/2025-10-13-phase-3.5.3-analytics-planning.md`
 
 1.  **Backend API - Statistics & Analytics:**
     -   `GET /stats/global` - Overall statistics (total papers, reports, sessions)
     -   `GET /stats/trends` - Time-series data (daily/weekly activity)
     -   `GET /stats/keywords` - Keyword extraction and frequency analysis
     -   `GET /stats/authors` - Author collaboration network data
-    -   Background aggregation jobs for performance
+    -   Background aggregation jobs for performance (optional with APScheduler)
 
 2.  **Frontend - Analytics Dashboard:**
     -   Create comprehensive analytics Webview
     -   Integrate Chart.js for interactive visualizations:
         -   Research activity timeline (line chart)
         -   Paper source distribution (pie chart)
-        -   Keyword cloud visualization
-        -   Author network graph (future: D3.js)
+        -   Global statistics cards
     -   Real-time metric updates
-    -   Export analytics reports
+    -   Interval switching (daily/weekly/monthly)
 
 3.  **Frontend - Enhanced Sessions TreeView:**
     -   Expandable tree showing session → papers/reports/events
-    -   Timeline visualization within session details
-    -   Session comparison feature
-    -   Batch operations (export multiple sessions)
+    -   Session metadata display
+    -   Batch operations support
 
 **Milestone M3 (Week 6):** Complete advanced analytics with interactive visualizations and comprehensive insights.
 

@@ -106,7 +106,7 @@ export async function checkHealth() {
   try {
     const response = await axios.get(`${API_BASE_URL}/ok`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error checking backend health:', error);
     throw error;
   }
@@ -128,7 +128,7 @@ export async function getAgentState(): Promise<AgentState> {
       report: output.report || '',
       ...output,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching agent state:', error);
     // Return a default empty state on error to prevent view crashes
     return {
@@ -165,7 +165,7 @@ export async function getAllPapers(options?: {
 
     const response = await axios.get(`${API_BASE_URL}/papers?${params.toString()}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching papers:', error);
     return { papers: [], total: 0 };
   }
@@ -180,7 +180,7 @@ export async function getPaperById(paperId: string): Promise<PaperDetail | null>
   try {
     const response = await axios.get(`${API_BASE_URL}/papers/${paperId}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error fetching paper ${paperId}:`, error);
     return null;
   }
@@ -208,7 +208,7 @@ export async function exportPapers(
 
     const response = await axios.get(`${API_BASE_URL}/papers/export?${params.toString()}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error exporting papers:', error);
     throw error;
   }
@@ -241,7 +241,7 @@ export async function getAllReports(options?: {
 
     const response = await axios.get(`${API_BASE_URL}/reports?${params.toString()}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching reports:', error);
     return { reports: [], total: 0 };
   }
@@ -256,7 +256,7 @@ export async function getReportById(reportId: string): Promise<ReportDetail | nu
   try {
     const response = await axios.get(`${API_BASE_URL}/reports/${reportId}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error fetching report ${reportId}:`, error);
     return null;
   }
@@ -271,7 +271,7 @@ export async function getLatestReport(sessionId: string): Promise<ReportDetail |
   try {
     const response = await axios.get(`${API_BASE_URL}/sessions/${sessionId}/reports/latest`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error fetching latest report for session ${sessionId}:`, error);
     return null;
   }
@@ -292,7 +292,7 @@ export async function exportReport(
       `${API_BASE_URL}/reports/${reportId}/export?format=${format}`
     );
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error exporting report:', error);
     throw error;
   }
@@ -319,7 +319,7 @@ export async function compareReports(
       `${API_BASE_URL}/reports/compare?report_id_1=${reportId1}&report_id_2=${reportId2}`
     );
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error comparing reports:', error);
     return null;
   }
@@ -345,8 +345,297 @@ export async function getAllSessions(options?: {
 
     const response = await axios.get(`${API_BASE_URL}/sessions?${params.toString()}`);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching sessions:', error);
     return [];
   }
+}
+// ==================== WebSocket Streaming ====================
+
+import * as WebSocket from 'ws';
+
+export interface ResearchProgressCallback {
+  onStarted?: (data: { session_id: string; thread_id: string }) => void;
+  onProgress?: (data: { node: string; message?: string }) => void;
+  onComplete?: (data: { session_id: string; thread_id: string }) => void;
+  onError?: (error: string) => void;
+}
+
+/**
+ * Start a new research task via WebSocket streaming.
+ * @param topic - The research topic
+ * @param callbacks - Callbacks for progress updates
+ * @param threadId - Optional thread_id to resume session
+ * @returns Promise that resolves when research completes
+ */
+export async function startResearchStream(
+  topic: string,
+  callbacks: ResearchProgressCallback,
+  threadId?: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/agent/stream';
+    console.log(`[WebSocket] Connecting to ${wsUrl}...`);
+    
+    const ws = new WebSocket(wsUrl);
+
+    ws.on('open', () => {
+      console.log('[WebSocket] Connected');
+      ws.send(JSON.stringify({
+        messages: [{ role: 'user', 'content': topic }],
+        thread_id: threadId
+      }));
+    });
+
+    ws.on('message', (data: WebSocket.Data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        switch (message.type) {
+          case 'started':
+            console.log('[WebSocket] Research started:', message);
+            callbacks.onStarted?.(message);
+            break;
+          
+          case 'progress':
+            console.log('[WebSocket] Progress:', message.node);
+            callbacks.onProgress?.(message);
+            break;
+          
+          case 'complete':
+            console.log('[WebSocket] Research completed:', message);
+            callbacks.onComplete?.(message);
+            ws.close();
+            resolve();
+            break;
+          
+          case 'error':
+            console.error('[WebSocket] Error:', message.message);
+            callbacks.onError?.(message.message);
+            ws.close();
+            reject(new Error(message.message));
+            break;
+        }
+      } catch (error: any) {
+        console.error('[WebSocket] Parse error:', error);
+        callbacks.onError?.('Failed to parse server message');
+      }
+    });
+
+    ws.on('error', (error) => {
+      console.error('[WebSocket] Connection error:', error);
+      callbacks.onError?.(error.message);
+      reject(error);
+    });
+
+    ws.on('close', () => {
+      console.log('[WebSocket] Connection closed');
+    });
+  });
+}
+
+
+// ==================== Phase 3.5.3: Analytics APIs ====================
+
+/**
+ * Analytics Response Types for Dashboard
+ */
+export interface SessionSummary {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  session_id: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  thread_id: string;
+  title: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  research_topic: string;
+  status: 'active' | 'completed' | 'archived' | 'failed';
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  created_at: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  completed_at?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  duration_seconds?: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  papers_count: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  events_count: number;
+  tags: string[];
+}
+
+export interface SessionsListResponse {
+  sessions: SessionSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  has_more: boolean;
+}
+
+export interface SessionStats {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  total_sessions: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  completed_sessions: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  failed_sessions: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  running_sessions: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  success_rate: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  total_papers_collected: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  avg_papers_per_session: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  avg_duration_seconds: number;
+}
+
+export interface DailyBreakdown {
+  date: string;
+  sessions: number;
+  completed: number;
+  failed: number;
+}
+
+export interface TopTopic {
+  topic: string;
+  count: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  avg_papers: number;
+}
+
+export interface SessionStatsResponse {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  time_range: string;
+  stats: SessionStats;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  daily_breakdown: DailyBreakdown[];
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  top_topics: TopTopic[];
+}
+
+export interface PapersByDay {
+  date: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  papers_count: number;
+}
+
+export interface TopVenue {
+  venue: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  papers_count: number;
+  percentage: number;
+}
+
+export interface PapersByYear {
+  year: number;
+  count: number;
+}
+
+export interface PaperTrendsResponse {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  time_range: string;
+  trends: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    total_papers: number;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    unique_papers: number;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    avg_papers_per_day: number;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    papers_by_day: PapersByDay[];
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    top_venues: TopVenue[];
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    papers_by_year: PapersByYear[];
+  };
+}
+
+export interface SessionEvent {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  event_id: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  session_id: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  event_type: string;
+  timestamp: string;
+  metadata: any;
+}
+
+export interface TimelinePhase {
+  phase: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  duration_seconds: number;
+  percentage: number;
+}
+
+export interface SessionDetailsResponse {
+  session: SessionSummary & {
+    notes?: string;
+  };
+  events: SessionEvent[];
+  timeline: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    total_duration_seconds: number;
+    phases: TimelinePhase[];
+  };
+}
+
+/**
+ * Get paginated list of research sessions
+ */
+export async function getSessionsList(params?: {
+  limit?: number;
+  offset?: number;
+  status?: 'active' | 'completed' | 'archived';
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  sort_by?: 'created_at' | 'duration' | 'papers_count';
+  order?: 'asc' | 'desc';
+}): Promise<SessionsListResponse> {
+  const queryParams = new URLSearchParams();
+  if (params?.limit) { queryParams.append('limit', params.limit.toString()); }
+  if (params?.offset) { queryParams.append('offset', params.offset.toString()); }
+  if (params?.status) { queryParams.append('status', params.status); }
+  if (params?.sort_by) { queryParams.append('sort_by', params.sort_by); }
+  if (params?.order) { queryParams.append('order', params.order); }
+  
+  const url = `${API_BASE_URL}/analytics/sessions?${queryParams.toString()}`;
+  const response = await axios.get(url);
+  return response.data;
+}
+
+/**
+ * Get aggregated session statistics
+ */
+export async function getSessionStats(
+  timeRange: '24h' | '7d' | '30d' | 'all' = '7d'
+): Promise<SessionStatsResponse> {
+  const response = await axios.get(
+    `${API_BASE_URL}/analytics/sessions/stats?time_range=${timeRange}`
+  );
+  return response.data;
+}
+
+/**
+ * Get paper collection trends
+ */
+export async function getPaperTrends(
+  timeRange: '24h' | '7d' | '30d' | 'all' = '7d'
+): Promise<PaperTrendsResponse> {
+  const response = await axios.get(
+    `${API_BASE_URL}/analytics/papers/trends?time_range=${timeRange}`
+  );
+  return response.data;
+}
+
+/**
+ * Get detailed analytics for a specific session
+ */
+export async function getSessionDetails(
+  sessionId: string
+): Promise<SessionDetailsResponse> {
+  const response = await axios.get(
+    `${API_BASE_URL}/analytics/sessions/${sessionId}`
+  );
+  return response.data;
 }

@@ -11,6 +11,11 @@ exports.getLatestReport = getLatestReport;
 exports.exportReport = exportReport;
 exports.compareReports = compareReports;
 exports.getAllSessions = getAllSessions;
+exports.startResearchStream = startResearchStream;
+exports.getSessionsList = getSessionsList;
+exports.getSessionStats = getSessionStats;
+exports.getPaperTrends = getPaperTrends;
+exports.getSessionDetails = getSessionDetails;
 const axios_1 = require("axios");
 const API_BASE_URL = 'http://langgraph-api:8000';
 /**
@@ -245,5 +250,112 @@ async function getAllSessions(options) {
         console.error('Error fetching sessions:', error);
         return [];
     }
+}
+// ==================== WebSocket Streaming ====================
+const WebSocket = require("ws");
+/**
+ * Start a new research task via WebSocket streaming.
+ * @param topic - The research topic
+ * @param callbacks - Callbacks for progress updates
+ * @param threadId - Optional thread_id to resume session
+ * @returns Promise that resolves when research completes
+ */
+async function startResearchStream(topic, callbacks, threadId) {
+    return new Promise((resolve, reject) => {
+        const wsUrl = API_BASE_URL.replace('http', 'ws') + '/agent/stream';
+        console.log(`[WebSocket] Connecting to ${wsUrl}...`);
+        const ws = new WebSocket(wsUrl);
+        ws.on('open', () => {
+            console.log('[WebSocket] Connected');
+            ws.send(JSON.stringify({
+                messages: [{ role: 'user', 'content': topic }],
+                thread_id: threadId
+            }));
+        });
+        ws.on('message', (data) => {
+            try {
+                const message = JSON.parse(data.toString());
+                switch (message.type) {
+                    case 'started':
+                        console.log('[WebSocket] Research started:', message);
+                        callbacks.onStarted?.(message);
+                        break;
+                    case 'progress':
+                        console.log('[WebSocket] Progress:', message.node);
+                        callbacks.onProgress?.(message);
+                        break;
+                    case 'complete':
+                        console.log('[WebSocket] Research completed:', message);
+                        callbacks.onComplete?.(message);
+                        ws.close();
+                        resolve();
+                        break;
+                    case 'error':
+                        console.error('[WebSocket] Error:', message.message);
+                        callbacks.onError?.(message.message);
+                        ws.close();
+                        reject(new Error(message.message));
+                        break;
+                }
+            }
+            catch (error) {
+                console.error('[WebSocket] Parse error:', error);
+                callbacks.onError?.('Failed to parse server message');
+            }
+        });
+        ws.on('error', (error) => {
+            console.error('[WebSocket] Connection error:', error);
+            callbacks.onError?.(error.message);
+            reject(error);
+        });
+        ws.on('close', () => {
+            console.log('[WebSocket] Connection closed');
+        });
+    });
+}
+/**
+ * Get paginated list of research sessions
+ */
+async function getSessionsList(params) {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) {
+        queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset) {
+        queryParams.append('offset', params.offset.toString());
+    }
+    if (params?.status) {
+        queryParams.append('status', params.status);
+    }
+    if (params?.sort_by) {
+        queryParams.append('sort_by', params.sort_by);
+    }
+    if (params?.order) {
+        queryParams.append('order', params.order);
+    }
+    const url = `${API_BASE_URL}/analytics/sessions?${queryParams.toString()}`;
+    const response = await axios_1.default.get(url);
+    return response.data;
+}
+/**
+ * Get aggregated session statistics
+ */
+async function getSessionStats(timeRange = '7d') {
+    const response = await axios_1.default.get(`${API_BASE_URL}/analytics/sessions/stats?time_range=${timeRange}`);
+    return response.data;
+}
+/**
+ * Get paper collection trends
+ */
+async function getPaperTrends(timeRange = '7d') {
+    const response = await axios_1.default.get(`${API_BASE_URL}/analytics/papers/trends?time_range=${timeRange}`);
+    return response.data;
+}
+/**
+ * Get detailed analytics for a specific session
+ */
+async function getSessionDetails(sessionId) {
+    const response = await axios_1.default.get(`${API_BASE_URL}/analytics/sessions/${sessionId}`);
+    return response.data;
 }
 //# sourceMappingURL=api.js.map
