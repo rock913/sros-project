@@ -207,10 +207,47 @@ export function generateAnalyticsDashboardHTML(
             background-color: #9e9e9e;
             color: white;
         }
+        
+        /* Loading Indicator */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 80vh;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--vscode-textLink-foreground);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: var(--vscode-descriptionForeground);
+        }
+        
+        #dashboard { display: none; }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading-container">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading analytics data...</p>
+    </div>
+    
+    <!-- Dashboard Content -->
+    <div id="dashboard" class="dashboard-container">
         <div class="header">
             <h1>📊 Research Analytics Dashboard</h1>
             <div class="time-range-selector">
@@ -429,6 +466,14 @@ export function generateAnalyticsDashboardHTML(
         function viewSessionDetails(sessionId) {
             vscode.postMessage({ command: 'viewSessionDetails', sessionId: sessionId });
         }
+        
+        // Hide loading indicator and show dashboard after charts are rendered
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            }, 300); // Small delay to ensure Chart.js is fully initialized
+        });
     </script>
 </body>
 </html>`;

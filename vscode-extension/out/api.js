@@ -284,6 +284,11 @@ async function startResearchStream(topic, callbacks, threadId) {
                         console.log('[WebSocket] Progress:', message.node);
                         callbacks.onProgress?.(message);
                         break;
+                    // Phase 3.6 Week 3: Document collaboration - handle document updates
+                    case 'document_update':
+                        console.log('[WebSocket] Document update:', message.action, 'paragraph', message.paragraph_index);
+                        callbacks.onDocumentUpdate?.(message);
+                        break;
                     case 'complete':
                         console.log('[WebSocket] Research completed:', message);
                         callbacks.onComplete?.(message);

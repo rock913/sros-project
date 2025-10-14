@@ -1166,8 +1166,21 @@ async def stream_agent_progress(websocket: WebSocket):
             differ = DocumentDiffer()
             last_report_version = ""
             
+            # 💓 WebSocket heartbeat mechanism to prevent timeout
+            import time
+            last_heartbeat = time.time()
+            HEARTBEAT_INTERVAL = 30  # Send heartbeat every 30 seconds
+            
             # Use astream to get state updates after each node
             async for chunk in graph.astream(input_data, config=config):
+                # Check if we need to send a heartbeat
+                current_time = time.time()
+                if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
+                    await websocket.send_json({
+                        "type": "heartbeat",
+                        "timestamp": datetime.utcnow().isoformat()
+                    })
+                    last_heartbeat = current_time
                 # chunk is a dict with node name as key
                 for node_name, state_update in chunk.items():
                     # Send progress update
