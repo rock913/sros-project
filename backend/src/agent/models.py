@@ -59,6 +59,7 @@ class Session(Base):
     papers = relationship("Paper", back_populates="session", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="session", cascade="all, delete-orphan")
     events = relationship("SessionEvent", back_populates="session", cascade="all, delete-orphan")
+    hitl_decisions = relationship("HITLDecision", back_populates="session", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('idx_sessions_thread_id', 'thread_id'),
@@ -198,4 +199,83 @@ class SessionEvent(Base):
             'event_type': self.event_type,
             'event_data': self.event_data or {},
             'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class HITLDecision(Base):
+    """
+    Human-in-the-Loop (HITL) Decision Record
+    
+    Phase 3.6: Stores user decisions made during AI research sessions
+    at critical intervention points.
+    """
+    __tablename__ = "hitl_decisions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(
+        UUID(as_uuid=True), 
+        ForeignKey("sessions.id", ondelete="CASCADE"), 
+        nullable=False
+    )
+    request_id = Column(
+        String(255), 
+        nullable=False, 
+        unique=True,
+        comment="Unique identifier for this HITL request"
+    )
+    decision_type = Column(
+        String(50), 
+        nullable=False,
+        comment="Type: query_approval, paper_selection, report_revision"
+    )
+    prompt = Column(Text, nullable=False, comment="Question/prompt shown to user")
+    options = Column(JSONB, nullable=False, comment="Available options array")
+    user_decision = Column(String(255), nullable=True, comment="User's chosen option")
+    modified_data = Column(JSONB, nullable=True, comment="User-modified data if applicable")
+    context = Column(JSONB, nullable=True, comment="Additional context for display")
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    responded_at = Column(DateTime, nullable=True, comment="When user responded")
+    timeout_seconds = Column(Integer, default=300, comment="Timeout in seconds (default 5 min)")
+    
+    # Relationships
+    session = relationship("Session", back_populates="hitl_decisions")
+    
+    __table_args__ = (
+        Index('idx_hitl_session_id', 'session_id'),
+        Index('idx_hitl_request_id', 'request_id'),
+        Index('idx_hitl_decision_type', 'decision_type'),
+        Index('idx_hitl_created_at', 'created_at'),
+    )
+    
+    @property
+    def is_pending(self) -> bool:
+        """Check if this decision is still waiting for user response"""
+        return self.user_decision is None and self.responded_at is None
+    
+    @property
+    def is_timeout(self) -> bool:
+        """Check if this decision has timed out"""
+        if self.is_pending and self.timeout_seconds:
+            from datetime import datetime
+            elapsed = (datetime.utcnow() - self.created_at).total_seconds()
+            return elapsed > self.timeout_seconds
+        return False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            'id': str(self.id),
+            'session_id': str(self.session_id),
+            'request_id': self.request_id,
+            'decision_type': self.decision_type,
+            'prompt': self.prompt,
+            'options': self.options or [],
+            'user_decision': self.user_decision,
+            'modified_data': self.modified_data,
+            'context': self.context,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'responded_at': self.responded_at.isoformat() if self.responded_at else None,
+            'timeout_seconds': self.timeout_seconds,
+            'is_pending': self.is_pending,
+            'is_timeout': self.is_timeout,
         }

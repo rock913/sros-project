@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from uuid import UUID, uuid4
 from datetime import datetime
+from sqlalchemy import text
 
 # Correctly import the 'graph' object from agent.graph
 from agent.graph import graph
@@ -773,6 +774,205 @@ def get_papers_trends(
         raise HTTPException(status_code=500, detail=f"Error analyzing paper trends: {str(e)}")
 
 
+# ============================================================================
+# HITL (Human-in-the-Loop) Endpoints - Phase 3.6
+# ============================================================================
+
+@app.post("/agent/hitl/respond", tags=["HITL"])
+async def respond_to_hitl(
+    request_id: str = Query(..., description="HITL request ID"),
+    decision: str = Query(..., description="User's decision (approve/reject/modify/etc)"),
+    modified_data: Optional[Dict[str, Any]] = None
+):
+    """
+    Phase 3.6: Respond to a Human-in-the-Loop decision request.
+    
+    This endpoint is called when the user makes a decision on a HITL request
+    (e.g., approving queries, selecting papers, revising report).
+    
+    Args:
+        request_id: Unique identifier for the HITL request
+        decision: User's decision (approve, reject, modify, select_all, select_subset, revise)
+        modified_data: Optional modified data (e.g., modified queries, selected paper IDs, feedback)
+    
+    Returns:
+        Success confirmation and next steps
+    """
+    try:
+        from agent.models import HITLDecision
+        from agent.database import get_db_connection
+        from datetime import datetime
+        
+        # 1. Find the HITL decision record
+        with get_db_connection() as session:
+            hitl_record = session.query(HITLDecision).filter(
+                HITLDecision.request_id == request_id
+            ).first()
+            
+            if not hitl_record:
+                raise HTTPException(status_code=404, detail=f"HITL request {request_id} not found")
+            
+            if not hitl_record.is_pending:
+                raise HTTPException(status_code=400, detail=f"HITL request {request_id} already responded")
+            
+            # 2. Update the record with user's decision
+            hitl_record.user_decision = decision
+            hitl_record.modified_data = modified_data
+            hitl_record.responded_at = datetime.utcnow()
+            session.commit()
+            
+            session_id = str(hitl_record.session_id)
+            thread_id_result = session.execute(
+                text("SELECT thread_id FROM sessions WHERE id = :session_id"),
+                {"session_id": hitl_record.session_id}
+            ).fetchone()
+            
+            if not thread_id_result:
+                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            
+            thread_id = str(thread_id_result[0])
+        
+        # 3. Resume LangGraph execution with user's response
+        # We need to update the graph state with user's response
+        # This will be handled by the graph's interrupt/resume mechanism
+        
+        # For now, we'll use graph.aupdate_state to inject the user's response
+        from agent.graph import graph
+        
+        # Prepare state update with user's response
+        state_update = {
+            "hitl_response": {
+                "request_id": request_id,
+                "decision": decision,
+                "modified_data": modified_data,
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            "hitl_pending": False  # Clear pending flag
+        }
+        
+        # Update graph state and resume execution
+        config = {
+            "configurable": {
+                "thread_id": thread_id
+            }
+        }
+        
+        # Use graph.update_state to inject user's response
+        # This will resume the graph from the interrupt point
+        await graph.aupdate_state(config, state_update)
+        
+        return {
+            "success": True,
+            "message": f"HITL response recorded for request {request_id}",
+            "decision": decision,
+            "session_id": session_id,
+            "thread_id": thread_id,
+            "next_action": "Graph execution will resume automatically"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing HITL response: {str(e)}")
+
+
+@app.get("/agent/hitl/pending", tags=["HITL"])
+async def get_pending_hitl(
+    session_id: str = Query(..., description="Session UUID")
+):
+    """
+    Phase 3.6: Get all pending HITL requests for a session.
+    
+    Useful for:
+    - Reconnecting after disconnect
+    - Checking if user action is needed
+    - Displaying pending decisions in UI
+    
+    Args:
+        session_id: Session UUID
+    
+    Returns:
+        List of pending HITL requests
+    """
+    try:
+        from agent.models import HITLDecision
+        from agent.database import get_db_connection
+        from uuid import UUID
+        
+        session_uuid = UUID(session_id)
+        
+        with get_db_connection() as session:
+            pending_requests = session.query(HITLDecision).filter(
+                HITLDecision.session_id == session_uuid,
+                HITLDecision.user_decision.is_(None),
+                HITLDecision.responded_at.is_(None)
+            ).order_by(HITLDecision.created_at.desc()).all()
+            
+            return {
+                "session_id": session_id,
+                "pending_count": len(pending_requests),
+                "requests": [
+                    {
+                        "request_id": r.request_id,
+                        "decision_type": r.decision_type,
+                        "prompt": r.prompt,
+                        "options": r.options,
+                        "context": r.context,
+                        "created_at": r.created_at.isoformat(),
+                        "timeout_seconds": r.timeout_seconds,
+                        "is_timeout": r.is_timeout
+                    }
+                    for r in pending_requests
+                ]
+            }
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session UUID format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving pending HITL requests: {str(e)}")
+
+
+@app.get("/agent/hitl/history", tags=["HITL"])
+async def get_hitl_history(
+    session_id: str = Query(..., description="Session UUID"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of records to return")
+):
+    """
+    Phase 3.6: Get HITL decision history for a session.
+    
+    Returns all HITL decisions (pending and completed) for analytics and review.
+    
+    Args:
+        session_id: Session UUID
+        limit: Maximum number of records
+    
+    Returns:
+        List of HITL decisions with timestamps and outcomes
+    """
+    try:
+        from agent.models import HITLDecision
+        from agent.database import get_db_connection
+        from uuid import UUID
+        
+        session_uuid = UUID(session_id)
+        
+        with get_db_connection() as session:
+            history = session.query(HITLDecision).filter(
+                HITLDecision.session_id == session_uuid
+            ).order_by(HITLDecision.created_at.desc()).limit(limit).all()
+            
+            return {
+                "session_id": session_id,
+                "total_count": len(history),
+                "history": [r.to_dict() for r in history]
+            }
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session UUID format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving HITL history: {str(e)}")
+
+
 @app.get("/reports/{report_id}", tags=["Reports"])
 def get_report_details(report_id: str = Path(..., description="Report UUID")):
     """Get detailed information for a specific report."""
@@ -966,7 +1166,7 @@ async def stream_agent_progress(websocket: WebSocket):
             "thread_id": thread_id
         }
         
-        # 8. Run agent execution 
+        # 8. Run agent execution with HITL streaming
         # Note: Using sync invoke in executor due to PostgresSaver not supporting async operations
         await websocket.send_json({
             "type": "progress",
@@ -974,20 +1174,77 @@ async def stream_agent_progress(websocket: WebSocket):
             "message": "Starting research agent..."
         })
         
-        # Run sync invoke in thread pool
-        import asyncio
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: graph.invoke(input_data, config=config)
-        )
+        # Stream graph execution using astream_events for fine-grained control
+        # This allows us to detect HITL requests in real-time
+        async def stream_with_hitl_detection():
+            """Stream graph execution and detect HITL requests"""
+            final_result = None
+            
+            # Use astream to get state updates after each node
+            async for chunk in graph.astream(input_data, config=config):
+                # chunk is a dict with node name as key
+                for node_name, state_update in chunk.items():
+                    # Send progress update
+                    await websocket.send_json({
+                        "type": "progress",
+                        "node": node_name,
+                        "message": f"Processing {node_name}..."
+                    })
+                    
+                    # 🔔 HITL Detection: Check if node set hitl_pending flag
+                    if state_update.get("hitl_pending"):
+                        hitl_request = state_update.get("hitl_request", {})
+                        
+                        # Send HITL request to frontend
+                        await websocket.send_json({
+                            "type": "hitl_request",
+                            "request_id": hitl_request.get("request_id"),
+                            "decision_type": hitl_request.get("decision_type"),
+                            "prompt": hitl_request.get("prompt"),
+                            "options": hitl_request.get("options", []),
+                            "context": hitl_request.get("context", {}),
+                            "timeout_seconds": hitl_request.get("timeout_seconds", 300),
+                            "session_id": session_id,
+                            "thread_id": thread_id
+                        })
+                        
+                        # Log HITL request
+                        db_manager.log_event(
+                            session_id=session_id,
+                            event_type="hitl_request_sent",
+                            event_data={
+                                "request_id": hitl_request.get("request_id"),
+                                "decision_type": hitl_request.get("decision_type"),
+                                "timestamp": datetime.utcnow().isoformat()
+                            }
+                        )
+                        
+                        # Graph will pause here (conditional edge returns [])
+                        # Execution will resume when user calls /agent/hitl/respond
+                        print(f"[HITL] Sent request {hitl_request.get('request_id')} to frontend")
+                    
+                    # Check if research was stopped by user
+                    if state_update.get("stop_research"):
+                        await websocket.send_json({
+                            "type": "research_stopped",
+                            "message": "Research stopped by user decision"
+                        })
+                        return state_update  # Early exit
+                    
+                    final_result = state_update
+            
+            return final_result
         
-        # Send completion with result summary
-        await websocket.send_json({
-            "type": "progress",
-            "node": "agent_complete",
-            "message": f"Research completed. Found {len(result.get('literature_abstracts', []))} papers."
-        })
+        # Execute with HITL detection
+        result = await stream_with_hitl_detection()
+        
+        # Send completion with result summary (if not stopped)
+        if not result.get("stop_research"):
+            await websocket.send_json({
+                "type": "progress",
+                "node": "agent_complete",
+                "message": f"Research completed. Found {len(result.get('literature_abstracts', []))} papers."
+            })
         
         # 9. Update session status
         db_manager.update_session(session_id, status="completed")

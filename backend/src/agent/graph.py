@@ -727,31 +727,111 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
 # Define the graph
 builder = StateGraph(AgentState)
 
+# Import HITL nodes (Phase 3.6)
+from agent.hitl_nodes import query_approval_node, paper_selection_node, report_revision_node
+
 builder.add_node("generate_initial_queries", generate_initial_queries)
+builder.add_node("query_approval", query_approval_node)  # Phase 3.6: HITL Node 1
 builder.add_node("execute_searches", execute_searches) # This will now be the parallel node
 builder.add_node("reflection_and_refinement", reflection_and_refinement)
+builder.add_node("paper_selection", paper_selection_node)  # Phase 3.6: HITL Node 2
 builder.add_node("automated_resource_management", automated_resource_management)
 builder.add_node("ingest_and_embed_documents", ingest_and_embed_documents)
 builder.add_node("retrieve_and_synthesize_report", retrieve_and_synthesize_report)
+builder.add_node("report_revision", report_revision_node)  # Phase 3.6: HITL Node 3
 
 # Build the graph edges
 builder.add_edge(START, "generate_initial_queries")
 
-# This creates the parallel branching.
+# Phase 3.6: Add query approval after initial query generation
+builder.add_edge("generate_initial_queries", "query_approval")
+
+# Conditional edge after query approval - check if we should proceed
+def check_query_approval_and_continue(state: AgentState):
+    """
+    Check query approval status and decide next action
+    
+    Returns:
+    - Send objects for parallel search if approved
+    - END if rejected or need to wait
+    """
+    if state.get("stop_research"):
+        # User rejected queries
+        return []
+    
+    if state.get("hitl_pending"):
+        # Still waiting for user response - return empty to pause
+        return []
+    
+    # Approved - proceed with parallel searches
+    return [Send("execute_searches", {"search_queries": [q]}) for q in state["search_queries"]]
+
 builder.add_conditional_edges(
-    "generate_initial_queries",
-    continue_to_web_research
+    "query_approval",
+    check_query_approval_and_continue
 )
 builder.add_edge("execute_searches", "reflection_and_refinement")
 
+# Phase 3.6: Add paper selection after reflection
+builder.add_edge("reflection_and_refinement", "paper_selection")
+
+# Conditional edge after paper selection - check if sufficient or loop
+def check_paper_selection_and_continue(state: AgentState):
+    """
+    Check paper selection status and decide next action
+    
+    Returns:
+    - "generate_initial_queries" if need more papers (loop back)
+    - "automated_resource_management" if sufficient
+    - END if user rejected or error
+    """
+    if state.get("hitl_pending"):
+        # Still waiting for user response
+        return END  # Pause execution
+    
+    if state.get("stop_research"):
+        # User rejected papers
+        return END
+    
+    # Check if research is sufficient
+    if state.get("is_sufficient"):
+        return "automated_resource_management"
+    else:
+        # Need more papers - loop back
+        return "generate_initial_queries"
+
 builder.add_conditional_edges(
-    "reflection_and_refinement",
-    should_continue_searching,
+    "paper_selection",
+    check_paper_selection_and_continue,
+    ["generate_initial_queries", "automated_resource_management", END]
 )
 
 builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
 builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
-builder.add_edge("retrieve_and_synthesize_report", END)
+
+# Phase 3.6: Add report revision after synthesis
+builder.add_edge("retrieve_and_synthesize_report", "report_revision")
+
+# Conditional edge after report revision - final decision
+def check_report_revision(state: AgentState):
+    """
+    Check report revision status and decide if complete
+    
+    Returns:
+    - END when report approved or user stopped
+    """
+    if state.get("hitl_pending"):
+        # Still waiting for user response
+        return END  # Pause (will resume when user responds)
+    
+    if state.get("final_report") or state.get("stop_research"):
+        # Report approved or research stopped
+        return END
+    
+    # Fallback
+    return END
+
+builder.add_conditional_edges("report_revision", check_report_revision)
 
 # Initialize PostgresSaver checkpointer for state persistence
 # This enables multi-session support via thread_id
