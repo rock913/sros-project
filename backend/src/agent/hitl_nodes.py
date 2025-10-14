@@ -77,44 +77,40 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
     4. Wait for user response (interrupt execution)
     5. Resume with user's decision
     """
-    queries = state.get("queries", [])
+    queries = state.get("search_queries", [])  # Use correct state field name
     research_topic = state.get("research_topic", "")
-    
-    # Extract session_id from config (set by FastAPI app)
-    session_id = config.get("configurable", {}).get("session_id")
-    
-    if not session_id:
-        # Fallback: no HITL, auto-approve
-        print("⚠️ No session_id in config, skipping HITL")
-        return {
-            "messages": [AIMessage(content="Query approval skipped (no session)")],
-            "hitl_approved": True
-        }
+    session_id = state.get("session_id")
     
     # Check if user has already responded (resuming from interrupt)
     hitl_response = state.get("hitl_response")
     if hitl_response:
-        decision = hitl_response.get("decision")
+        decision = hitl_response.get("user_decision")  # Consistent with other nodes
         modified_data = hitl_response.get("modified_data")
         
         if decision == "approve":
             return {
                 "messages": [AIMessage(content="✅ User approved queries")],
-                "hitl_approved": True
+                "hitl_approved": True,
+                "hitl_pending": False,
+                "hitl_response": None
             }
         elif decision == "reject":
             return {
                 "messages": [AIMessage(content="❌ User rejected queries, terminating")],
                 "hitl_approved": False,
+                "hitl_pending": False,
+                "hitl_response": None,
                 "stop_research": True
             }
         elif decision == "modify" and modified_data:
             # User provided modified queries
             modified_queries = modified_data.get("queries", queries)
             return {
-                "queries": modified_queries,
+                "search_queries": modified_queries,  # Use correct state field
                 "messages": [AIMessage(content=f"✏️ User modified queries: {modified_queries}")],
-                "hitl_approved": True
+                "hitl_approved": True,
+                "hitl_pending": False,
+                "hitl_response": None
             }
     
     # First time reaching this node - create HITL request
@@ -245,7 +241,7 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         "hitl_pending": True,
         "hitl_request": {
             "request_id": request_id,
-            "decision_type": "paper_selection",
+            "type": "paper_selection",  # Consistent with query_approval_node
             "prompt": f"发现 {len(papers)} 篇论文。请选择要深入分析的论文：",
             "options": ["select_all", "select_subset", "reject"],
             "context": {
@@ -352,7 +348,7 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         "hitl_pending": True,
         "hitl_request": {
             "request_id": request_id,
-            "decision_type": "report_revision",
+            "type": "report_revision",  # Consistent with other nodes
             "prompt": "请审核生成的研究报告：",
             "options": ["approve", "modify", "reject"],
             "context": {
