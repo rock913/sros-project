@@ -592,6 +592,116 @@ paths:
                   detail:
                     type: string
   
+  /sessions/{session_id}/details:
+    get:
+      summary: "Get Comprehensive Session Details"
+      description: |
+        **Phase 3.5.4: Production Readiness**
+        
+        Retrieve comprehensive information about a research session including:
+        - Basic session metadata (title, status, timestamps)
+        - Event timeline (50 most recent events)
+        - All papers collected during the session
+        - All report versions generated
+        - Aggregated statistics (duration, cost estimate)
+        
+        This endpoint is designed for the Session Details View in the VS Code extension,
+        providing a complete overview of a research session's lifecycle and outputs.
+      tags:
+        - Sessions
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "The UUID of the session"
+      responses:
+        '200':
+          description: "Comprehensive session details retrieved successfully"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/Session'
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionEvent'
+                    description: "Timeline of session events (max 50 most recent)"
+                  papers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Paper'
+                    description: "All papers collected in this session"
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                    description: "All report versions for this session"
+                  stats:
+                    type: object
+                    description: "Aggregated session statistics"
+                    properties:
+                      total_events:
+                        type: integer
+                        description: "Total number of events recorded"
+                        example: 45
+                      duration_seconds:
+                        type: integer
+                        description: "Session duration from first to last event (seconds)"
+                        example: 780
+                      paper_count:
+                        type: integer
+                        description: "Number of papers collected"
+                        example: 25
+                      report_count:
+                        type: integer
+                        description: "Number of report versions generated"
+                        example: 3
+                      status:
+                        type: string
+                        description: "Current session status"
+                        enum: [pending, running, completed, failed, archived]
+                        example: "completed"
+                      cost_estimate:
+                        type: number
+                        format: float
+                        description: "Estimated cost based on LLM token usage ($0.01/1000 tokens)"
+                        example: 0.0045
+        '400':
+          description: "Invalid UUID format"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "Invalid UUID format"
+        '404':
+          description: "Session not found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "Session 4565e1f6-1c57-4658-a603-0ea242ffb241 not found"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+  
   /reports/{report_id}/export:
     get:
       summary: "Export Report"
