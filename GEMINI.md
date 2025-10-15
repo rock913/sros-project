@@ -19,6 +19,48 @@ All development and debugging tasks **must** follow a unified **Session-Driven W
 The authoritative guide for this process is:
 - **Unified Workflow**: `doc/WORKFLOW_STRATEGY.md`
 
+### Session File Naming Convention (Updated 2025-10-15 14:00)
+
+All session files **must** follow the standardized naming format to ensure chronological traceability:
+
+**Format**: `YYYY-MM-DD-HHmm-phase-X.Y-<category>-<description>.md`
+
+**Components**:
+1. **DateTime Prefix**: `YYYY-MM-DD-HHmm` (ISO 8601 format, 24-hour clock, UTC+0)
+   - Example: `2025-10-15-1430` = October 15, 2025, 14:30 UTC
+2. **Phase Identifier**: `phase-X.Y` (e.g., `phase-3.6`, `phase-4.1`)
+3. **Category Tag**: One of: `plan`, `progress`, `report`, `test`, `debug`, `analysis`, `summary`, `reference`
+4. **Description**: kebab-case, 1-5 words describing the session focus
+
+**Examples**:
+- `2025-10-14-0900-phase-3.6-progress-day1-backend-hitl.md` - Morning progress log for backend HITL development
+- `2025-10-14-1430-phase-3.6-test-unit-hitl-nodes.md` - Afternoon unit test report for HITL nodes
+- `2025-10-15-1000-phase-3.6-analysis-progress-optimization.md` - Analysis of development progress vs plan
+- `2025-10-20-1800-phase-3.6-summary-complete.md` - Final completion summary for Phase 3.6
+
+**Category Definitions**:
+| Category | Purpose | Frequency |
+|----------|---------|-----------|
+| `plan` | Implementation plans | 1-2 per phase |
+| `progress` | Daily/incremental progress logs | 1-3 per day |
+| `report` | Completion reports | 1 per milestone |
+| `test` | Test execution reports | As needed |
+| `debug` | Debugging session logs | As needed |
+| `analysis` | Strategic/retrospective analysis | 1-2 per week |
+| `summary` | Phase/project summaries | 1 per phase |
+| `reference` | Quick reference guides | 1-2 per phase |
+
+**Why This Format?**
+1. **Chronological Sorting**: Files naturally sort by creation date (`ls` or file browser)
+2. **Phase Grouping**: Easy to filter files by `grep "phase-3.6"`
+3. **Category Filtering**: Quick search for specific document types (`grep "test"`)
+4. **Self-Documenting**: Filename alone provides context (date + phase + purpose)
+5. **Git-Friendly**: Avoids special characters, safe for all operating systems
+
+**Legacy Files**: Existing files with old naming formats (e.g., `PHASE_3.6_DAY1_PROGRESS.md`) are preserved as-is to maintain Git history. A mapping index is available in `.ai-sessions/development/README.md`.
+
+**Legacy Files**: Existing files with old naming formats (e.g., `PHASE_3.6_DAY1_PROGRESS.md`) are preserved as-is to maintain Git history. A mapping index is available in `.ai-sessions/development/README.md`.
+
 ### Principle 0: API Contract First
 
 For any task involving interaction between the frontend (VS Code extension) and the backend (Python agent), you **must** adhere to the **API Contract First** principle.

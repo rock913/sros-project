@@ -10,16 +10,160 @@
 
 所有会话日志都必须存储在项目根目录的 `/.ai-sessions/` 文件夹下，以确保所有工作的集中管理和可发现性。
 
+### 标准化命名格式（2025-10-15 14:00 更新）
+
+**通用格式**: `YYYY-MM-DD-HHmm-phase-X.Y-<category>-<description>.md`
+
+**组成部分**:
+1. **日期时间前缀**: `YYYY-MM-DD-HHmm` (ISO 8601 格式，24小时制，UTC+0)
+   - 示例: `2025-10-15-1430` = 2025年10月15日 14:30 UTC
+   - 用途: 确保文件按精确创建时间自然排序，支持同一天多次会话
+   
+2. **阶段标识**: `phase-X.Y` (小写，用连字符)
+   - 示例: `phase-3.6`, `phase-4.1`, `phase-5.0`
+   - 用途: 快速识别文件所属开发阶段
+   
+3. **类别标签**: `<category>` (单个单词，小写)
+   - 可选值: `plan`, `progress`, `report`, `test`, `debug`, `analysis`, `summary`, `reference`
+   - 用途: 区分文档类型和用途
+   
+4. **描述**: `<description>` (kebab-case，1-5个单词)
+   - 示例: `day1-backend-hitl`, `unit-hitl-nodes`, `progress-optimization`
+   - 用途: 简洁描述会话具体内容
+
+### 类别详细定义
+
+#### `plan` - 实施计划
+-   **用途**: 用于记录阶段或功能的详细实施计划
+-   **频率**: 每个阶段开始时 1-2 个
+-   **命名示例**:
+    - `2025-10-14-phase-3.6-plan-implementation-guide.md` - Phase 3.6 总体实施指南
+    - `2025-10-15-phase-3.6-plan-week3-document-collaboration.md` - Week 3 文档协作计划
+-   **典型内容**:
+    - 阶段目标和成功标准
+    - 任务分解（按天/周）
+    - 技术设计概要
+    - 依赖和风险评估
+
+#### `progress` - 日常进度
+-   **用途**: 用于记录每天或每个里程碑的开发进度
+-   **频率**: 每天 1-3 个（取决于工作复杂度）
+-   **命名示例**:
+    - `2025-10-14-0900-phase-3.6-progress-day1-backend-hitl.md` - 上午的 Day 1 后端 HITL 开发进度
+    - `2025-10-14-1430-phase-3.6-progress-day2-frontend-ui.md` - 下午的 Day 2 前端 UI 开发进度
+    - `2025-10-15-1000-phase-3.6-progress-day4-streaming-protocol.md` - 上午的 Day 4 流式协议开发
+-   **典型内容**:
+    - 当天完成的任务列表
+    - 遇到的问题和解决方案
+    - 代码变更摘要
+    - 下一步行动计划
+
+#### `report` - 完成报告
+-   **用途**: 用于记录阶段、周或重大里程碑的完成情况
+-   **频率**: 每个里程碑 1 个
+-   **命名示例**:
+    - `2025-10-14-1800-phase-3.6-report-week1-2-hitl-complete.md` - Week 1-2 HITL 功能完成报告
+    - `2025-10-20-1700-phase-3.6-report-final-completion.md` - Phase 3.6 最终完成报告
+-   **典型内容**:
+    - 交付成果统计
+    - 质量指标（测试覆盖率、bug 数量）
+    - 时间对比（计划 vs 实际）
+    - 经验教训和下一步建议
+
+#### `test` - 测试报告
+-   **用途**: 用于记录单元测试、集成测试、E2E 测试的执行结果
+-   **频率**: 每次重要测试执行后创建
+-   **命名示例**:
+    - `2025-10-14-1530-phase-3.6-test-unit-hitl-nodes.md` - HITL 节点单元测试报告
+    - `2025-10-14-1630-phase-3.6-test-e2e-comprehensive.md` - 全面 E2E 测试报告
+    - `2025-10-15-1415-phase-3.6-test-websocket-message-format.md` - WebSocket 消息格式测试
+-   **典型内容**:
+    - 测试用例列表和结果
+    - 代码覆盖率统计
+    - 发现的 bug 和修复状态
+    - 性能指标（如果适用）
+
+#### `debug` - 调试记录
+-   **用途**: 用于记录独立的 Bug 修复过程（非功能开发流程中的 Bug）
+-   **频率**: 按需创建（如 E2E 测试失败、用户报告 Bug）
+-   **命名示例**:
+    - `2025-10-15-1045-phase-3.6-debug-websocket-conflict-detection.md` - WebSocket 冲突检测 Bug
+    - `2025-10-16-0930-phase-3.6-debug-e2e-test-failure.md` - E2E 测试失败调试
+-   **典型内容**:
+    - 错误重现步骤
+    - 错误堆栈和日志
+    - 假设和诊断过程
+    - 修复方案和验证结果
+
+#### `analysis` - 分析文档
+-   **用途**: 用于记录战略分析、进度反思、技术评估
+-   **频率**: 每周 1-2 个，或重大决策前
+-   **命名示例**:
+    - `2025-10-15-1400-phase-3.6-analysis-progress-optimization.md` - 进度对比与优化建议
+    - `2025-10-18-1100-phase-3.6-analysis-conflict-resolution-strategy.md` - 冲突解决策略分析
+-   **典型内容**:
+    - 现状分析（进度、质量、风险）
+    - 对比分析（计划 vs 实际）
+    - 优化建议和决策依据
+    - 风险评估和缓解方案
+
+#### `summary` - 阶段总结
+-   **用途**: 用于记录阶段或项目的整体总结
+-   **频率**: 每个阶段结束时 1 个
+-   **命名示例**:
+    - `2025-10-20-1800-phase-3.6-summary-complete.md` - Phase 3.6 完整总结
+    - `2025-11-30-1700-phase-4.1-summary-observability.md` - Phase 4.1 可观测性总结
+-   **典型内容**:
+    - 阶段目标达成情况
+    - 关键成果和亮点
+    - 遇到的挑战和解决方案
+    - 对后续阶段的建议
+
+#### `reference` - 快速参考
+-   **用途**: 用于创建快速查阅的参考文档
+-   **频率**: 每个阶段 1-2 个
+-   **命名示例**:
+    - `2025-10-15-0900-phase-3.6-reference-api-endpoints.md` - HITL API 端点快速参考
+    - `2025-10-18-1030-phase-3.6-reference-websocket-protocol.md` - WebSocket 协议参考
+-   **典型内容**:
+    - API 文档摘要
+    - 关键配置和命令
+    - 常见问题和解决方案
+    - 架构图和数据流图
+
+### 目录结构
+
 -   **`/.ai-sessions/development/`**
     -   **用途**: 用于记录 **功能驱动 (Feature-Driven)** 的工作，即为了实现一个新功能或新需求而启动的会话。
-    -   **命名**: `YYYY-MM-DD-feature-description.md` (e.g., `2025-09-30-multi-model-support.md`)
+    -   **命名**: 遵循上述标准化格式
+    -   **索引**: `README.md` 文件提供阶段和类别的快速索引
 
 -   **`/.ai-sessions/debugging/`**
-    -   **用途**: 用于记录 **Bug 驱动 (Bug-Driven)** 的工作，即为了修复一个独立的、非特定功能开发流程中的 Bug 而启动的会话。典型的触发场景包括：
-        -   E2E 测试 (`e2e_test.sh`) 失败。
-        -   来自用户的 Bug 报告。
-        -   周期性集成测试的失败。
-    -   **命名**: `YYYY-MM-DD-bug-description.md` (e.g., `2025-09-30-fix-e2e-test-failure.md`)
+    -   **用途**: 用于记录 **独立 Bug 修复**（非功能开发流程中的调试），典型触发场景：
+        -   E2E 测试 (`e2e_test.sh`) 失败
+        -   来自用户的 Bug 报告
+        -   周期性集成测试的失败
+    -   **命名**: 遵循上述标准化格式（category 通常为 `debug`）
+
+### 旧格式文件处理
+
+**策略**: 保留现有文件不重命名，避免破坏 Git 历史和现有引用
+
+**实施**:
+1. 现有文件（如 `PHASE_3.6_DAY1_PROGRESS.md`）保持原样
+2. 在 `README.md` 中创建索引，映射旧文件到新命名规范
+3. 未来新创建的文件严格遵循新命名规范
+
+**示例索引** (`.ai-sessions/development/README.md`):
+```markdown
+## Phase 3.6 Files
+
+| 新格式（推荐） | 旧格式文件（已存在） | 日期 | 类别 |
+|---------------|-------------------|------|------|
+| 2025-10-14-phase-3.6-plan-implementation-guide.md | PHASE_3.6_IMPLEMENTATION_GUIDE.md | 2025-10-14 | plan |
+| 2025-10-14-phase-3.6-progress-day1-backend-hitl.md | PHASE_3.6_DAY1_PROGRESS.md | 2025-10-14 | progress |
+| 2025-10-14-phase-3.6-test-unit-hitl-nodes.md | PHASE_3.6_UNIT_TEST_REPORT.md | 2025-10-14 | test |
+```
 
 ## 2. 统一会话工作流
 
