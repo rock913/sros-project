@@ -6,6 +6,7 @@ Tests for query_approval_node, paper_selection_node, and report_revision_node
 
 import uuid
 from datetime import datetime
+import pytest
 
 from agent.hitl_nodes import (
     query_approval_node,
@@ -41,6 +42,17 @@ def setup_test_session():
             print(f"✅ Created test session: {TEST_SESSION_ID}")
         else:
             print(f"✅ Test session already exists: {TEST_SESSION_ID}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_database():
+    """Pytest fixture to setup test database before all tests in this module"""
+    setup_test_session()
+    yield
+    # Cleanup after all tests (optional)
+    # with get_db_connection() as db:
+    #     db.query(Session).filter_by(id=uuid.UUID(TEST_SESSION_ID)).delete()
+    #     db.commit()
 
 
 class TestQueryApprovalNode:
