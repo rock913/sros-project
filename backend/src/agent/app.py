@@ -15,6 +15,9 @@ import agent.db_manager as db_manager
 import agent.analytics as analytics
 from agent.models import Session, Paper, Report, SessionEvent
 from agent.document_utils import DocumentDiffer, ConflictDetector
+from langfuse import Langfuse
+
+langfuse = Langfuse()
 
 from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -1316,6 +1319,7 @@ async def stream_agent_progress(websocket: WebSocket):
     await websocket.accept()
     thread_id = None
     session_id = None
+    trace = None  # LangFuse trace for WebSocket session
     
     try:
         # 1. Receive initial request
@@ -1324,6 +1328,17 @@ async def stream_agent_progress(websocket: WebSocket):
         # 2. Generate or use provided thread_id
         thread_id = data.get("thread_id") or str(uuid4())
         messages = data.get("messages", [])
+        
+        # 3. Create LangFuse trace for entire WebSocket session
+        trace = langfuse.trace(
+            name="WebSocket Research Session",
+            input={
+                "thread_id": thread_id,
+                "message_count": len(messages),
+                "has_existing_thread": bool(data.get("thread_id"))
+            },
+            tags=["websocket", "streaming", "research_session"]
+        )
         
         if not messages:
             await websocket.send_json({
@@ -1349,6 +1364,12 @@ async def stream_agent_progress(websocket: WebSocket):
             notes=f"Started via WebSocket at {datetime.utcnow().isoformat()}"
         )
         session_id = session["id"]
+        
+        # Update trace with session_id
+        trace.update(
+            session_id=session_id,
+            metadata={"research_topic": user_query}
+        )
         
         print(f"[WebSocket] Created session {session_id} with thread_id {thread_id}")
         
@@ -1425,6 +1446,17 @@ async def stream_agent_progress(websocket: WebSocket):
                     #       "final_report" is set by report_revision_node (HITL)
                     current_report = state_update.get("report") or state_update.get("final_report", "")
                     if current_report and current_report != last_report_version:
+                        # Create span for document update
+                        doc_span = trace.span(
+                            name="WebSocket Document Update",
+                            input={
+                                "node": node_name,
+                                "old_length": len(last_report_version),
+                                "new_length": len(current_report)
+                            },
+                            tags=["websocket", "document_update"]
+                        )
+                        
                         # Generate incremental diff
                         diffs = differ.generate_paragraph_diff(last_report_version, current_report)
                         
@@ -1453,12 +1485,29 @@ async def stream_agent_progress(websocket: WebSocket):
                                     }
                                 )
                         
+                        # End document update span
+                        doc_span.end(output={
+                            "diff_count": len(diffs),
+                            "changed_paragraphs": len([d for d in diffs if d["action"] != "unchanged"])
+                        })
+                        
                         # Update last known version
                         last_report_version = current_report
                     
                     # 🔔 HITL Detection: Check if node set hitl_pending flag
                     if state_update.get("hitl_pending"):
                         hitl_request = state_update.get("hitl_request", {})
+                        
+                        # Create span for HITL request via WebSocket
+                        hitl_span = trace.span(
+                            name="WebSocket HITL Request",
+                            input={
+                                "request_id": hitl_request.get("request_id"),
+                                "decision_type": hitl_request.get("decision_type"),
+                                "timeout_seconds": hitl_request.get("timeout_seconds", 300)
+                            },
+                            tags=["websocket", "hitl", hitl_request.get("decision_type", "unknown")]
+                        )
                         
                         # Send HITL request to frontend
                         await websocket.send_json({
@@ -1483,6 +1532,12 @@ async def stream_agent_progress(websocket: WebSocket):
                                 "timestamp": datetime.utcnow().isoformat()
                             }
                         )
+                        
+                        # End HITL span
+                        hitl_span.end(output={
+                            "sent_to_client": True,
+                            "timestamp": datetime.utcnow().isoformat()
+                        })
                         
                         # Graph will pause here (conditional edge returns [])
                         # Execution will resume when user calls /agent/hitl/respond
@@ -1510,6 +1565,20 @@ async def stream_agent_progress(websocket: WebSocket):
                 "node": "agent_complete",
                 "message": f"Research completed. Found {len(result.get('literature_abstracts', []))} papers."
             })
+            
+            # Update trace with success output
+            trace.update(output={
+                "status": "completed",
+                "paper_count": len(result.get('literature_abstracts', [])),
+                "has_report": bool(result.get('report')),
+                "word_count": len(result.get('report', '').split())
+            })
+        else:
+            # Update trace for stopped research
+            trace.update(output={
+                "status": "stopped_by_user",
+                "stop_reason": "User decision"
+            })
         
         # 9. Update session status
         db_manager.update_session(session_id, status="completed")
@@ -1533,6 +1602,12 @@ async def stream_agent_progress(websocket: WebSocket):
         
     except WebSocketDisconnect:
         print(f"[WebSocket] Client disconnected: thread_id={thread_id}")
+        if trace:
+            trace.update(
+                status="interrupted",
+                status_message="Client disconnected",
+                output={"disconnect_reason": "WebSocket connection lost"}
+            )
         if session_id:
             db_manager.update_session(session_id, status="interrupted")
             db_manager.log_event(
@@ -1549,6 +1624,14 @@ async def stream_agent_progress(websocket: WebSocket):
         error_msg = str(e) or "Unknown error"
         print(f"[WebSocket] Error: {error_msg}")
         print(f"[WebSocket] Traceback: {traceback.format_exc()}")
+        
+        if trace:
+            trace.update(
+                status="error",
+                status_message=error_msg,
+                output={"error": error_msg, "traceback": traceback.format_exc()}
+            )
+        
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.send_json({
                 "type": "error",
