@@ -15,6 +15,10 @@ import difflib
 from typing import Dict, List, Optional, Any, Tuple
 import re
 
+# LangFuse trace integration for document updates
+from langfuse import Langfuse
+langfuse = Langfuse()
+
 
 class DocumentDiffer:
     """
@@ -113,6 +117,16 @@ class DocumentDiffer:
         Returns:
             List of diff operations with action, content, and range
         """
+        # LangFuse trace: document diff generation
+        trace = langfuse.trace(
+            name="Document Diff Generation",
+            input={
+                "old_text_length": len(old_text),
+                "new_text_length": len(new_text)
+            },
+            tags=["document", "diff"]
+        )
+        
         old_paras = self.extract_paragraphs(old_text)
         new_paras = self.extract_paragraphs(new_text)
         
@@ -181,6 +195,7 @@ class DocumentDiffer:
                         "range": self.calculate_line_range(new_text, i)
                     })
         
+        trace.update(output={"diff_count": len(diffs)})
         return diffs
     
     def generate_update_message(
@@ -248,6 +263,17 @@ class ConflictDetector:
                 "overlapping_ranges": List[range]
             }
         """
+        # LangFuse trace: conflict detection
+        trace = langfuse.trace(
+            name="Document Conflict Detection",
+            input={
+                "base_text_length": len(base_text),
+                "user_text_length": len(user_text),
+                "ai_text_length": len(ai_text)
+            },
+            tags=["document", "conflict"]
+        )
+        
         differ = DocumentDiffer()
         
         # Get user's changes from base
@@ -271,6 +297,7 @@ class ConflictDetector:
         
         if not overlapping:
             # No conflict - changes are in different paragraphs
+            trace.update(output={"is_conflict": False, "conflict_type": "none"})
             return {
                 "is_conflict": False,
                 "conflict_type": "none" if not user_changed_paras else "non_overlapping",
@@ -286,6 +313,12 @@ class ConflictDetector:
             user_diff = next((d for d in user_diffs if d["paragraph_index"] == para_idx), None)
             if user_diff:
                 overlapping_ranges.append(user_diff["range"])
+        
+        trace.update(output={
+            "is_conflict": True,
+            "conflict_type": "overlapping",
+            "overlapping_count": len(overlapping)
+        })
         
         return {
             "is_conflict": True,

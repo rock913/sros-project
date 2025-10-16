@@ -20,6 +20,10 @@ from agent.state import AgentState
 from agent.database import get_db_connection
 from agent.models import HITLDecision
 
+# LangFuse trace integration
+from langfuse import Langfuse
+langfuse = Langfuse()
+
 
 def create_hitl_request(
     session_id: str,
@@ -77,6 +81,17 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
     4. Wait for user response (interrupt execution)
     5. Resume with user's decision
     """
+    # LangFuse trace: HITL query approval node entry
+    trace = langfuse.trace(
+        name="HITL Query Approval",
+        input={
+            "session_id": state.get("session_id"),
+            "research_topic": state.get("research_topic"),
+            "queries": state.get("search_queries", [])
+        },
+        tags=["hitl", "query_approval"]
+    )
+    
     queries = state.get("search_queries", [])  # Use correct state field name
     research_topic = state.get("research_topic", "")
     session_id = state.get("session_id")
@@ -114,6 +129,17 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
             }
     
     # First time reaching this node - create HITL request
+    span = trace.span(
+        name="Create HITL Request",
+        input={
+            "decision_type": "query_approval",
+            "prompt": f"AI已为研究主题「{research_topic}」生成以下查询，是否继续？",
+            "options": ["approve", "reject", "modify"],
+            "context": {"research_topic": research_topic, "queries": queries}
+        },
+        tags=["hitl", "db"]
+    )
+    
     request_id = create_hitl_request(
         session_id=session_id,
         decision_type="query_approval",
@@ -126,6 +152,8 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
         },
         timeout_seconds=300  # 5 minutes
     )
+    
+    span.end(output={"request_id": request_id})
     
     # Update state with HITL request info (will be sent via WebSocket)
     return {
@@ -163,6 +191,17 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
     Returns:
         Dict with paper_selection_done=True or hitl_pending=True
     """
+    # LangFuse trace: HITL paper selection node entry
+    trace = langfuse.trace(
+        name="HITL Paper Selection",
+        input={
+            "session_id": state.get("session_id"),
+            "research_topic": state.get("research_topic"),
+            "paper_count": len(state.get("literature_abstracts", []))
+        },
+        tags=["hitl", "paper_selection"]
+    )
+    
     session_id = state.get("session_id")
     
     # Check if already responded (second execution after user response)
@@ -214,6 +253,17 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
     # First execution: Create HITL request
     research_topic = state.get("research_topic", "")
     
+    span = trace.span(
+        name="Create HITL Request",
+        input={
+            "decision_type": "paper_selection",
+            "prompt": f"发现 {len(papers)} 篇论文。请选择要深入分析的论文：",
+            "options": ["select_all", "select_subset", "reject"],
+            "context": {"total_count": len(papers)}
+        },
+        tags=["hitl", "db"]
+    )
+    
     request_id = create_hitl_request(
         session_id=session_id,
         decision_type="paper_selection",
@@ -236,6 +286,8 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         },
         timeout_seconds=600  # 10 minutes timeout
     )
+    
+    span.end(output={"request_id": request_id})
     
     return {
         "hitl_pending": True,
@@ -285,6 +337,17 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
     Returns:
         Dict with final_report or stop_research flag
     """
+    # LangFuse trace: HITL report revision node entry
+    trace = langfuse.trace(
+        name="HITL Report Revision",
+        input={
+            "session_id": state.get("session_id"),
+            "research_topic": state.get("research_topic"),
+            "word_count": len(state.get("report", "").split())
+        },
+        tags=["hitl", "report_revision"]
+    )
+    
     session_id = state.get("session_id")
     
     # Check if already responded
@@ -330,6 +393,17 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
     word_count = len(report.split())
     research_topic = state.get("research_topic", "")
     
+    span = trace.span(
+        name="Create HITL Request",
+        input={
+            "decision_type": "report_revision",
+            "prompt": "请审核生成的研究报告：",
+            "options": ["approve", "modify", "reject"],
+            "context": {"word_count": word_count}
+        },
+        tags=["hitl", "db"]
+    )
+    
     request_id = create_hitl_request(
         session_id=session_id,
         decision_type="report_revision",
@@ -343,6 +417,8 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         },
         timeout_seconds=900  # 15 minutes timeout
     )
+    
+    span.end(output={"request_id": request_id})
     
     return {
         "hitl_pending": True,

@@ -609,6 +609,19 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     """
     print("---NODE: retrieve_and_synthesize_report---")
     
+    # LangFuse trace: report synthesis node entry
+    from langfuse import Langfuse
+    langfuse = Langfuse()
+    trace = langfuse.trace(
+        name="Report Synthesis",
+        input={
+            "session_id": state.get("session_id"),
+            "research_topic": get_research_topic(state["messages"]),
+            "paper_count": len(state.get("literature_abstracts", []))
+        },
+        tags=["report", "synthesis"]
+    )
+    
     # Import db_manager for report persistence
     from agent import db_manager
     from datetime import datetime
@@ -648,6 +661,17 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     )
     
     print("Generating final report with retrieved context...")
+    
+    llm_span = trace.span(
+        name="LLM Generate Report",
+        input={
+            "prompt": prompt[:500] + "..." if len(prompt) > 500 else prompt,
+            "model": cfg.generation_model,
+            "context_length": len(rag_context)
+        },
+        tags=["llm", "report"]
+    )
+    
     try:
         response = completion(
             model=cfg.generation_model,
@@ -656,9 +680,12 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
             custom_llm_provider=cfg.generation_llm_provider,
         )
         report = response.choices[0].message.content
+        llm_span.end(output={"report_length": len(report), "word_count": len(report.split())})
     except ServiceUnavailableError as e:
         print(f"---ERROR: Failed to generate report due to API unavailability: {e}---")
         report = "Failed to generate the final report due to a temporary API error. Please try again later."
+        llm_span.end(output={"error": str(e)})
+        trace.update(status="error", status_message=str(e))
     
     # Phase 3.5.2: Persist report to database
     if session_id and report:
