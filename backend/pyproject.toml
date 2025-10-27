@@ -13,6 +13,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=2.0.0",
     "langchain>=0.3.19",
     "langchain-google-genai",
+    "langchain-text-splitters>=0.3.0",
     "python-dotenv>=1.0.1",
     "langgraph-sdk>=0.2.5",
     "langserve>=0.2.2",
@@ -36,6 +37,7 @@ dependencies = [
     "semanticscholar",
     "tenacity",
     "diff-match-patch>=20241021",
+    "langfuse>=2.0.0",
 ]
 
 

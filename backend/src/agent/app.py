@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID, uuid4
 from datetime import datetime
 from sqlalchemy import text
+from contextlib import asynccontextmanager
 
 # Correctly import the 'graph' object from agent.graph
 from agent.graph import graph
@@ -26,7 +27,19 @@ from starlette.websockets import WebSocketState
 # Remove LangServe to avoid Pydantic conflicts
 # from langserve import add_routes
 
-# 1. Define Pydantic models for API input and output
+# 1. Define lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup."""
+    print("--- Initializing database ---")
+    init_db()
+    db_manager.init_db()  # Initialize session management tables
+    print("--- Database initialized ---")
+    yield
+    # Cleanup code can go here if needed
+    print("--- Shutting down ---")
+
+# 2. Define Pydantic models for API input and output
 class Message(BaseModel):
     """A single message in the conversation."""
     role: str = Field(description="The role of the message sender (user or assistant)")
@@ -63,11 +76,12 @@ class AgentOutput(BaseModel):
     session_id: Optional[str] = Field(None, description="The UUID of the associated Session record.")
     thread_id: Optional[str] = Field(None, description="The LangGraph thread_id for state persistence.")
 
-# 2. Initialize the FastAPI app
+# 3. Initialize the FastAPI app with lifespan
 app = FastAPI(
     title="Autonomous Research Agent API",
     description="An API for an autonomous research agent powered by LangGraph and Gemini.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -1655,16 +1669,8 @@ async def stream_agent_progress(websocket: WebSocket):
             await websocket.close()
 
 
-# ==================== Startup & Main ====================
-@app.on_event("startup")
-async def on_startup():
-    """Initializes the database."""
-    print("--- Initializing database ---")
-    init_db()
-    db_manager.init_db()  # Initialize session management tables
-    print("--- Database initialized ---")
-
-# 7. Main entry point for running the app with uvicorn
+# ==================== Main Entry Point ====================
+# 4. Main entry point for running the app with uvicorn
 if __name__ == "__main__":
     print("--- Starting Research Agent API ---")
     # To run this, execute `python -m agent.app` from the `backend/src` directory
