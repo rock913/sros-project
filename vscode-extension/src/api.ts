@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://langgraph-api:8000';
+// API Base URL - Use localhost for VS Code extension running on host machine
+// (Docker internal hostname 'langgraph-api' is not accessible from host)
+const API_BASE_URL = process.env.VSCODE_RESEARCH_AGENT_URL || 'http://localhost:8121';
 
 // Type definitions for the backend API response
 export interface Paper {

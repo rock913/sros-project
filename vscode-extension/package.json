@@ -16,6 +16,12 @@
     "contributes": {
         "commands": [
             {
+                "command": "auto-researcher.start",
+                "title": "Start New Research",
+                "icon": "$(rocket)",
+                "category": "Auto Researcher"
+            },
+            {
                 "command": "auto-researcher.showControlPanel",
                 "title": "Show AI Control Panel",
                 "icon": "$(chip)"
