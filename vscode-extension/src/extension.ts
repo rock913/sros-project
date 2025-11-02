@@ -3,6 +3,10 @@ import {
     checkHealth, 
     getAgentState, 
     AgentState,
+    // Week 1 Day 1-2: API client extension
+    generateThreadId,
+    invokeAgent,
+    getThreadState,
     // Phase 3.5.2: New imports
     getAllPapers,
     getAllReports,
@@ -949,61 +953,128 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             );
             
-            // 4. Generate thread ID
-            const threadId = `thread-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+            // 4. Generate thread ID using UUID v4
+            const threadId = generateThreadId();
             
             // 5. Show initial progress HTML
             panel.webview.html = generateResearchProgressHTML(topic, threadId);
             
-            // 6. TODO: Connect WebSocket for real-time updates
-            // This will be implemented in Phase 2
-            vscode.window.showInformationMessage(
-                '⚠️ WebSocket streaming not yet implemented. Using mock progress for now.'
-            );
+            // 6. Start research via backend API
+            let pollIntervalId: NodeJS.Timeout | null = null;
             
-            // 7. Simulate progress (temporary - will be replaced with real WebSocket)
-            setTimeout(() => {
+            try {
+                // Invoke the agent
                 panel.webview.postMessage({
                     command: 'updateProgress',
-                    message: '📝 Generating search queries...',
+                    message: '🚀 Starting research agent...',
+                    progress: 10
+                });
+                
+                await invokeAgent(threadId, topic);
+                
+                panel.webview.postMessage({
+                    command: 'updateProgress',
+                    message: '✅ Research task created',
                     progress: 20
                 });
-            }, 1000);
-            
-            setTimeout(() => {
-                panel.webview.postMessage({
-                    command: 'updateProgress',
-                    message: '🔍 Searching academic databases...',
-                    progress: 40
-                });
-            }, 2000);
-            
-            setTimeout(() => {
-                panel.webview.postMessage({
-                    command: 'updateProgress',
-                    message: '📚 Collecting papers...',
-                    progress: 60
-                });
-            }, 3000);
-            
-            setTimeout(() => {
-                panel.webview.postMessage({
-                    command: 'updateProgress',
-                    message: '✍️ Generating report...',
-                    progress: 80
-                });
-            }, 4000);
-            
-            setTimeout(() => {
-                panel.webview.postMessage({
-                    command: 'complete',
-                    message: '✅ Research completed! (Mock mode)',
-                    progress: 100
-                });
+                
+                // Poll for progress updates (temporary - will be replaced with WebSocket in Week 2)
                 vscode.window.showInformationMessage(
-                    `✅ Research on "${topic}" completed! (Note: This is a mock implementation. Real WebSocket integration coming in Phase 2)`
+                    '⚠️ Using polling for progress updates. WebSocket streaming will be added in Week 2.'
                 );
-            }, 5000);
+                
+                let pollCount = 0;
+                const maxPolls = 120; // Max 10 minutes (120 * 5 seconds)
+                
+                pollIntervalId = setInterval(async () => {
+                    pollCount++;
+                    
+                    if (pollCount > maxPolls) {
+                        clearInterval(pollIntervalId!);
+                        panel.webview.postMessage({
+                            command: 'updateProgress',
+                            message: '⏱️ Polling timeout. Please check backend logs.',
+                            progress: 50
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        const state = await getThreadState(threadId);
+                        
+                        // Update progress based on state
+                        const lastMessage = state.messages?.[state.messages.length - 1]?.content || '';
+                        let progress = 30;
+                        let statusMessage = '🔄 Processing...';
+                        
+                        // Interpret state to show progress
+                        if (state.search_queries && state.search_queries.length > 0) {
+                            progress = 40;
+                            statusMessage = `� Generated ${state.search_queries.length} search queries`;
+                        }
+                        
+                        if (state.literature_abstracts && state.literature_abstracts.length > 0) {
+                            progress = 60;
+                            statusMessage = `📚 Found ${state.literature_abstracts.length} papers`;
+                        }
+                        
+                        if (state.report && state.report.length > 100) {
+                            progress = 100;
+                            statusMessage = '✅ Research report completed!';
+                            clearInterval(pollIntervalId!);
+                            
+                            panel.webview.postMessage({
+                                command: 'complete',
+                                message: statusMessage,
+                                progress: 100
+                            });
+                            
+                            vscode.window.showInformationMessage(
+                                `✅ Research on "${topic}" completed! Thread ID: ${threadId}`
+                            );
+                            return;
+                        }
+                        
+                        // Check for HITL (Human-in-the-Loop) waiting state
+                        if (lastMessage.includes('Waiting for user approval') || lastMessage.includes('⏸️')) {
+                            statusMessage = '⏸️ Waiting for approval (HITL)';
+                            progress = Math.min(progress, 50);
+                            
+                            vscode.window.showWarningMessage(
+                                `⏸️ Research paused: ${lastMessage}\nThread ID: ${threadId}\nPlease use backend API to approve.`
+                            );
+                        }
+                        
+                        panel.webview.postMessage({
+                            command: 'updateProgress',
+                            message: statusMessage,
+                            progress: progress
+                        });
+                        
+                    } catch (error: any) {
+                        console.error('Polling error:', error);
+                        // Don't stop polling on transient errors
+                    }
+                }, 5000); // Poll every 5 seconds
+                
+            } catch (error: any) {
+                clearInterval(pollIntervalId!);
+                panel.webview.postMessage({
+                    command: 'updateProgress',
+                    message: `❌ Error: ${error.message}`,
+                    progress: 0
+                });
+                vscode.window.showErrorMessage(
+                    `Failed to start research: ${error.message}`
+                );
+            }
+            
+            // Clean up when panel is closed
+            panel.onDidDispose(() => {
+                if (pollIntervalId) {
+                    clearInterval(pollIntervalId);
+                }
+            });
             
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to start research: ${error}`);

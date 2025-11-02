@@ -19,10 +19,7 @@ from langchain_core.messages import AIMessage
 from agent.state import AgentState
 from agent.database import get_db_connection
 from agent.models import HITLDecision
-
-# LangFuse trace integration
-from langfuse import Langfuse
-langfuse = Langfuse()
+from agent.langfuse_manager import LangfuseManager
 
 
 def create_hitl_request(
@@ -82,7 +79,7 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
     5. Resume with user's decision
     """
     # LangFuse trace: HITL query approval node entry
-    trace = langfuse.trace(
+    trace = LangfuseManager.trace(
         name="HITL Query Approval",
         input={
             "session_id": state.get("session_id"),
@@ -192,7 +189,7 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         Dict with paper_selection_done=True or hitl_pending=True
     """
     # LangFuse trace: HITL paper selection node entry
-    trace = langfuse.trace(
+    trace = LangfuseManager.trace(
         name="HITL Paper Selection",
         input={
             "session_id": state.get("session_id"),
@@ -338,7 +335,7 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
         Dict with final_report or stop_research flag
     """
     # LangFuse trace: HITL report revision node entry
-    trace = langfuse.trace(
+    trace = LangfuseManager.trace(
         name="HITL Report Revision",
         input={
             "session_id": state.get("session_id"),

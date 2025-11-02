@@ -141,6 +141,178 @@ export async function getAgentState(): Promise<AgentState> {
   }
 }
 
+// ==================== Phase 2: Thread Management APIs ====================
+
+/**
+ * Request body for creating a new thread
+ */
+export interface CreateThreadRequest {
+  metadata?: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    research_topic?: string;
+    [key: string]: any;
+  };
+}
+
+/**
+ * Response from creating a thread
+ */
+export interface ThreadResponse {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  thread_id: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  created_at: string;
+  metadata: any;
+}
+
+/**
+ * Thread state response including values, next steps, and metadata
+ */
+export interface ThreadState {
+  values: AgentState;
+  next: string[];
+  metadata: any;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  created_at?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  parent_config?: any;
+}
+
+/**
+ * Generates a UUID v4 for use as a thread ID.
+ * LangGraph manages threads automatically - we just need to provide a unique ID.
+ * @returns A new UUID v4 string (e.g., "550e8400-e29b-41d4-a716-446655440000")
+ */
+export function generateThreadId(): string {
+  // Simple UUID v4 generator for browser/node environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/**
+ * @deprecated Use generateThreadId() and invokeAgent() instead.
+ * LangGraph API doesn't have a separate /threads endpoint.
+ * Threads are created automatically when you call /agent/invoke with a new thread_id.
+ */
+export async function createThread(
+  request: CreateThreadRequest = {}
+): Promise<ThreadResponse> {
+  // Generate a thread ID - the actual thread is created when invokeAgent is called
+  const threadId = generateThreadId();
+  return {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    thread_id: threadId,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    created_at: new Date().toISOString(),
+    metadata: request.metadata || {}
+  };
+}
+
+/**
+ * Request body for starting a research task
+ */
+export interface StartResearchRequest {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  assistant_id: string;
+  input: {
+    messages: Array<{
+      role: string;
+      content: string;
+    }>;
+  };
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  stream_mode?: string[];
+  config?: any;
+}
+
+/**
+ * Invokes the research agent using LangGraph API.
+ * This is the correct way to start research - it automatically creates or continues a thread.
+ * 
+ * @param threadId - UUID v4 format thread identifier
+ * @param topic - The research topic
+ * @returns A promise that resolves with the agent's response
+ */
+export async function invokeAgent(
+  threadId: string,
+  topic: string
+): Promise<AgentState> {
+  try {
+    const request = {
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: `Please research: ${topic}`
+          }
+        ]
+      },
+      config: {
+        configurable: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          thread_id: threadId
+        }
+      }
+    };
+
+    const response = await axios.post(
+      `${API_BASE_URL}/agent/invoke`,
+      request,
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error('Error invoking agent:', error);
+    throw new Error(`Failed to invoke agent: ${error.message}`);
+  }
+}
+
+/**
+ * @deprecated Use invokeAgent() instead.
+ * This function signature doesn't match the actual LangGraph API.
+ * Keeping for backwards compatibility but redirecting to invokeAgent.
+ */
+export async function startResearch(
+  threadId: string,
+  topic: string
+): Promise<string> {
+  await invokeAgent(threadId, topic);
+  return threadId;
+}
+
+/**
+ * Gets the current state of a thread from LangGraph checkpointer.
+ * @param threadId - The thread ID to get state for (UUID v4 format)
+ * @returns A promise that resolves with the agent state
+ */
+export async function getThreadState(threadId: string): Promise<AgentState> {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/agent/state/${threadId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching thread state:', error);
+    // Return empty state if thread not found
+    if (error.response && error.response.status === 404) {
+      return {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        literature_abstracts: [],
+        report: '',
+      };
+    }
+    throw new Error(`Failed to fetch thread state: ${error.message}`);
+  }
+}
+
 // ==================== Phase 3.5.2: Paper Management APIs ====================
 
 /**

@@ -16,8 +16,7 @@ from typing import Dict, List, Optional, Any, Tuple
 import re
 
 # LangFuse trace integration for document updates
-from langfuse import Langfuse
-langfuse = Langfuse()
+from agent.langfuse_manager import LangfuseManager
 
 
 class DocumentDiffer:
@@ -118,7 +117,7 @@ class DocumentDiffer:
             List of diff operations with action, content, and range
         """
         # LangFuse trace: document diff generation
-        trace = langfuse.trace(
+        trace = LangfuseManager.trace(
             name="Document Diff Generation",
             input={
                 "old_text_length": len(old_text),
@@ -264,7 +263,7 @@ class ConflictDetector:
             }
         """
         # LangFuse trace: conflict detection
-        trace = langfuse.trace(
+        trace = LangfuseManager.trace(
             name="Document Conflict Detection",
             input={
                 "base_text_length": len(base_text),

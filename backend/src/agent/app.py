@@ -16,9 +16,7 @@ import agent.db_manager as db_manager
 import agent.analytics as analytics
 from agent.models import Session, Paper, Report, SessionEvent
 from agent.document_utils import DocumentDiffer, ConflictDetector
-from langfuse import Langfuse
-
-langfuse = Langfuse()
+from agent.langfuse_manager import LangfuseManager
 
 from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -134,7 +132,7 @@ async def invoke_agent(request: AgentInvokeRequest):
         print(f"[Session Management] Created session {session_id} with thread_id {thread_id}")
         
         # 4. Record research_started event
-        db_manager.add_session_event(
+        db_manager.log_event(
             session_id=session_id,
             event_type="research_started",
             event_data={
@@ -159,7 +157,16 @@ async def invoke_agent(request: AgentInvokeRequest):
         }
         
         # 7. Invoke the graph
-        result = await graph.ainvoke(input_data, config=config)
+        # Note: Using sync invoke in thread pool due to PostgresSaver not supporting async aget_tuple
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(
+                executor,
+                lambda: graph.invoke(input_data, config=config)
+            )
         
         # 8. Convert BaseMessage objects to dicts for JSON serialization
         messages = []
@@ -189,14 +196,23 @@ async def invoke_agent(request: AgentInvokeRequest):
             thread_id=thread_id     # Include thread_id in response
         )
     except Exception as e:
+        # Enhanced error logging
+        import traceback
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "traceback": traceback.format_exc()
+        }
+        print(f"[ERROR] Agent invocation failed: {error_details}")
+        
         # Record error event if session was created
         if 'session_id' in locals():
             try:
-                db_manager.add_session_event(
+                db_manager.log_event(
                     session_id=session_id,
                     event_type="error_occurred",
                     event_data={
-                        "error": str(e),
+                        **error_details,
                         "timestamp": datetime.utcnow().isoformat(),
                         "node": "invoke_agent"
                     }
@@ -204,7 +220,10 @@ async def invoke_agent(request: AgentInvokeRequest):
             except:
                 pass  # Don't fail if event logging fails
         
-        raise HTTPException(status_code=500, detail=f"Agent invocation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Agent invocation failed: {type(e).__name__}: {str(e)}"
+        )
 
 
 @app.get("/agent/state", response_model=AgentOutput, tags=["Agent"])

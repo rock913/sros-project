@@ -70,6 +70,7 @@ def create_session(
     thread_id: UUID,
     title: str,
     research_topic: Optional[str] = None,
+    status: str = "pending",  # Added missing parameter
     tags: Optional[List[str]] = None,
     notes: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -80,6 +81,7 @@ def create_session(
         thread_id: LangGraph thread UUID
         title: Session title
         research_topic: Initial research topic
+        status: Session status (pending, active, completed, failed)
         tags: List of tags for categorization
         notes: User notes
     
@@ -91,6 +93,7 @@ def create_session(
             thread_id=thread_id,
             title=title,
             research_topic=research_topic,
+            status=status,  # Added missing field
             tags=tags or [],
             notes=notes
         )

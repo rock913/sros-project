@@ -22,7 +22,7 @@ class _EmbeddingsProxy:
         resp = litellm.embedding(*args, **kwargs)
         return [item.get('embedding') for item in getattr(resp, 'data', [])]
 embeddings = _EmbeddingsProxy()
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 # Initialize a global text splitter for document chunking
 text_splitter = RecursiveCharacterTextSplitter()
 
@@ -610,9 +610,8 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     print("---NODE: retrieve_and_synthesize_report---")
     
     # LangFuse trace: report synthesis node entry
-    from langfuse import Langfuse
-    langfuse = Langfuse()
-    trace = langfuse.trace(
+    from agent.langfuse_manager import LangfuseManager
+    trace = LangfuseManager.trace(
         name="Report Synthesis",
         input={
             "session_id": state.get("session_id"),

@@ -614,6 +614,189 @@ function getDecisionTypeLabel(type) {
         default: return type;
     }
 }
+/**
+ * Generate HTML for Research Progress View (Phase Frontend Fix)
+ */
+function generateResearchProgressHTML(topic, threadId) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Progress</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: var(--vscode-titleBar-activeForeground);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .topic {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--vscode-textLink-foreground);
+        }
+        .progress-container {
+            margin: 30px 0;
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                var(--vscode-progressBar-background), 
+                var(--vscode-textLink-foreground));
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .status-message {
+            font-size: 16px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 4px;
+        }
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-time {
+            color: var(--vscode-descriptionForeground);
+            margin-right: 10px;
+        }
+        .complete-banner {
+            display: none;
+            background-color: #4caf50;
+            color: white;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .thread-id {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Research in Progress</h1>
+        
+        <div class="topic">
+            <strong>Topic:</strong> ${topic}
+            <div class="thread-id">Thread ID: ${threadId}</div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+            
+            <div class="status-message" id="statusMessage">
+                🚀 Initializing research...
+            </div>
+        </div>
+        
+        <div class="complete-banner" id="completeBanner">
+            ✅ Research Completed!
+        </div>
+        
+        <h3>📋 Activity Log</h3>
+        <div class="log-container" id="logContainer">
+            <div class="log-entry">
+                <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                <span>Research started for topic: "${topic}"</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const vscode = acquireVsCodeApi();
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const logContainer = document.getElementById('logContainer');
+        const completeBanner = document.getElementById('completeBanner');
+        
+        // Listen for messages from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            
+            switch (message.command) {
+                case 'updateProgress':
+                    updateProgress(message.progress, message.message);
+                    addLogEntry(message.message);
+                    break;
+                case 'complete':
+                    updateProgress(100, message.message);
+                    addLogEntry(message.message);
+                    completeBanner.style.display = 'block';
+                    break;
+                case 'error':
+                    addLogEntry('❌ Error: ' + message.message);
+                    break;
+            }
+        });
+        
+        function updateProgress(percent, message) {
+            progressBar.style.width = percent + '%';
+            progressBar.textContent = percent + '%';
+            statusMessage.textContent = message;
+        }
+        
+        function addLogEntry(message) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = \`
+                <span class="log-time">\${new Date().toLocaleTimeString()}</span>
+                <span>\${message}</span>
+            \`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+    </script>
+</body>
+</html>`;
+}
 function activate(context) {
     console.log('Congratulations, your extension "auto-researcher" is now active!');
     // Phase 3.6 Week 3: Initialize Document Collaboration Manager
@@ -626,6 +809,132 @@ function activate(context) {
     vscode.window.registerTreeDataProvider('assetLibrary', assetLibraryProvider);
     vscode.window.registerTreeDataProvider('manuscript', manuscriptProvider);
     // Register Commands
+    // Phase Frontend Fix: Start New Research Command
+    const startResearchCommand = vscode.commands.registerCommand('auto-researcher.start', async () => {
+        try {
+            // 1. Prompt user for research topic
+            const topic = await vscode.window.showInputBox({
+                prompt: 'Enter your research topic',
+                placeHolder: 'e.g., "Latest advances in transformer architectures"',
+                validateInput: (value) => {
+                    if (!value || value.trim().length < 5) {
+                        return 'Please enter a topic (at least 5 characters)';
+                    }
+                    if (value.trim().length > 200) {
+                        return 'Topic is too long (max 200 characters)';
+                    }
+                    return null;
+                }
+            });
+            if (!topic) {
+                return; // User cancelled
+            }
+            // 2. Show progress notification
+            vscode.window.showInformationMessage(`🚀 Starting research on: "${topic}"`);
+            // 3. Create progress webview panel
+            const panel = vscode.window.createWebviewPanel('researchProgress', `Research: ${topic.substring(0, 30)}${topic.length > 30 ? '...' : ''}`, vscode.ViewColumn.One, {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            });
+            // 4. Generate thread ID using UUID v4
+            const threadId = (0, api_1.generateThreadId)();
+            // 5. Show initial progress HTML
+            panel.webview.html = generateResearchProgressHTML(topic, threadId);
+            // 6. Start research via backend API
+            let pollIntervalId = null;
+            try {
+                // Invoke the agent
+                panel.webview.postMessage({
+                    command: 'updateProgress',
+                    message: '🚀 Starting research agent...',
+                    progress: 10
+                });
+                await (0, api_1.invokeAgent)(threadId, topic);
+                panel.webview.postMessage({
+                    command: 'updateProgress',
+                    message: '✅ Research task created',
+                    progress: 20
+                });
+                // Poll for progress updates (temporary - will be replaced with WebSocket in Week 2)
+                vscode.window.showInformationMessage('⚠️ Using polling for progress updates. WebSocket streaming will be added in Week 2.');
+                let pollCount = 0;
+                const maxPolls = 120; // Max 10 minutes (120 * 5 seconds)
+                pollIntervalId = setInterval(async () => {
+                    pollCount++;
+                    if (pollCount > maxPolls) {
+                        clearInterval(pollIntervalId);
+                        panel.webview.postMessage({
+                            command: 'updateProgress',
+                            message: '⏱️ Polling timeout. Please check backend logs.',
+                            progress: 50
+                        });
+                        return;
+                    }
+                    try {
+                        const state = await (0, api_1.getThreadState)(threadId);
+                        // Update progress based on state
+                        const lastMessage = state.messages?.[state.messages.length - 1]?.content || '';
+                        let progress = 30;
+                        let statusMessage = '🔄 Processing...';
+                        // Interpret state to show progress
+                        if (state.search_queries && state.search_queries.length > 0) {
+                            progress = 40;
+                            statusMessage = `� Generated ${state.search_queries.length} search queries`;
+                        }
+                        if (state.literature_abstracts && state.literature_abstracts.length > 0) {
+                            progress = 60;
+                            statusMessage = `📚 Found ${state.literature_abstracts.length} papers`;
+                        }
+                        if (state.report && state.report.length > 100) {
+                            progress = 100;
+                            statusMessage = '✅ Research report completed!';
+                            clearInterval(pollIntervalId);
+                            panel.webview.postMessage({
+                                command: 'complete',
+                                message: statusMessage,
+                                progress: 100
+                            });
+                            vscode.window.showInformationMessage(`✅ Research on "${topic}" completed! Thread ID: ${threadId}`);
+                            return;
+                        }
+                        // Check for HITL (Human-in-the-Loop) waiting state
+                        if (lastMessage.includes('Waiting for user approval') || lastMessage.includes('⏸️')) {
+                            statusMessage = '⏸️ Waiting for approval (HITL)';
+                            progress = Math.min(progress, 50);
+                            vscode.window.showWarningMessage(`⏸️ Research paused: ${lastMessage}\nThread ID: ${threadId}\nPlease use backend API to approve.`);
+                        }
+                        panel.webview.postMessage({
+                            command: 'updateProgress',
+                            message: statusMessage,
+                            progress: progress
+                        });
+                    }
+                    catch (error) {
+                        console.error('Polling error:', error);
+                        // Don't stop polling on transient errors
+                    }
+                }, 5000); // Poll every 5 seconds
+            }
+            catch (error) {
+                clearInterval(pollIntervalId);
+                panel.webview.postMessage({
+                    command: 'updateProgress',
+                    message: `❌ Error: ${error.message}`,
+                    progress: 0
+                });
+                vscode.window.showErrorMessage(`Failed to start research: ${error.message}`);
+            }
+            // Clean up when panel is closed
+            panel.onDidDispose(() => {
+                if (pollIntervalId) {
+                    clearInterval(pollIntervalId);
+                }
+            });
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to start research: ${error}`);
+        }
+    });
     const showControlPanelCommand = vscode.commands.registerCommand('auto-researcher.showControlPanel', async () => {
         const panel = vscode.window.createWebviewPanel('aiControlPanel', 'AI Control Panel', vscode.ViewColumn.One, { enableScripts: true });
         // Show loading message
@@ -1039,7 +1348,7 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         }
         vscode.window.showInformationMessage('✅ Document Collaboration Test Complete! Check the editor for CodeLens actions.');
     });
-    context.subscriptions.push(showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, viewSessionDetailsCommand, testHITLCommand, testDocCollabCommand);
+    context.subscriptions.push(startResearchCommand, showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, viewSessionDetailsCommand, testHITLCommand, testDocCollabCommand);
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);
