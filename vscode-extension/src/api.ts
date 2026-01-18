@@ -532,6 +532,16 @@ export interface ResearchProgressCallback {
   onProgress?: (data: { node: string; message?: string }) => void;
   onComplete?: (data: { session_id: string; thread_id: string }) => void;
   onError?: (error: string) => void;
+  onHitlRequest?: (data: {
+    request_id: string;
+    decision_type: string;
+    prompt: string;
+    options: any[];
+    context: any;
+    timeout_seconds: number;
+    session_id: string;
+    thread_id: string;
+  }) => void;
 }
 
 /**
@@ -539,13 +549,13 @@ export interface ResearchProgressCallback {
  * @param topic - The research topic
  * @param callbacks - Callbacks for progress updates
  * @param threadId - Optional thread_id to resume session
- * @returns Promise that resolves when research completes
+ * @returns Promise that resolves when research completes, and WebSocket instance for HITL responses
  */
 export async function startResearchStream(
   topic: string,
   callbacks: ResearchProgressCallback,
   threadId?: string
-): Promise<void> {
+): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const wsUrl = API_BASE_URL.replace('http', 'ws') + '/agent/stream';
     console.log(`[WebSocket] Connecting to ${wsUrl}...`);
@@ -558,6 +568,9 @@ export async function startResearchStream(
         messages: [{ role: 'user', 'content': topic }],
         thread_id: threadId
       }));
+      
+      // Return WebSocket instance immediately after connection
+      resolve(ws);
     });
 
     ws.on('message', (data: WebSocket.Data) => {
@@ -575,11 +588,16 @@ export async function startResearchStream(
             callbacks.onProgress?.(message);
             break;
           
+          case 'hitl_request':
+            console.log('[WebSocket] HITL Request:', message.request_id, message.decision_type);
+            callbacks.onHitlRequest?.(message);
+            // Note: WebSocket stays open, waiting for hitl_response from frontend
+            break;
+          
           case 'complete':
             console.log('[WebSocket] Research completed:', message);
             callbacks.onComplete?.(message);
             ws.close();
-            resolve();
             break;
           
           case 'error':
@@ -588,10 +606,15 @@ export async function startResearchStream(
             ws.close();
             reject(new Error(message.message));
             break;
+          
+          default:
+            console.warn('[WebSocket] Unknown message type:', message.type);
         }
       } catch (error: any) {
         console.error('[WebSocket] Parse error:', error);
-        callbacks.onError?.('Failed to parse server message');
+        console.error('[WebSocket] Raw data:', data.toString());
+        // Don't call onError for parse errors - connection might be closing
+        // Just log the error and continue
       }
     });
 
@@ -601,10 +624,44 @@ export async function startResearchStream(
       reject(error);
     });
 
-    ws.on('close', () => {
-      console.log('[WebSocket] Connection closed');
+    ws.on('close', (code, reason) => {
+      const reasonStr = reason?.toString() || 'No reason provided';
+      console.log(`[WebSocket] Connection closed: Code ${code} - ${reasonStr}`);
+      
+      // Only treat as error if unexpected closure (not normal completion)
+      if (code !== 1000 && code !== 1001) {
+        console.warn(`[WebSocket] ⚠️ Unexpected closure code: ${code}`);
+        // Note: This commonly happens when backend closes after sending HITL request
+        // but before receiving hitl_response. This is a backend bug, not a frontend error.
+      }
     });
   });
+}
+
+/**
+ * Send HITL response through WebSocket
+ * @param ws - The WebSocket connection
+ * @param requestId - The HITL request ID
+ * @param approved - Whether the request is approved
+ * @param selectedOption - The selected option (if applicable)
+ */
+export function sendHitlResponse(
+  ws: WebSocket,
+  requestId: string,
+  approved: boolean,
+  selectedOption?: any
+): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'hitl_response',
+      request_id: requestId,
+      approved: approved,
+      selected_option: selectedOption
+    }));
+    console.log(`[WebSocket] Sent HITL response for ${requestId}: approved=${approved}`);
+  } else {
+    console.error('[WebSocket] Cannot send HITL response: connection not open');
+  }
 }
 
 

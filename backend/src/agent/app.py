@@ -9,7 +9,7 @@ from sqlalchemy import text
 from contextlib import asynccontextmanager
 
 # Correctly import the 'graph' object from agent.graph
-from agent.graph import graph
+from agent.graph import graph, async_graph
 from agent.database import init_db, get_all_documents
 from agent.state import AgentState
 import agent.db_manager as db_manager
@@ -1363,7 +1363,7 @@ async def stream_agent_progress(websocket: WebSocket):
         messages = data.get("messages", [])
         
         # 3. Create LangFuse trace for entire WebSocket session
-        trace = langfuse.trace(
+        trace = LangfuseManager.trace(
             name="WebSocket Research Session",
             input={
                 "thread_id": thread_id,
@@ -1455,8 +1455,8 @@ async def stream_agent_progress(websocket: WebSocket):
             last_heartbeat = time.time()
             HEARTBEAT_INTERVAL = 30  # Send heartbeat every 30 seconds
             
-            # Use astream to get state updates after each node
-            async for chunk in graph.astream(input_data, config=config):
+            # Use async_graph.astream for asynchronous streaming with async checkpointer
+            async for chunk in async_graph.astream(input_data, config=config):
                 # Check if we need to send a heartbeat
                 current_time = time.time()
                 if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
@@ -1467,6 +1467,30 @@ async def stream_agent_progress(websocket: WebSocket):
                     last_heartbeat = current_time
                 # chunk is a dict with node name as key
                 for node_name, state_update in chunk.items():
+                    # 🔄 INTERRUPT DETECTION: When interrupt_before triggers,
+                    # state_update might be a tuple instead of dict
+                    # Special handling for __interrupt__ signal
+                    if node_name == "__interrupt__":
+                        # Graph has paused - send notification to frontend
+                        await websocket.send_json({
+                            "type": "progress",
+                            "node": node_name,
+                            "message": "Workflow paused, waiting for user input..."
+                        })
+                        # Don't try to access .get() on interrupt signal
+                        continue
+                    
+                    # Ensure state_update is a dict before calling .get()
+                    if not isinstance(state_update, dict):
+                        print(f"[WebSocket] Warning: state_update is not a dict for node {node_name}, got {type(state_update)}")
+                        # Send progress update anyway
+                        await websocket.send_json({
+                            "type": "progress",
+                            "node": node_name,
+                            "message": f"Processing {node_name}..."
+                        })
+                        continue
+                    
                     # Send progress update
                     await websocket.send_json({
                         "type": "progress",
@@ -1590,6 +1614,17 @@ async def stream_agent_progress(websocket: WebSocket):
         
         # Execute with HITL detection
         result = await stream_with_hitl_detection()
+        
+        # 🔄 CRITICAL: Check if result is None (happens when graph hits interrupt_before)
+        # When interrupt_before triggers, astream() ends without final state
+        # In this case, we should NOT send 'complete' - just keep WebSocket open for HITL
+        if result is None:
+            print("[WebSocket] Graph interrupted (result is None), keeping connection open for HITL...")
+            # Don't send 'complete' or close WebSocket
+            # Connection stays open until user responds via HITL API
+            # Mark session as 'waiting_input' instead of 'completed'
+            db_manager.update_session(session_id, status="waiting_input")
+            return  # Keep WebSocket alive
         
         # Send completion with result summary (if not stopped)
         if not result.get("stop_research"):

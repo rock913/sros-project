@@ -1,7 +1,7 @@
 {
   "name": "Gemini Fullstack LangGraph - Frontend Dev",
   "dockerComposeFile": [
-    "../docker-compose-dev.yml"
+    "../../docker-compose-dev.yml"
   ],
   "service": "vscode-dev",
   "workspaceFolder": "/workspaces/gemini-fullstack-langgraph-quickstart",

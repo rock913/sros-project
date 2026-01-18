@@ -39,7 +39,7 @@ services:
       - "8121:8000"
     volumes:
       - .:/deps
-    working_dir: /deps/backend
+    working_dir: /deps
     # By setting entrypoint to an empty string, we override the
     # default ENTRYPOINT from the base langgraph-api image.
     # This allows our custom command to be executed directly.
@@ -54,6 +54,9 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GOOGLE_API_KEY: ${GEMINI_API_KEY}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      # For Aider (Qwen/OpenAI)
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URI: redis://langgraph-redis:6379
       POSTGRES_URI: postgresql://postgres:postgres@langgraph-postgres:5432/postgres
       PYTHONPATH: /deps/backend/src

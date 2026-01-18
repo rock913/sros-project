@@ -48,12 +48,16 @@ from agent.database import get_db_connection, Document, query_documents
 
 # Import checkpointer for state persistence
 from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg_pool import ConnectionPool
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import ConnectionPool, AsyncConnectionPool
 
 load_dotenv()
 
 # Configuration
-MAX_RESEARCH_LOOPS = 1
+# MAX_RESEARCH_LOOPS: Maximum number of search-reflect-refine iterations
+# Set to 2-3 to allow the agent to iteratively improve research coverage
+# while preventing infinite loops
+MAX_RESEARCH_LOOPS = 2  # Increased from 1 to allow one refinement iteration
 
 
 # Nodes
@@ -769,95 +773,91 @@ builder.add_node("report_revision", report_revision_node)  # Phase 3.6: HITL Nod
 # Build the graph edges
 builder.add_edge(START, "generate_initial_queries")
 
-# Phase 3.6: Add query approval after initial query generation
-builder.add_edge("generate_initial_queries", "query_approval")
+# Phase 3.6: HITL nodes temporarily bypassed for debugging
+# Direct edge: generate_initial_queries -> parallel execute_searches
+# builder.add_edge("generate_initial_queries", "query_approval")
 
-# Conditional edge after query approval - check if we should proceed
-def check_query_approval_and_continue(state: AgentState):
+# Conditional edge after initial query generation - proceed with parallel searches
+def check_queries_and_execute_searches(state: AgentState):
     """
-    Check query approval status and decide next action
+    After query generation, directly proceed with parallel searches
+    (HITL query approval node is bypassed)
     
     Returns:
-    - Send objects for parallel search if approved
-    - END if rejected or need to wait
+    - Send objects for parallel search
     """
     if state.get("stop_research"):
-        # User rejected queries
         return []
     
-    if state.get("hitl_pending"):
-        # Still waiting for user response - return empty to pause
-        return []
-    
-    # Approved - proceed with parallel searches
+    # Directly proceed with parallel searches
     return [Send("execute_searches", {"search_queries": [q]}) for q in state["search_queries"]]
 
 builder.add_conditional_edges(
-    "query_approval",
-    check_query_approval_and_continue
+    "generate_initial_queries",
+    check_queries_and_execute_searches
 )
 builder.add_edge("execute_searches", "reflection_and_refinement")
 
-# Phase 3.6: Add paper selection after reflection
-builder.add_edge("reflection_and_refinement", "paper_selection")
+# Phase 3.6: Paper selection HITL node bypassed
+# Direct edge: reflection_and_refinement -> automated_resource_management
+# builder.add_edge("reflection_and_refinement", "paper_selection")
 
-# Conditional edge after paper selection - check if sufficient or loop
-def check_paper_selection_and_continue(state: AgentState):
+# Conditional edge after reflection - check if sufficient or loop back
+def check_reflection_and_continue(state: AgentState):
     """
-    Check paper selection status and decide next action
+    After reflection, decide next action based on research sufficiency
+    (HITL paper selection node is bypassed)
+    
+    This implements the core research loop logic:
+    1. If research is sufficient OR max loops reached → proceed to resource management
+    2. If research is insufficient AND haven't hit max loops → loop back for more searches
     
     Returns:
-    - "generate_initial_queries" if need more papers (loop back)
-    - "automated_resource_management" if sufficient
-    - END if user rejected or error
+    - "automated_resource_management" when sufficient or max loops reached
+    - Send objects for parallel searches when need more papers
+    - END if user stopped research
     """
-    if state.get("hitl_pending"):
-        # Still waiting for user response
-        return END  # Pause execution
-    
     if state.get("stop_research"):
-        # User rejected papers
         return END
     
-    # Check if research is sufficient
-    if state.get("is_sufficient"):
+    is_sufficient = state.get("is_sufficient", False)
+    loop_count = state.get("research_loop_count", 0)
+    
+    print(f"[Research Loop] is_sufficient={is_sufficient}, loop_count={loop_count}/{MAX_RESEARCH_LOOPS}")
+    
+    # Check if we should continue or finish
+    if is_sufficient or loop_count >= MAX_RESEARCH_LOOPS:
+        if is_sufficient:
+            print("[Research Loop] ✅ Research is sufficient, proceeding to resource management")
+        else:
+            print(f"[Research Loop] ⚠️ Max loops ({MAX_RESEARCH_LOOPS}) reached, proceeding to resource management")
         return "automated_resource_management"
     else:
-        # Need more papers - loop back
-        return "generate_initial_queries"
+        # Need more research - loop back to execute more searches
+        follow_up_queries = state.get("search_queries", [])
+        if follow_up_queries:
+            print(f"[Research Loop] 🔄 Insufficient research, looping back with {len(follow_up_queries)} new queries")
+            return [Send("execute_searches", {"search_queries": [q]}) for q in follow_up_queries if q]
+        else:
+            # No follow-up queries but insufficient - proceed anyway
+            print("[Research Loop] ⚠️ No follow-up queries available, proceeding to resource management")
+            return "automated_resource_management"
 
 builder.add_conditional_edges(
-    "paper_selection",
-    check_paper_selection_and_continue,
-    ["generate_initial_queries", "automated_resource_management", END]
+    "reflection_and_refinement",
+    check_reflection_and_continue,
+    ["automated_resource_management", END]  # Note: Send() will create dynamic edges
 )
 
 builder.add_edge("automated_resource_management", "ingest_and_embed_documents")
 builder.add_edge("ingest_and_embed_documents", "retrieve_and_synthesize_report")
 
-# Phase 3.6: Add report revision after synthesis
-builder.add_edge("retrieve_and_synthesize_report", "report_revision")
+# Phase 3.6: Report revision HITL node bypassed
+# Direct to END after report synthesis
+# builder.add_edge("retrieve_and_synthesize_report", "report_revision")
 
-# Conditional edge after report revision - final decision
-def check_report_revision(state: AgentState):
-    """
-    Check report revision status and decide if complete
-    
-    Returns:
-    - END when report approved or user stopped
-    """
-    if state.get("hitl_pending"):
-        # Still waiting for user response
-        return END  # Pause (will resume when user responds)
-    
-    if state.get("final_report") or state.get("stop_research"):
-        # Report approved or research stopped
-        return END
-    
-    # Fallback
-    return END
-
-builder.add_conditional_edges("report_revision", check_report_revision)
+# Direct completion after report synthesis
+builder.add_edge("retrieve_and_synthesize_report", END)
 
 # Initialize PostgresSaver checkpointer for state persistence
 # This enables multi-session support via thread_id
@@ -866,9 +866,8 @@ DB_URI = os.getenv(
     "postgresql://postgres:postgres@langgraph-postgres:5432/postgres"
 )
 
-# Create connection pool for checkpointer
-# Using a pool ensures efficient connection reuse across multiple requests
-connection_pool = ConnectionPool(
+# Create SYNC connection pool for synchronous endpoints (/agent/invoke)
+sync_connection_pool = ConnectionPool(
     conninfo=DB_URI,
     max_size=20,  # Maximum number of connections in the pool
     kwargs={
@@ -877,10 +876,36 @@ connection_pool = ConnectionPool(
     }
 )
 
-# Initialize checkpointer
-# This will automatically create necessary tables (checkpoints, checkpoint_writes)
-checkpointer = PostgresSaver(connection_pool)
+# Create ASYNC connection pool for async endpoints (/agent/stream)
+async_connection_pool = AsyncConnectionPool(
+    conninfo=DB_URI,
+    max_size=20,  # Maximum number of connections in the pool
+    kwargs={
+        "autocommit": True,  # Required for AsyncPostgresSaver
+        "prepare_threshold": 0,  # Disable prepared statements for compatibility
+    }
+)
 
-# Compile the graph with checkpointer
-# Now supports state persistence and multi-session isolation via thread_id
-graph = builder.compile(checkpointer=checkpointer)
+# Initialize synchronous checkpointer for /agent/invoke
+sync_checkpointer = PostgresSaver(sync_connection_pool)
+
+# Initialize asynchronous checkpointer for /agent/stream
+async_checkpointer = AsyncPostgresSaver(async_connection_pool)
+
+# Phase 3.6: HITL Configuration
+# Specify nodes where execution should pause for human input
+# TEMPORARILY DISABLED for debugging - allow workflow to run to completion
+# HITL_INTERRUPT_NODES = ["query_approval", "paper_selection", "report_revision"]
+
+# Compile TWO graphs:
+# 1. Synchronous graph for /agent/invoke endpoint
+graph = builder.compile(
+    checkpointer=sync_checkpointer
+    # interrupt_before=HITL_INTERRUPT_NODES  # DISABLED: Allow auto-completion
+)
+
+# 2. Asynchronous graph for /agent/stream endpoint  
+async_graph = builder.compile(
+    checkpointer=async_checkpointer
+    # interrupt_before=HITL_INTERRUPT_NODES  # DISABLED: Allow auto-completion
+)

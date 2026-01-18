@@ -1,0 +1,15 @@
+# .aider.conf.yml
+# Aider configuration for Gemini Fullstack Auto-Researcher
+# This file is shared between host and dev container
+
+# Model configuration for Qwen Max (via OpenAI compatible endpoint)
+model: openai/qwen-max
+openai-api-base: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# Optimization
+map-tokens: 2048
+cache-prompts: true
+
+# Git
+# Aider will use the .git directory in the root of the workspace
+# Ensure your user name and email are configured in git inside the container if not passed through

@@ -13,12 +13,12 @@ function generateAnalyticsDashboardHTML(stats, trends, sessions) {
     const daily = stats.daily_breakdown || [];
     const papersByDay = trends.trends.papers_by_day || [];
     const topTopics = stats.top_topics || [];
-    // Check if there's any data
-    const hasData = stats.stats.total_sessions > 0;
-    // Generate empty state message if no data
-    if (!hasData) {
-        return generateEmptyStateHTML();
-    }
+    // Extract recent topics from sessions for quick access
+    const recentTopics = sessions.sessions
+        .slice(0, 5)
+        .map(s => s.research_topic)
+        .filter((topic, index, self) => self.indexOf(topic) === index) // Remove duplicates
+        .slice(0, 5);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,14 +44,186 @@ function generateAnalyticsDashboardHTML(stats, trends, sessions) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
             border-bottom: 2px solid var(--vscode-panel-border);
         }
         
         h1 {
             font-size: 24px;
             margin: 0;
+        }
+        
+        /* Research Starter Section */
+        .research-starter {
+            background: linear-gradient(135deg, 
+                var(--vscode-editor-inactiveSelectionBackground) 0%, 
+                var(--vscode-editor-background) 100%);
+            border: 2px solid var(--vscode-textLink-foreground);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .research-starter h2 {
+            font-size: 18px;
+            margin: 0 0 16px 0;
+            color: var(--vscode-textLink-foreground);
+            font-weight: 600;
+        }
+        
+        .research-input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        .research-input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #researchTopicInput {
+            width: 100%;
+            min-height: 64px;
+            padding: 12px;
+            font-size: 14px;
+            font-family: var(--vscode-font-family);
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        #researchTopicInput:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            border-color: var(--vscode-focusBorder);
+        }
+        
+        #researchTopicInput::placeholder {
+            color: var(--vscode-input-placeholderForeground);
+        }
+        
+        .char-counter {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .char-counter.warning {
+            color: var(--vscode-editorWarning-foreground);
+        }
+        
+        .char-counter.error {
+            color: var(--vscode-errorForeground);
+        }
+        
+        .research-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .primary-btn {
+            height: 64px;
+            padding: 0 24px;
+            font-size: 15px;
+            font-weight: 600;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+        
+        .primary-btn:hover:not(:disabled) {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        
+        .primary-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .secondary-btn {
+            height: 32px;
+            padding: 0 16px;
+            font-size: 13px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: 1px solid var(--vscode-button-border);
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .secondary-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        
+        .recent-topics-dropdown {
+            position: relative;
+        }
+        
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background-color: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 300px;
+            max-width: 500px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            font-size: 13px;
+            transition: background-color 0.2s;
+        }
+        
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dropdown-item:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        
+        .dropdown-item .topic-text {
+            display: block;
+            color: var(--vscode-foreground);
+            margin-bottom: 4px;
+        }
+        
+        .dropdown-item .topic-meta {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+        }
+        
+        .empty-topics {
+            padding: 16px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            font-size: 13px;
         }
         
         .time-range-selector {
@@ -251,6 +423,42 @@ function generateAnalyticsDashboardHTML(stats, trends, sessions) {
             </div>
         </div>
         
+        <!-- Research Starter Section -->
+        <div class="research-starter">
+            <h2>🚀 Start New Research</h2>
+            <div class="research-input-container">
+                <div class="research-input-wrapper">
+                    <textarea 
+                        id="researchTopicInput" 
+                        placeholder="Enter your research topic (e.g., 'Latest advances in transformer architectures', 'Large language model hallucination mitigation')..."
+                        maxlength="200"
+                        oninput="updateCharCounter()"
+                        onkeydown="handleInputKeydown(event)"
+                    ></textarea>
+                    <div id="charCounter" class="char-counter">0 / 200</div>
+                </div>
+                <div class="research-actions">
+                    <button id="startResearchBtn" class="primary-btn" onclick="startResearchFromDashboard()" disabled>
+                        🚀 Start Research
+                    </button>
+                    ${recentTopics.length > 0 ? `
+                    <div class="recent-topics-dropdown">
+                        <button class="secondary-btn" onclick="toggleRecentTopics()">
+                            📝 Recent Topics ▼
+                        </button>
+                        <div id="recentTopicsMenu" class="dropdown-menu">
+                            ${recentTopics.map(topic => `
+                                <div class="dropdown-item" onclick="selectRecentTopic('${topic.replace(/'/g, "\\'")}')">
+                                    <span class="topic-text">${topic}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+        
         <!-- Summary Cards -->
         <div class="summary-cards">
             <div class="card">
@@ -310,7 +518,7 @@ function generateAnalyticsDashboardHTML(stats, trends, sessions) {
                 </thead>
                 <tbody>
                     ${sessions.sessions.slice(0, 10).map(s => `
-                        <tr onclick="viewSessionDetails('${s.session_id}')">
+                        <tr class="session-row" data-session-id="${s.session_id}">
                             <td>${s.research_topic || s.title}</td>
                             <td><span class="status-badge status-${s.status}">${s.status}</span></td>
                             <td>${s.papers_count}</td>
@@ -457,142 +665,129 @@ function generateAnalyticsDashboardHTML(stats, trends, sessions) {
         }
         
         function viewSessionDetails(sessionId) {
+            console.log('[Analytics Dashboard] viewSessionDetails called with sessionId:', sessionId);
             vscode.postMessage({ command: 'viewSessionDetails', sessionId: sessionId });
+            console.log('[Analytics Dashboard] Message posted to extension');
+        }
+        
+        // Research Starter Functions
+        function updateCharCounter() {
+            const input = document.getElementById('researchTopicInput');
+            const counter = document.getElementById('charCounter');
+            const btn = document.getElementById('startResearchBtn');
+            const length = input.value.trim().length;
+            
+            counter.textContent = length + ' / 200';
+            
+            // Update counter color based on length
+            counter.classList.remove('warning', 'error');
+            if (length > 180) {
+                counter.classList.add('error');
+            } else if (length > 150) {
+                counter.classList.add('warning');
+            }
+            
+            // Enable/disable button based on validation
+            if (length >= 5 && length <= 200) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+        }
+        
+        function handleInputKeydown(event) {
+            // Submit on Enter (but allow Shift+Enter for new line)
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                startResearchFromDashboard();
+            }
+            // Clear on Escape
+            if (event.key === 'Escape') {
+                document.getElementById('researchTopicInput').value = '';
+                updateCharCounter();
+            }
+        }
+        
+        function startResearchFromDashboard() {
+            const input = document.getElementById('researchTopicInput');
+            const topic = input.value.trim();
+            
+            if (topic.length < 5) {
+                alert('Please enter a topic (at least 5 characters)');
+                return;
+            }
+            
+            if (topic.length > 200) {
+                alert('Topic is too long (max 200 characters)');
+                return;
+            }
+            
+            // Send message to extension
+            vscode.postMessage({ 
+                command: 'startResearchFromDashboard', 
+                topic: topic 
+            });
+            
+            // Clear input
+            input.value = '';
+            updateCharCounter();
+        }
+        
+        function toggleRecentTopics() {
+            const menu = document.getElementById('recentTopicsMenu');
+            menu.classList.toggle('show');
+            
+            // Close dropdown when clicking outside
+            if (menu.classList.contains('show')) {
+                setTimeout(() => {
+                    document.addEventListener('click', function closeDropdown(e) {
+                        if (!e.target.closest('.recent-topics-dropdown')) {
+                            menu.classList.remove('show');
+                            document.removeEventListener('click', closeDropdown);
+                        }
+                    });
+                }, 0);
+            }
+        }
+        
+        function selectRecentTopic(topic) {
+            document.getElementById('researchTopicInput').value = topic;
+            document.getElementById('recentTopicsMenu').classList.remove('show');
+            updateCharCounter();
+            
+            // Auto-focus on input for easy editing
+            document.getElementById('researchTopicInput').focus();
         }
         
         // Hide loading indicator and show dashboard after charts are rendered
         window.addEventListener('load', () => {
+            console.log('[Analytics Dashboard] Window loaded, initializing...');
+            
+            // Set up event delegation for session table rows
+            const sessionsTable = document.querySelector('.sessions-section tbody');
+            if (sessionsTable) {
+                console.log('[Analytics Dashboard] Found sessions table, adding click listener');
+                sessionsTable.addEventListener('click', (e) => {
+                    const row = e.target.closest('tr.session-row');
+                    if (row) {
+                        const sessionId = row.dataset.sessionId;
+                        console.log('[Analytics Dashboard] Row clicked, sessionId:', sessionId);
+                        viewSessionDetails(sessionId);
+                    } else {
+                        console.log('[Analytics Dashboard] Click target is not a session row:', e.target);
+                    }
+                });
+            } else {
+                console.error('[Analytics Dashboard] Sessions table tbody not found!');
+            }
+            
+            // Hide loading, show dashboard
             setTimeout(() => {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
+                console.log('[Analytics Dashboard] Dashboard displayed');
             }, 300); // Small delay to ensure Chart.js is fully initialized
         });
-    </script>
-</body>
-</html>`;
-}
-/**
- * Generate empty state HTML when no data is available
- */
-function generateEmptyStateHTML() {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Dashboard</title>
-    <style>
-        body {
-            font-family: var(--vscode-font-family);
-            color: var(--vscode-foreground);
-            background-color: var(--vscode-editor-background);
-            padding: 20px;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        
-        .empty-state {
-            text-align: center;
-            max-width: 500px;
-            padding: 40px;
-        }
-        
-        .empty-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .empty-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--vscode-foreground);
-        }
-        
-        .empty-description {
-            font-size: 14px;
-            line-height: 1.6;
-            color: var(--vscode-descriptionForeground);
-            margin-bottom: 30px;
-        }
-        
-        .empty-action {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-        }
-        
-        .empty-action:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-        
-        .suggestions {
-            margin-top: 30px;
-            text-align: left;
-        }
-        
-        .suggestions h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
-            color: var(--vscode-foreground);
-        }
-        
-        .suggestions ul {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .suggestions li {
-            padding: 8px 0;
-            color: var(--vscode-descriptionForeground);
-            font-size: 13px;
-        }
-        
-        .suggestions li::before {
-            content: "→ ";
-            color: var(--vscode-textLink-foreground);
-            margin-right: 8px;
-        }
-    </style>
-</head>
-<body>
-    <div class="empty-state">
-        <div class="empty-icon">📊</div>
-        <h1 class="empty-title">暂无分析数据</h1>
-        <p class="empty-description">
-            还没有研究会话数据。开始你的第一次AI驱动的文献研究，我们将自动收集和分析数据。
-        </p>
-        <button class="empty-action" onclick="startNewResearch()">
-            🚀 开始新研究
-        </button>
-        
-        <div class="suggestions">
-            <h3>💡 快速开始</h3>
-            <ul>
-                <li>使用命令面板 (Ctrl+Shift+P) 搜索 "Auto Researcher"</li>
-                <li>输入你的研究主题，例如 "大语言模型的幻觉问题"</li>
-                <li>等待AI完成文献收集和分析</li>
-                <li>完成后即可在此查看详细统计数据</li>
-            </ul>
-        </div>
-    </div>
-    
-    <script>
-        const vscode = acquireVsCodeApi();
-        
-        function startNewResearch() {
-            vscode.postMessage({ command: 'startNewResearch' });
-        }
     </script>
 </body>
 </html>`;

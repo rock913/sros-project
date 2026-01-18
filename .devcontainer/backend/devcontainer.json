@@ -1,0 +1,41 @@
+{
+  "name": "Gemini Fullstack LangGraph - Backend Dev",
+  "dockerComposeFile": [
+    "../../docker-compose-dev.yml"
+  ],
+  "service": "langgraph-api",
+  "workspaceFolder": "/deps",
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "Google.gemini-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.terminal.activateEnvironment": false
+      }
+    }
+  },
+  "forwardPorts": [8000, 8121],
+  "portsAttributes": {
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "8121": {
+      "label": "Backend API (Host)",
+      "onAutoForward": "ignore"
+    }
+  },
+  "postCreateCommand": "echo 'Container ready! Dependencies already installed in image.'",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": false
+    }
+  }
+}

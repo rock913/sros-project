@@ -11,6 +11,13 @@ const sessionDetailsWebview_1 = require("./sessionDetailsWebview");
 const hitlWebview_1 = require("./hitlWebview");
 // Phase 3.6 Week 3: Document Collaboration imports
 const documentCollaboration_1 = require("./documentCollaboration");
+// Phase 3.7 方案 A: Unified Research View imports (deprecated)
+// import { UnifiedResearchViewProvider } from './UnifiedResearchViewProvider';
+// Phase 3.7 方案 B: Research Sessions Tree Provider imports
+const ResearchSessionsTreeProvider_1 = require("./ResearchSessionsTreeProvider");
+const ManuscriptDocumentProvider_1 = require("./providers/ManuscriptDocumentProvider");
+const ManuscriptCodeLensProvider_1 = require("./providers/ManuscriptCodeLensProvider");
+const researchCommands = require("./commands/researchSessionCommands");
 /**
  * Generates enhanced HTML for the AI Control Panel webview
  */
@@ -680,6 +687,158 @@ function generateResearchProgressHTML(topic, threadId) {
             background-color: var(--vscode-editor-inactiveSelectionBackground);
             border-radius: 4px;
         }
+        
+        /* HITL Approval Section */
+        .hitl-container {
+            display: none;
+            background-color: var(--vscode-input-background);
+            border: 2px solid var(--vscode-focusBorder);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .hitl-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        
+        .hitl-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .hitl-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--vscode-errorForeground);
+        }
+        
+        .hitl-prompt {
+            font-size: 14px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+        
+        .hitl-queries {
+            margin: 15px 0;
+        }
+        
+        .hitl-queries-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--vscode-textLink-foreground);
+        }
+        
+        .query-item {
+            background-color: var(--vscode-editor-background);
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border-left: 3px solid var(--vscode-textLink-foreground);
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-word;
+        }
+        
+        .query-number {
+            display: inline-block;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .hitl-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+        
+        .hitl-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .hitl-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .hitl-button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-approve {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .btn-approve:hover {
+            background-color: #45a049;
+        }
+        
+        .btn-reject {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .btn-reject:hover {
+            background-color: #da190b;
+        }
+        
+        .btn-modify {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        
+        .btn-modify:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        
+        .hitl-context {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .hitl-context-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--vscode-descriptionForeground);
+        }
+        
         .log-container {
             max-height: 400px;
             overflow-y: auto;
@@ -737,6 +896,38 @@ function generateResearchProgressHTML(topic, threadId) {
             </div>
         </div>
         
+        <!-- HITL Approval Section (Hidden by default) -->
+        <div class="hitl-container" id="hitlContainer">
+            <div class="hitl-header">
+                <span class="hitl-icon">⏸️</span>
+                <span class="hitl-title">Human Approval Required</span>
+            </div>
+            
+            <div class="hitl-prompt" id="hitlPrompt">
+                <!-- Prompt will be inserted here -->
+            </div>
+            
+            <div class="hitl-queries" id="hitlQueries">
+                <!-- Queries will be inserted here -->
+            </div>
+            
+            <div class="hitl-context" id="hitlContext" style="display: none;">
+                <!-- Context will be inserted here -->
+            </div>
+            
+            <div class="hitl-actions">
+                <button class="hitl-button btn-approve" onclick="handleHitlResponse('approve')">
+                    ✅ Approve
+                </button>
+                <button class="hitl-button btn-reject" onclick="handleHitlResponse('reject')">
+                    ❌ Reject
+                </button>
+                <button class="hitl-button btn-modify" onclick="handleHitlResponse('modify')">
+                    ✏️ Modify
+                </button>
+            </div>
+        </div>
+        
         <div class="complete-banner" id="completeBanner">
             ✅ Research Completed!
         </div>
@@ -756,6 +947,12 @@ function generateResearchProgressHTML(topic, threadId) {
         const statusMessage = document.getElementById('statusMessage');
         const logContainer = document.getElementById('logContainer');
         const completeBanner = document.getElementById('completeBanner');
+        const hitlContainer = document.getElementById('hitlContainer');
+        const hitlPrompt = document.getElementById('hitlPrompt');
+        const hitlQueries = document.getElementById('hitlQueries');
+        const hitlContext = document.getElementById('hitlContext');
+        
+        let currentHitlData = null;
         
         // Listen for messages from extension
         window.addEventListener('message', event => {
@@ -773,6 +970,12 @@ function generateResearchProgressHTML(topic, threadId) {
                     break;
                 case 'error':
                     addLogEntry('❌ Error: ' + message.message);
+                    break;
+                case 'showHitlRequest':
+                    showHitlRequest(message.data);
+                    break;
+                case 'hideHitlRequest':
+                    hideHitlRequest();
                     break;
             }
         });
@@ -793,15 +996,121 @@ function generateResearchProgressHTML(topic, threadId) {
             logContainer.appendChild(entry);
             logContainer.scrollTop = logContainer.scrollHeight;
         }
+        
+        function showHitlRequest(data) {
+            currentHitlData = data;
+            
+            // Set prompt
+            hitlPrompt.textContent = data.prompt || 'Please review and approve the generated queries.';
+            
+            // Set queries
+            if (data.context && data.context.queries) {
+                hitlQueries.innerHTML = '<div class="hitl-queries-title">📝 Generated Queries:</div>';
+                data.context.queries.forEach((query, index) => {
+                    const queryItem = document.createElement('div');
+                    queryItem.className = 'query-item';
+                    queryItem.innerHTML = \`
+                        <span class="query-number">\${index + 1}</span>
+                        <span>\${escapeHtml(query)}</span>
+                    \`;
+                    hitlQueries.appendChild(queryItem);
+                });
+            }
+            
+            // Set context info
+            if (data.context && data.context.research_topic) {
+                hitlContext.style.display = 'block';
+                hitlContext.innerHTML = \`
+                    <div class="hitl-context-title">Research Topic:</div>
+                    <div>\${escapeHtml(data.context.research_topic)}</div>
+                \`;
+            }
+            
+            // Show container
+            hitlContainer.style.display = 'block';
+            
+            // Scroll to HITL section
+            hitlContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            addLogEntry('⏸️ Waiting for human approval...');
+        }
+        
+        function hideHitlRequest() {
+            hitlContainer.style.display = 'none';
+            currentHitlData = null;
+        }
+        
+        function handleHitlResponse(action) {
+            if (!currentHitlData) {
+                return;
+            }
+            
+            // Send response to extension
+            vscode.postMessage({
+                command: 'hitl_response',
+                requestId: currentHitlData.request_id,
+                action: action,
+                selectedOption: currentHitlData.options ? currentHitlData.options[0] : null
+            });
+            
+            // Hide HITL section
+            hideHitlRequest();
+            
+            // Add log entry
+            const actionText = action === 'approve' ? '✅ Approved' : action === 'reject' ? '❌ Rejected' : '✏️ Modification requested';
+            addLogEntry(\`\${actionText} - Research continuing...\`);
+        }
+        
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
     </script>
 </body>
 </html>`;
+}
+/**
+ * Helper function to create HITL request handler
+ * Reusable across different research start points
+ *
+ * TEMPORARILY DISABLED: HITL auto-approves all requests to ensure smooth research flow
+ * TODO: Re-enable after backend HITL implementation is fixed
+ */
+function createHitlRequestHandler(wsConnection, progressPanel) {
+    return (hitlData) => {
+        console.log('[Research] HITL Request received (auto-approving):', hitlData.request_id);
+        // ⚠️ TEMPORARY: Auto-approve all HITL requests without user interaction
+        // Send immediate approval to backend
+        const { sendHitlResponse } = require('./api');
+        sendHitlResponse(wsConnection, hitlData.request_id, true, hitlData.options?.[0]);
+        // Update progress to show continuation
+        progressPanel.webview.postMessage({
+            command: 'updateProgress',
+            message: '✅ Auto-approved! Continuing research...',
+            progress: 40
+        });
+        // Add log entry
+        console.log('[Research] Auto-approved HITL request:', hitlData.request_id);
+    };
 }
 function activate(context) {
     console.log('Congratulations, your extension "auto-researcher" is now active!');
     // Phase 3.6 Week 3: Initialize Document Collaboration Manager
     const docCollabManager = new documentCollaboration_1.DocumentCollaborationManager(context);
     context.subscriptions.push(docCollabManager);
+    // Phase 3.7 方案 B: Initialize Research Sessions Tree Provider
+    const researchSessionsTreeProvider = new ResearchSessionsTreeProvider_1.ResearchSessionsTreeProvider();
+    context.subscriptions.push(vscode.window.registerTreeDataProvider('auto-researcher.researchSessionsTree', researchSessionsTreeProvider));
+    // Phase 3.7 方案 B: Register Manuscript Document Provider
+    const manuscriptDocProvider = new ManuscriptDocumentProvider_1.ManuscriptDocumentProvider();
+    context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('research-manuscript', manuscriptDocProvider));
+    // Phase 3.7 方案 B: Register Manuscript CodeLens Provider
+    const manuscriptCodeLensProvider = new ManuscriptCodeLensProvider_1.ManuscriptCodeLensProvider();
+    context.subscriptions.push(vscode.languages.registerCodeLensProvider({ scheme: 'research-manuscript', language: 'markdown' }, manuscriptCodeLensProvider));
     // Create provider instances
     const assetLibraryProvider = new AssetLibraryProvider();
     const manuscriptProvider = new ManuscriptProvider();
@@ -840,83 +1149,82 @@ function activate(context) {
             const threadId = (0, api_1.generateThreadId)();
             // 5. Show initial progress HTML
             panel.webview.html = generateResearchProgressHTML(topic, threadId);
-            // 6. Start research via backend API
-            let pollIntervalId = null;
+            // 6. Start research via WebSocket streaming
             try {
-                // Invoke the agent
                 panel.webview.postMessage({
                     command: 'updateProgress',
-                    message: '🚀 Starting research agent...',
+                    message: '🚀 Connecting to research agent...',
                     progress: 10
                 });
-                await (0, api_1.invokeAgent)(threadId, topic);
-                panel.webview.postMessage({
-                    command: 'updateProgress',
-                    message: '✅ Research task created',
-                    progress: 20
-                });
-                // Poll for progress updates (temporary - will be replaced with WebSocket in Week 2)
-                vscode.window.showInformationMessage('⚠️ Using polling for progress updates. WebSocket streaming will be added in Week 2.');
-                let pollCount = 0;
-                const maxPolls = 120; // Max 10 minutes (120 * 5 seconds)
-                pollIntervalId = setInterval(async () => {
-                    pollCount++;
-                    if (pollCount > maxPolls) {
-                        clearInterval(pollIntervalId);
+                // Store WebSocket instance for HITL responses
+                let wsConnection = null;
+                wsConnection = await (0, api_1.startResearchStream)(topic, {
+                    onStarted: (data) => {
+                        console.log('[Research] Started:', data);
                         panel.webview.postMessage({
                             command: 'updateProgress',
-                            message: '⏱️ Polling timeout. Please check backend logs.',
-                            progress: 50
+                            message: '✅ Research task started',
+                            progress: 20
                         });
-                        return;
-                    }
-                    try {
-                        const state = await (0, api_1.getThreadState)(threadId);
-                        // Update progress based on state
-                        const lastMessage = state.messages?.[state.messages.length - 1]?.content || '';
-                        let progress = 30;
-                        let statusMessage = '🔄 Processing...';
-                        // Interpret state to show progress
-                        if (state.search_queries && state.search_queries.length > 0) {
-                            progress = 40;
-                            statusMessage = `� Generated ${state.search_queries.length} search queries`;
-                        }
-                        if (state.literature_abstracts && state.literature_abstracts.length > 0) {
-                            progress = 60;
-                            statusMessage = `📚 Found ${state.literature_abstracts.length} papers`;
-                        }
-                        if (state.report && state.report.length > 100) {
-                            progress = 100;
-                            statusMessage = '✅ Research report completed!';
-                            clearInterval(pollIntervalId);
-                            panel.webview.postMessage({
-                                command: 'complete',
-                                message: statusMessage,
-                                progress: 100
+                        vscode.window.showInformationMessage(`✅ Research started! Session ID: ${data.session_id}`);
+                    },
+                    onProgress: (data) => {
+                        console.log('[Research] Progress:', data.node, data.message || '');
+                        // Map node names to progress and user-friendly messages
+                        const nodeProgressMap = {
+                            'query_generation': { progress: 30, message: '📝 Generating search queries...' },
+                            'query_approval': { progress: 35, message: '⏸️ Waiting for query approval (HITL)...' },
+                            'search_and_filter': { progress: 50, message: '🔍 Searching and filtering papers...' },
+                            'paper_selection': { progress: 60, message: '📚 Selecting relevant papers...' },
+                            'paper_selection_approval': { progress: 65, message: '⏸️ Waiting for paper selection approval (HITL)...' },
+                            'full_text_retrieval': { progress: 70, message: '📄 Retrieving full-text papers...' },
+                            'report_synthesis': { progress: 85, message: '📊 Synthesizing research report...' },
+                            'final_report': { progress: 95, message: '✍️ Finalizing report...' }
+                        };
+                        const nodeInfo = nodeProgressMap[data.node] || {
+                            progress: 40,
+                            message: `🔄 Processing: ${data.node}`
+                        };
+                        panel.webview.postMessage({
+                            command: 'updateProgress',
+                            message: data.message || nodeInfo.message,
+                            progress: nodeInfo.progress
+                        });
+                        // Show HITL notifications
+                        if (data.node.includes('approval')) {
+                            vscode.window.showWarningMessage(`⏸️ HITL: ${data.message || 'Waiting for approval'}\nThread ID: ${threadId}`, 'View Instructions').then(selection => {
+                                if (selection === 'View Instructions') {
+                                    vscode.window.showInformationMessage(`To approve: curl -X POST "http://localhost:8121/agent/hitl/approve" -H "Content-Type: application/json" -d '{"thread_id":"${threadId}","request_id":"...","approved":true}'`);
+                                }
                             });
-                            vscode.window.showInformationMessage(`✅ Research on "${topic}" completed! Thread ID: ${threadId}`);
-                            return;
                         }
-                        // Check for HITL (Human-in-the-Loop) waiting state
-                        if (lastMessage.includes('Waiting for user approval') || lastMessage.includes('⏸️')) {
-                            statusMessage = '⏸️ Waiting for approval (HITL)';
-                            progress = Math.min(progress, 50);
-                            vscode.window.showWarningMessage(`⏸️ Research paused: ${lastMessage}\nThread ID: ${threadId}\nPlease use backend API to approve.`);
-                        }
+                    },
+                    onHitlRequest: createHitlRequestHandler(wsConnection, panel),
+                    onComplete: (data) => {
+                        console.log('[Research] Completed:', data);
+                        panel.webview.postMessage({
+                            command: 'complete',
+                            message: '✅ Research report completed!',
+                            progress: 100
+                        });
+                        vscode.window.showInformationMessage(`🎉 Research completed!\nSession ID: ${data.session_id}\nThread ID: ${threadId}`);
+                        // Auto-refresh Manuscript and Asset Library to show new content
+                        console.log('[Research] Auto-refreshing Manuscript and Asset Library...');
+                        manuscriptProvider.refresh();
+                        assetLibraryProvider.refresh();
+                    },
+                    onError: (error) => {
+                        console.error('[Research] Error:', error);
                         panel.webview.postMessage({
                             command: 'updateProgress',
-                            message: statusMessage,
-                            progress: progress
+                            message: `❌ Error: ${error}`,
+                            progress: 0
                         });
+                        vscode.window.showErrorMessage(`Failed during research: ${error}`);
                     }
-                    catch (error) {
-                        console.error('Polling error:', error);
-                        // Don't stop polling on transient errors
-                    }
-                }, 5000); // Poll every 5 seconds
+                }, threadId);
             }
             catch (error) {
-                clearInterval(pollIntervalId);
                 panel.webview.postMessage({
                     command: 'updateProgress',
                     message: `❌ Error: ${error.message}`,
@@ -924,12 +1232,6 @@ function activate(context) {
                 });
                 vscode.window.showErrorMessage(`Failed to start research: ${error.message}`);
             }
-            // Clean up when panel is closed
-            panel.onDidDispose(() => {
-                if (pollIntervalId) {
-                    clearInterval(pollIntervalId);
-                }
-            });
         }
         catch (error) {
             vscode.window.showErrorMessage(`Failed to start research: ${error}`);
@@ -1119,13 +1421,94 @@ function activate(context) {
                             panel.webview.html = (0, analyticsWebview_1.generateAnalyticsDashboardHTML)(newData.stats, newData.trends, newData.sessions);
                             break;
                         case 'viewSessionDetails':
-                            vscode.window.showInformationMessage(`Viewing session: ${message.sessionId.substring(0, 8)}`);
-                            // TODO: Open session details view
+                            // Execute the viewSessionDetails command with the sessionId
+                            console.log('[Extension] Received viewSessionDetails message with sessionId:', message.sessionId);
+                            vscode.commands.executeCommand('auto-researcher.viewSessionDetails', message.sessionId);
+                            console.log('[Extension] Executed viewSessionDetails command');
                             break;
                         case 'startNewResearch':
-                            // Close analytics panel and trigger new research
+                        case 'startResearchFromDashboard':
+                            // Close analytics panel
                             panel.dispose();
-                            vscode.commands.executeCommand('auto-researcher.start');
+                            // If topic is provided (from dashboard input), start directly
+                            if (message.topic && message.topic.trim().length >= 5) {
+                                const topic = message.topic.trim();
+                                // Show progress notification
+                                vscode.window.showInformationMessage(`🚀 Starting research on: "${topic}"`);
+                                // Create progress webview panel
+                                const progressPanel = vscode.window.createWebviewPanel('researchProgress', `Research: ${topic.substring(0, 30)}${topic.length > 30 ? '...' : ''}`, vscode.ViewColumn.One, {
+                                    enableScripts: true,
+                                    retainContextWhenHidden: true
+                                });
+                                // Generate thread ID
+                                const threadId = (0, api_1.generateThreadId)();
+                                // Show initial progress HTML
+                                progressPanel.webview.html = generateResearchProgressHTML(topic, threadId);
+                                // Start research via WebSocket
+                                try {
+                                    // Store WebSocket instance for HITL responses
+                                    let wsConnection = null;
+                                    wsConnection = await (0, api_1.startResearchStream)(topic, {
+                                        onStarted: (data) => {
+                                            progressPanel.webview.postMessage({
+                                                command: 'updateProgress',
+                                                message: '✅ Research task started',
+                                                progress: 20
+                                            });
+                                            vscode.window.showInformationMessage(`✅ Research started! Session ID: ${data.session_id}`);
+                                        },
+                                        onProgress: (data) => {
+                                            const nodeProgressMap = {
+                                                'query_generation': { progress: 30, message: '📝 Generating search queries...' },
+                                                'query_approval': { progress: 35, message: '⏸️ Waiting for query approval...' },
+                                                'search_and_filter': { progress: 50, message: '🔍 Searching papers...' },
+                                                'paper_selection': { progress: 60, message: '📚 Selecting papers...' },
+                                                'full_text_retrieval': { progress: 70, message: '📄 Retrieving full text...' },
+                                                'report_synthesis': { progress: 85, message: '📊 Synthesizing report...' }
+                                            };
+                                            const nodeInfo = nodeProgressMap[data.node] || { progress: 40, message: `🔄 ${data.node}` };
+                                            progressPanel.webview.postMessage({
+                                                command: 'updateProgress',
+                                                message: nodeInfo.message,
+                                                progress: nodeInfo.progress
+                                            });
+                                        },
+                                        onHitlRequest: createHitlRequestHandler(wsConnection, progressPanel),
+                                        onComplete: (data) => {
+                                            progressPanel.webview.postMessage({
+                                                command: 'complete',
+                                                message: '✅ Research completed!',
+                                                progress: 100
+                                            });
+                                            vscode.window.showInformationMessage(`🎉 Research completed! Session ID: ${data.session_id}`);
+                                            // Auto-refresh Manuscript and Asset Library to show new content
+                                            console.log('[Analytics Dashboard] Auto-refreshing Manuscript and Asset Library...');
+                                            manuscriptProvider.refresh();
+                                            assetLibraryProvider.refresh();
+                                        },
+                                        onError: (error) => {
+                                            progressPanel.webview.postMessage({
+                                                command: 'updateProgress',
+                                                message: `❌ Error: ${error}`,
+                                                progress: 0
+                                            });
+                                            vscode.window.showErrorMessage(`Failed: ${error}`);
+                                        }
+                                    }, threadId);
+                                }
+                                catch (error) {
+                                    progressPanel.webview.postMessage({
+                                        command: 'updateProgress',
+                                        message: `❌ Error: ${error}`,
+                                        progress: 0
+                                    });
+                                    vscode.window.showErrorMessage(`Failed to start research: ${error}`);
+                                }
+                            }
+                            else {
+                                // No topic provided, trigger the full start research command
+                                vscode.commands.executeCommand('auto-researcher.start');
+                            }
                             break;
                     }
                 }, undefined, context.subscriptions);
@@ -1139,8 +1522,10 @@ function activate(context) {
     // Phase 3.5.4: View Session Details Command
     const viewSessionDetailsCommand = vscode.commands.registerCommand('auto-researcher.viewSessionDetails', async (sessionId) => {
         try {
+            console.log('[viewSessionDetailsCommand] Called with sessionId:', sessionId);
             // If no sessionId provided, prompt user to enter one
             if (!sessionId) {
+                console.log('[viewSessionDetailsCommand] No sessionId provided, prompting user...');
                 sessionId = await vscode.window.showInputBox({
                     prompt: 'Enter Session ID',
                     placeHolder: 'e.g., 4565e1f6-1c57-4658-a603-0ea242ffb241',
@@ -1348,7 +1733,38 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         }
         vscode.window.showInformationMessage('✅ Document Collaboration Test Complete! Check the editor for CodeLens actions.');
     });
-    context.subscriptions.push(startResearchCommand, showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, viewSessionDetailsCommand, testHITLCommand, testDocCollabCommand);
+    // Phase 3.7 方案 B: Refresh Research Sessions Tree command
+    const refreshResearchSessionsCommand = vscode.commands.registerCommand('auto-researcher.refreshResearchSessions', () => {
+        researchSessionsTreeProvider.refresh();
+        vscode.window.showInformationMessage('Research sessions refreshed!');
+    });
+    // Phase 3.7 方案 B: Research Session Commands
+    const openManuscriptCommand = vscode.commands.registerCommand('auto-researcher.openManuscript', (sessionId, version, report) => researchCommands.openManuscript(sessionId, version, report));
+    const compareVersionsCommand = vscode.commands.registerCommand('auto-researcher.compareVersions', (sessionId, oldVersion, newVersion) => researchCommands.compareVersions(sessionId, oldVersion, newVersion));
+    const openPaperCommand = vscode.commands.registerCommand('auto-researcher.openPaper', (sessionId, paperIndex) => researchCommands.openPaper(sessionId, paperIndex));
+    const copyBibTeXCommand = vscode.commands.registerCommand('auto-researcher.copyBibTeX', (paper) => researchCommands.copyBibTeX(paper));
+    const exportManuscriptCommand = vscode.commands.registerCommand('auto-researcher.exportManuscript', (sessionId, version) => researchCommands.exportManuscript(sessionId, version));
+    const downloadPDFCommand = vscode.commands.registerCommand('auto-researcher.downloadPDF', (paper) => researchCommands.downloadPDF(paper));
+    const showSessionAnalyticsCommand = vscode.commands.registerCommand('auto-researcher.showSessionAnalytics', (arg) => {
+        // Handle both cases: called from menu (TreeItem object) or programmatically (string)
+        let sessionId;
+        if (typeof arg === 'string') {
+            sessionId = arg;
+        }
+        else if (arg && typeof arg === 'object' && arg.sessionId) {
+            // Extract sessionId from TreeItem object
+            sessionId = arg.sessionId;
+        }
+        else {
+            console.error('[showSessionAnalyticsCommand] Invalid argument:', arg);
+            vscode.window.showErrorMessage('Cannot show analytics: Invalid session');
+            return;
+        }
+        researchCommands.showSessionAnalytics(sessionId);
+    });
+    context.subscriptions.push(startResearchCommand, showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, viewSessionDetailsCommand, testHITLCommand, testDocCollabCommand, refreshResearchSessionsCommand, 
+    // Phase 3.7 方案 B: Research Session Commands
+    openManuscriptCommand, compareVersionsCommand, openPaperCommand, copyBibTeXCommand, exportManuscriptCommand, downloadPDFCommand, showSessionAnalyticsCommand);
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);

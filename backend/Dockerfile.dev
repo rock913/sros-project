@@ -46,6 +46,10 @@ ADD backend/ /deps/backend
 RUN uv pip install --system pip setuptools wheel
 # Install dependencies with UV, respecting constraints
 RUN uv pip install --system langfuse
+# Install dev dependencies from requirements-dev.txt (includes aider-chat, pytest, etc.)
+RUN cd /deps/backend && \
+    uv pip install --system -r requirements-dev.txt
+
 RUN cd /deps/backend && \
     PYTHONDONTWRITEBYTECODE=1 UV_SYSTEM_PYTHON=1 uv pip install --system -e .
 # -- End of local dependencies install --
