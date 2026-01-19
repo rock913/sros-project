@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import pandas as pd
-from src.agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
-from src.agent.domain.schemas.paper import Paper, OpenAccessInfo
+from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
+from agent.domain.schemas.paper import Paper, OpenAccessInfo
 
 # Mock data for testing
 mock_oa_paper_data = pd.DataFrame({
