@@ -1,7 +1,7 @@
 from typing import Optional
 from unpywall import Unpywall
-from ..domain.ports.paper_fetcher import PaperFetcher
-from ..domain.schemas.paper import Paper, OpenAccessInfo
+from agent.domain.ports.paper_fetcher import PaperFetcher
+from agent.domain.schemas.paper import Paper, OpenAccessInfo
 
 class UnpaywallAdapter(PaperFetcher):
     """
