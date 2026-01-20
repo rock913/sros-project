@@ -4,6 +4,7 @@ Unit tests for the Unpaywall MCP tool factory.
 
 import unittest
 from unittest.mock import patch
+import json
 
 from agent.domain.schemas.mcp import McpTool  # Import McpTool
 from agent.domain.schemas.paper import Paper
@@ -38,7 +39,8 @@ class TestUnpaywallMcpAdapter(unittest.TestCase):
         result = mcp_tool.handler(doi="10.1234/5678")  # Fix: Access via attribute
 
         mock_adapter.fetch_by_doi.assert_called_once_with(doi="10.1234/5678")
-        self.assertIn('"doi": "10.1234/5678"', result)
+        result_dict = json.loads(result)
+        self.assertEqual(result_dict['doi'], '10.1234/5678')
 
 
 if __name__ == '__main__':
