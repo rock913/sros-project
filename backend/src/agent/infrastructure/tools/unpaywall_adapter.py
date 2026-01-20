@@ -1,16 +1,16 @@
-from typing import Optional
+
 from unpywall import Unpywall
+
 from agent.domain.ports.paper_fetcher import PaperFetcher
-from agent.domain.schemas.paper import Paper, OpenAccessInfo
+from agent.domain.schemas.paper import OpenAccessInfo, Paper
+
 
 class UnpaywallAdapter(PaperFetcher):
-    """
-    Adapter for fetching paper metadata and full-text availability using Unpaywall.
+    """Adapter for fetching paper metadata and full-text availability using Unpaywall.
     """
 
-    def fetch_by_doi(self, doi: str) -> Optional[Paper]:
-        """
-        Fetch paper details using its DOI.
+    def fetch_by_doi(self, doi: str) -> Paper | None:
+        """Fetch paper details using its DOI.
 
         Args:
             doi (str): The Digital Object Identifier of the paper.
