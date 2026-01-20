@@ -2,8 +2,8 @@
 
 from pydantic import BaseModel, Field
 
-from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
 from agent.domain.schemas.mcp import McpTool
+from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
 
 
 class UnpaywallArgs(BaseModel):
