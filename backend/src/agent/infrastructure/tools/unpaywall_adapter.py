@@ -23,7 +23,7 @@ class UnpaywallAdapter(PaperFetcher):
         """
         try:
             # Fetch paper data from Unpaywall
-            paper_data = Unpywall.doi(dois=[doi])
+            paper_data = Unpaywall.doi(dois=[doi])
             
             if paper_data.empty:
                 return None
