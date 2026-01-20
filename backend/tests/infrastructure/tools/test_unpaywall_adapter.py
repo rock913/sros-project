@@ -4,7 +4,6 @@ import pandas as pd
 import pytest
 
 from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
-from agent.domain.schemas.paper import OpenAccessInfo, Paper
 
 # Mock data for testing
 mock_oa_paper_data = pd.DataFrame({
