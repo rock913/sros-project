@@ -21,15 +21,15 @@ def get_unpaywall_mcp_tool() -> McpTool:
 
     def handler(doi: str) -> str:
         adapter = UnpaywallAdapter()
-        paper = adapter.fetch_by_doi(doi)
+        paper = adapter.fetch_by_doi(doi=doi)
         if paper is None:
             return "Paper not found"
-        return paper.json()
+        return paper.model_dump_json()
 
     unpaywall_tool = McpTool(
         name="unpaywall-fetch-paper",
         description="Fetches a paper from Unpaywall using its DOI",
-        input_schema=UnpaywallArgs.schema(),
+        input_schema=UnpaywallArgs.model_json_schema(),
         handler=handler
     )
     return unpaywall_tool
