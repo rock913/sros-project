@@ -1,5 +1,4 @@
-from unpywall import Unpaywall
-
+import unpywall
 from agent.domain.ports.paper_fetcher import PaperFetcher
 from agent.domain.schemas.paper import OpenAccessInfo, Paper
 
@@ -23,7 +22,7 @@ class UnpaywallAdapter(PaperFetcher):
         """
         try:
             # Fetch paper data from Unpaywall
-            paper_data = Unpaywall.doi(dois=[doi])
+            paper_data = unpywall.Unpaywall.doi(dois=[doi])
             
             if paper_data.empty:
                 return None
