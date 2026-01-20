@@ -30,7 +30,7 @@ mock_non_oa_paper_data = pd.DataFrame({
 mock_empty_paper_data = pd.DataFrame()
 
 class TestUnpaywallAdapter:
-    @patch('unpywall.Unpywall.doi')
+    @patch('agent.infrastructure.tools.unpaywall_adapter.Unpaywall.doi')
     def test_fetch_by_doi_success_oa(self, mock_unpywall_doi):
         """
         Test fetching a paper that is Open Access.
@@ -53,7 +53,7 @@ class TestUnpaywallAdapter:
         assert paper.oa_info.oa_url == 'http://example.com/paper.pdf'
         assert paper.oa_info.version == 'publishedVersion'
 
-    @patch('unpywall.Unpywall.doi')
+    @patch('agent.infrastructure.tools.unpaywall_adapter.Unpaywall.doi')
     def test_fetch_by_doi_success_non_oa(self, mock_unpywall_doi):
         """
         Test fetching a paper that is not Open Access.
@@ -73,7 +73,7 @@ class TestUnpaywallAdapter:
         assert paper.publisher == 'Test Publisher'
         assert paper.oa_info is None
 
-    @patch('unpywall.Unpywall.doi')
+    @patch('agent.infrastructure.tools.unpaywall_adapter.Unpaywall.doi')
     def test_fetch_by_doi_not_found(self, mock_unpywall_doi):
         """
         Test fetching a paper that does not exist.
@@ -87,7 +87,7 @@ class TestUnpaywallAdapter:
         
         assert paper is None
 
-    @patch('unpywall.Unpywall.doi')
+    @patch('agent.infrastructure.tools.unpaywall_adapter.Unpaywall.doi')
     def test_fetch_by_doi_service_error(self, mock_unpywall_doi):
         """
         Test fetching a paper when the external service raises an error.
@@ -103,7 +103,7 @@ class TestUnpaywallAdapter:
         
         assert str(exc_info.value) == "An error occurred while fetching the paper: Service unavailable"
 
-    @patch('unpywall.Unpywall.doi')
+    @patch('agent.infrastructure.tools.unpaywall_adapter.Unpaywall.doi')
     def test_fetch_by_doi_invalid_doi(self, mock_unpywall_doi):
         """
         Test fetching a paper with an invalid DOI.
