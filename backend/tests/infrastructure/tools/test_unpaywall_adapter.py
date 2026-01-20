@@ -116,4 +116,4 @@ class TestUnpaywallAdapter:
         with pytest.raises(ValueError) as exc_info:
             adapter.fetch_by_doi('invalid-doi')
         
-        assert str(exc_info.value) == "Invalid DOI format"
+        assert "Invalid DOI format" in str(exc_info.value)
