@@ -1,3 +1,7 @@
+"""
+Unit tests for the Unpaywall MCP tool factory.
+"""
+
 import unittest
 from unittest.mock import patch
 
@@ -27,6 +31,7 @@ class TestUnpaywallMcpAdapter(unittest.TestCase):
 
         mock_adapter.fetch_by_doi.assert_called_once_with(doi="10.1234/5678")
         self.assertEqual(result, '{"doi": "10.1234/5678", "title": "Test Paper", "authors": [], "publication_date": null, "publisher": null, "oa_info": null}')
+
 
 if __name__ == '__main__':
     unittest.main()
