@@ -1,8 +1,8 @@
-from typing import Dict, Any
 from pydantic import BaseModel, Field
+
 from agent.domain.ports.paper_fetcher import UnpaywallAdapter
-from agent.domain.schemas.paper import Paper
 from agent.domain.schemas.mcp import McpTool
+
 
 class UnpaywallArgs(BaseModel):
     doi: str = Field(..., description="The Digital Object Identifier of the paper")

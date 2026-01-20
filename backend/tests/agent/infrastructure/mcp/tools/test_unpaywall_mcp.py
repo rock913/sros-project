@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
-from agent.domain.ports.paper_fetcher import UnpaywallAdapter
+from unittest.mock import patch
+
 from agent.domain.schemas.paper import Paper
+from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
+
 
 class TestUnpaywallMcpAdapter(unittest.TestCase):
 
