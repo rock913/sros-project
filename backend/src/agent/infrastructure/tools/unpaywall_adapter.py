@@ -1,4 +1,4 @@
-from unpywall import Unpywall
+from unpywall import Unpaywall
 
 from agent.domain.ports.paper_fetcher import PaperFetcher
 from agent.domain.schemas.paper import OpenAccessInfo, Paper
@@ -56,6 +56,6 @@ class UnpaywallAdapter(PaperFetcher):
             )
         
         except ValueError as ve:
-            raise ValueError(f"Invalid DOI format: {ve}")
+            raise ValueError("Invalid DOI format") from ve
         except Exception as e:
             raise ConnectionError(f"An error occurred while fetching the paper: {e}")
