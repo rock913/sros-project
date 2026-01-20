@@ -101,3 +101,18 @@ class TestUnpaywallAdapter:
             adapter.fetch_by_doi('10.1000/123456')
         
         assert str(exc_info.value) == "An error occurred while fetching the paper: Service unavailable"
+
+    @patch('unpywall.Unpywall.doi')
+    def test_fetch_by_doi_invalid_doi(self, mock_unpywall_doi):
+        """
+        Test fetching a paper with an invalid DOI.
+        
+        This test ensures that the adapter correctly handles an invalid DOI and raises a ValueError.
+        """
+        mock_unpywall_doi.side_effect = ValueError("Invalid DOI format")
+        adapter = UnpaywallAdapter()
+        
+        with pytest.raises(ValueError) as exc_info:
+            adapter.fetch_by_doi('invalid-doi')
+        
+        assert str(exc_info.value) == "Invalid DOI format"

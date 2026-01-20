@@ -56,5 +56,7 @@ class UnpaywallAdapter(PaperFetcher):
                 oa_info=oa_info
             )
         
+        except ValueError as ve:
+            raise ValueError(f"Invalid DOI format: {ve}")
         except Exception as e:
             raise ConnectionError(f"An error occurred while fetching the paper: {e}")
