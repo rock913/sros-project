@@ -1,4 +1,3 @@
-
 from unpywall import Unpywall
 
 from agent.domain.ports.paper_fetcher import PaperFetcher
