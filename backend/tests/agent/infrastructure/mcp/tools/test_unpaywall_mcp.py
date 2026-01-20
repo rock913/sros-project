@@ -2,9 +2,9 @@
 Unit tests for the Unpaywall MCP tool factory.
 """
 
+import json
 import unittest
 from unittest.mock import patch
-import json
 
 from agent.domain.schemas.mcp import McpTool  # Import McpTool
 from agent.domain.schemas.paper import Paper
