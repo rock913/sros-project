@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from agent.domain.ports.paper_fetcher import UnpaywallAdapter
+from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
 from agent.domain.schemas.mcp import McpTool
 
 
