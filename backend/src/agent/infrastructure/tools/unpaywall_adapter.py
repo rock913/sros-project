@@ -2,6 +2,10 @@ import unpywall
 from agent.domain.ports.paper_fetcher import PaperFetcher
 from agent.domain.schemas.paper import OpenAccessInfo, Paper
 
+try:
+    from unpywall import Unpywall
+except ImportError:
+    Unpywall = None
 
 class UnpaywallAdapter(PaperFetcher):
     """Adapter for fetching paper metadata and full-text availability using Unpaywall.
@@ -20,9 +24,12 @@ class UnpaywallAdapter(PaperFetcher):
             ValueError: If the DOI format is invalid.
             ConnectionError: If the upstream service is unreachable.
         """
+        if Unpywall is None:
+            raise RuntimeError("Unpywall is not available. Please ensure the unpywall package is installed.")
+
         try:
             # Fetch paper data from Unpaywall
-            paper_data = unpywall.Unpaywall.doi(dois=[doi])
+            paper_data = Unpywall.doi(dois=[doi])
             
             if paper_data.empty:
                 return None
