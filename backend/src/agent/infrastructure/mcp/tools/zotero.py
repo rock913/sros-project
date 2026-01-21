@@ -1,12 +1,11 @@
 """Tools for interacting with Zotero via MCP."""
 
-from mcp import MCPTool, MCPToolResult
-
+from agent.domain.schemas.mcp import McpTool, MCPToolResult
 from agent.domain.schemas.paper import Paper
 from agent.infrastructure.tools.zotero_adapter import ZoteroAdapter
 
 
-class ZoteroMCPTool(MCPTool):
+class ZoteroMCPTool(McpTool):
     """Wrapper for ZoteroAdapter to be used as an MCP Tool."""
     
     def __init__(self):
