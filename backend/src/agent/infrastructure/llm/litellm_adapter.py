@@ -1,6 +1,7 @@
 """LiteLLMAdapter: An adapter for interacting with LiteLLM."""
 
 from typing import Any, Dict, List, Type, Union
+
 from litellm import completion
 from pydantic import BaseModel
 
@@ -8,8 +9,7 @@ from agent.domain.ports.llm import LanguageModel, LLMResponse
 
 
 class LiteLLMAdapter(LanguageModel):
-    """
-    Adapter for interacting with LiteLLM.
+    """Adapter for interacting with LiteLLM.
     """
 
     def generate(
@@ -19,8 +19,7 @@ class LiteLLMAdapter(LanguageModel):
         response_format: Type[BaseModel] | None = None,
         tools: List[Dict[str, Any]] | None = None
     ) -> Union[LLMResponse, BaseModel, Any]:
-        """
-        Generate a response from the LLM.
+        """Generate a response from the LLM.
 
         Args:
             messages: List of messages (system/user).
