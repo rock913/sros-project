@@ -10,12 +10,10 @@ from agent.domain.schemas.paper import OpenAccessInfo, Paper
 
 
 class ArxivAdapter(PaperSearcher):
-    """Adapter for searching papers on arXiv.org using the 'arxiv' python package.
-    """
+    """Adapter for searching papers on arXiv.org using the 'arxiv' python package."""
     
     def search(self, query: str, max_results: int = 5) -> List[Paper]:
-        """Search arXiv for papers and convert them to domain objects.
-        """
+        """Search arXiv for papers and convert them to domain objects."""
         # Construct client (default settings)
         client = arxiv.Client()
         
