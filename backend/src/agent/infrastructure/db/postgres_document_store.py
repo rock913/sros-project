@@ -9,8 +9,7 @@ from agent.domain.schemas.paper import Paper
 
 
 class PostgresDocumentStore(DocumentStore):
-    """Implementation of the DocumentStore protocol using PostgreSQL with vector embeddings.
-    """
+    """Implementation of the DocumentStore protocol using PostgreSQL with vector embeddings."""
 
     def save_document(self, paper: Paper, content: str, embedding: List[float]) -> None:
         """Save a paper's content and embedding to the store.
