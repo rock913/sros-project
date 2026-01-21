@@ -9,13 +9,11 @@ from agent.domain.schemas.paper import Paper
 
 
 class PostgresDocumentStore(DocumentStore):
-    """
-    Implementation of the DocumentStore protocol using PostgreSQL with vector embeddings.
+    """Implementation of the DocumentStore protocol using PostgreSQL with vector embeddings.
     """
 
     def save_document(self, paper: Paper, content: str, embedding: List[float]) -> None:
-        """
-        Save a paper's content and embedding to the store.
+        """Save a paper's content and embedding to the store.
 
         :param paper: The paper domain object.
         :param content: The content of the paper.
@@ -31,8 +29,7 @@ class PostgresDocumentStore(DocumentStore):
             session.commit()
 
     def search(self, query: List[float], k: int = 5) -> List[DbDocument]:
-        """
-        Search for documents semantically similar to the query.
+        """Search for documents semantically similar to the query.
 
         :param query: The query vector.
         :param k: The number of top results to return.
@@ -43,8 +40,7 @@ class PostgresDocumentStore(DocumentStore):
             return results
 
     def exists(self, source_id: str) -> bool:
-        """
-        Check if a document with the given source_id (e.g., DOI) exists.
+        """Check if a document with the given source_id (e.g., DOI) exists.
 
         :param source_id: The unique identifier for the document.
         :return: True if the document exists, False otherwise.
