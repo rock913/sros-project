@@ -99,12 +99,14 @@ export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
 
 # 2. Launch Aider (Self-Correction Loop)
 # Note: Use --read for read-only context files to save tokens and prevent accidental edits
-aider --model openai/gpt-4o \
+# Note: Use --yes to avoid interactive prompts in CI/CD or non-interactive environments
+aider --model dashscope/qwen-max \
   --model-metadata-file aider_model_metadata.json \
   --read $INTERFACE --read $SCHEMA --read $MCP_SCHEMA \
   $IMPL $TEST \
   --lint-cmd "ruff check $IMPL $TEST --fix" \
   --test-cmd "pytest $TEST" \
+  --yes \
   --message "
 Task: Implementation of [feature_name] via TDD.
 
@@ -114,16 +116,20 @@ Context:
 - MCP Definitions: \$MCP_SCHEMA
 
 Requirements:
-1. Step 1 (Fix Imports First): Before logic, ensure all imports are valid and pointing to absolute paths (agent.domain...). 
+1. Environment & Pre-checks:
+   - Ensure GITHUB_TOKEN or relevant API keys are set if hitting external APIs.
+   - If using 'litellm', ensure LLM keys are valid.
+2. Step 1 (Fix Imports First): Before logic, ensure all imports are valid and pointing to absolute paths (agent.domain...). 
    - If refactoring, UPDATE THE TEST IMPORTS immediately to match the new implementation structure.
-2. Step 2 (Cleanup): If this replaces a legacy tool, IDENTIFY legacy tests (e.g. in tests/test_tools.py) AND UPDATE OR MOCK them.
-3. Step 3 (TDD): Write/Update unit tests in \$TEST.
+3. Step 2 (Cleanup): If this replaces a legacy tool, IDENTIFY legacy tests (e.g. in tests/test_tools.py) AND UPDATE OR MOCK them.
+4. Step 3 (TDD): Write/Update unit tests in \$TEST.
    - MUST use MOCKING for any environment variables or API calls.
    - NO direct dependency on secrets like ZOTERO_API_KEY.
    - For Context Managers, MOCK __enter__ explicitly.
-4. Step 4 (Implement): Implement the adapter logic in \$IMPL.
+   - For external library imports in modules, PATCH the destination, not the source.
+5. Step 4 (Implement): Implement the adapter logic in \$IMPL.
    - Use Factory Functions (get_tool() -> McpTool) over Class Inheritance.
-5. Iterate: If tests or linting fail, fix the code in \$IMPL or \$TEST until everything is green.
+6. Iterate: If tests or linting fail, fix the code in \$IMPL or \$TEST until everything is green.
 "
 
 Refinement Loop
