@@ -1,5 +1,4 @@
-"""
-Adapter for interacting with Zotero API via pyzotero.
+"""Adapter for interacting with Zotero API via pyzotero.
 """
 
 import os

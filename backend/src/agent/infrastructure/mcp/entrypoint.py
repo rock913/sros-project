@@ -1,5 +1,4 @@
-"""
-Entry point for the MCP Server.
+"""Entry point for the MCP Server.
 """
 
 import asyncio
