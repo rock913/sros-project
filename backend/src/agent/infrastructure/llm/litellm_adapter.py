@@ -9,8 +9,7 @@ from agent.domain.ports.llm import LanguageModel, LLMResponse
 
 
 class LiteLLMAdapter(LanguageModel):
-    """Adapter for interacting with LiteLLM.
-    """
+    """Adapter for interacting with LiteLLM."""
 
     def generate(
         self, 
