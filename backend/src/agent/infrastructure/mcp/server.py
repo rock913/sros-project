@@ -41,6 +41,5 @@ class FastMcpServer(McpServer):
         return list(self.tools.values())
 
     async def start(self) -> None:
-        """Start the FastMCP server.
-        """
+        """Start the FastMCP server."""
         await self.fastmcp.start()
