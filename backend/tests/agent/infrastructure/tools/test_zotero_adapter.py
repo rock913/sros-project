@@ -23,7 +23,7 @@ class TestZoteroAdapter(unittest.TestCase):
             abstract="This is a test abstract.",
             publication_date="2023-01-01",
             doi="10.1234/5678",
-            oa_info={"oa_url": "http://example.com/paper.pdf"},
+            oa_info={'is_oa': True, 'oa_status': 'gold', 'oa_url': 'http://example.com/paper.pdf'},
             publisher="Test Publisher"
         )
 
@@ -50,7 +50,7 @@ class TestZoteroAdapter(unittest.TestCase):
             abstract="This is a test abstract.",
             publication_date="2023-01-01",
             doi="10.1234/5678",
-            oa_info={"oa_url": "http://example.com/paper.pdf"},
+            oa_info={'is_oa': True, 'oa_status': 'gold', 'oa_url': 'http://example.com/paper.pdf'},
             publisher="Test Publisher"
         )
 
