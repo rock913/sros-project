@@ -4,6 +4,9 @@ from unittest.mock import patch
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.mcp.server import FastMcpServer
 
+"""
+Test cases for the FastMcpServer class.
+"""
 
 class TestFastMcpServer(unittest.TestCase):
 
