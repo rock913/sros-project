@@ -8,26 +8,22 @@ class ZoteroMCPTool(MCPTool):
     """Wrapper for ZoteroAdapter to be used as an MCP Tool."""
     
     def __init__(self):
-        """
-        Initialize the ZoteroMCPTool.
+        """Initialize the ZoteroMCPTool.
         """
         self.zotero_adapter = ZoteroAdapter()
 
     def name(self) -> str:
-        """
-        Return the name of the tool.
+        """Return the name of the tool.
         """
         return "zotero_tool"
 
     def description(self) -> str:
-        """
-        Return the description of the tool.
+        """Return the description of the tool.
         """
         return "Save a paper to Zotero."
 
     def execute(self, paper_data: dict) -> MCPToolResult:
-        """
-        Execute the tool to save a paper to Zotero.
+        """Execute the tool to save a paper to Zotero.
         """
         try:
             paper = Paper(**paper_data)
