@@ -1,3 +1,7 @@
+"""
+Entry point for the MCP Server.
+"""
+
 import asyncio
 import sys
 

@@ -1,3 +1,7 @@
+"""
+Adapter for interacting with Zotero API via pyzotero.
+"""
+
 import os
 
 from pyzotero import zotero
@@ -10,8 +14,7 @@ class ZoteroAdapter(ReferenceManager):
     """Adapter for interacting with Zotero API via pyzotero."""
 
     def __init__(self, library_id: str = None, api_key: str = None, library_type: str = "user"):
-        """Initialize the ZoteroAdapter.
-        """
+        """Initialize the ZoteroAdapter."""
         self.library_id = library_id or os.getenv("ZOTERO_LIBRARY_ID")
         self.api_key = api_key or os.getenv("ZOTERO_API_KEY")
         self.library_type = library_type or os.getenv("ZOTERO_LIBRARY_TYPE", "user")
