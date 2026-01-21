@@ -1,30 +1,35 @@
 """Tools for interacting with Zotero via MCP."""
 
+from pydantic import BaseModel
+
 from agent.domain.schemas.mcp import McpTool
 from agent.domain.schemas.paper import Paper
 from agent.infrastructure.tools.zotero_adapter import ZoteroAdapter
 
 
-class ZoteroMCPTool(McpTool):
-    """Wrapper for ZoteroAdapter to be used as an MCP Tool."""
-    
-    def __init__(self):
-        """Initialize the ZoteroMCPTool."""
-        self.zotero_adapter = ZoteroAdapter()
+class ZoteroSaveInput(BaseModel):
+    """Input schema for the Zotero save MCP tool."""
+    paper: Paper
 
-    def name(self) -> str:
-        """Return the name of the tool."""
-        return "zotero_tool"
 
-    def description(self) -> str:
-        """Return the description of the tool."""
-        return "Save a paper to Zotero."
+def get_zotero_save_mcp_tool() -> McpTool:
+    """Create and return an MCP tool for saving papers to Zotero."""
+    adapter = ZoteroAdapter()
 
-    def execute(self, paper_data: dict) -> dict:
-        """Execute the tool to save a paper to Zotero."""
+    def handler(input_data: dict | ZoteroSaveInput) -> dict:
+        # Ensure input_data is an instance of ZoteroSaveInput
+        if isinstance(input_data, dict):
+            input_data = ZoteroSaveInput(**input_data)
+
         try:
-            paper = Paper(**paper_data)
-            result = self.zotero_adapter.save_paper(paper)
+            result = adapter.save_paper(input_data.paper)
             return {"success": True, "message": result}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    return McpTool(
+        name="zotero-save-paper",
+        description="Saves a paper to Zotero.",
+        input_schema=ZoteroSaveInput.model_json_schema(),
+        handler=handler
+    )
