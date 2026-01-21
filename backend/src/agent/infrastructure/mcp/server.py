@@ -1,3 +1,7 @@
+"""
+Implementation of the McpServer protocol using the 'fastmcp' library.
+"""
+
 from typing import List
 
 from fastmcp import FastMCP  # Assuming this is the FastMCP library
