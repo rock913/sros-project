@@ -22,6 +22,6 @@ def get_arxiv_search_mcp_tool() -> McpTool:
     return McpTool(
         name="arxiv-search",
         description="Search for academic papers on arXiv",
-        input_schema=ArxivSearchInput,
+        input_schema=ArxivSearchInput.model_json_schema(),
         handler=handler
     )
