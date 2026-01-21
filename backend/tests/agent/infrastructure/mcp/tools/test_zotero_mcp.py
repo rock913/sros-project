@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from agent.infrastructure.mcp.tools.zotero import ZoteroMCPTool
-from agent.domain.schemas.mcp import McpTool
 
 
 class TestZoteroMCPTool(unittest.TestCase):
