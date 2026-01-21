@@ -4,8 +4,14 @@ from unittest.mock import MagicMock, patch
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.tools.unpaywall import get_unpaywall_tool
 
+"""
+This module contains tests for the Unpaywall tool.
+"""
 
 def test_get_unpaywall_tool_returns_valid_mcp_tool():
+    """
+    Test that the get_unpaywall_tool function returns a valid McpTool instance.
+    """
     tool = get_unpaywall_tool()
     assert isinstance(tool, McpTool)
     assert tool.name == "unpaywall"
@@ -15,6 +21,9 @@ def test_get_unpaywall_tool_returns_valid_mcp_tool():
 
 @patch('requests.get')
 def test_unpaywall_handler_success(mock_get):
+    """
+    Test that the unpaywall_handler function returns the correct message when the API call is successful.
+    """
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "best_oa_location": {
@@ -31,6 +40,9 @@ def test_unpaywall_handler_success(mock_get):
 
 @patch('requests.get')
 def test_unpaywall_handler_no_email_set(mock_get):
+    """
+    Test that the unpaywall_handler function returns an error message when no email is set for the Unpaywall API.
+    """
     os.environ.pop('UNPAYWALL_EMAIL', None)
     mock_response = MagicMock()
     mock_response.json.return_value = {
@@ -48,6 +60,9 @@ def test_unpaywall_handler_no_email_set(mock_get):
 
 @patch('requests.get')
 def test_unpaywall_handler_api_failure(mock_get):
+    """
+    Test that the unpaywall_handler function returns an error message when the API call fails.
+    """
     mock_response = MagicMock()
     mock_response.raise_for_status.side_effect = Exception("API Error")
     mock_get.return_value = mock_response

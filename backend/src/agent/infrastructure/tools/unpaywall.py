@@ -5,9 +5,28 @@ import requests
 
 from agent.domain.schemas.mcp import McpTool
 
+"""
+This module provides an adapter for interacting with the Unpaywall API.
+"""
 
 class UnpaywallAdapter:
+    """
+    Adapter for fetching open-access information from Unpaywall.
+    """
+
     def fetch_by_doi(self, doi: str) -> Dict[str, Any]:
+        """
+        Fetches the open-access information for a given DOI from Unpaywall.
+
+        Args:
+            doi (str): The DOI of the paper to search for.
+
+        Returns:
+            Dict[str, Any]: The JSON response from the Unpaywall API.
+
+        Raises:
+            ValueError: If no email is set for the Unpaywall API.
+        """
         unpaywall_email = os.getenv('UNPAYWALL_EMAIL')
         if not unpaywall_email:
             raise ValueError("No email set for Unpaywall API")
@@ -18,6 +37,16 @@ class UnpaywallAdapter:
         return response.json()
 
 def unpaywall_handler(doi: str) -> str:
+    """
+    Handler function for the Unpaywall tool. This function calls the Unpaywall API
+    and returns a message indicating whether an open-access version of the paper was found.
+
+    Args:
+        doi (str): The DOI of the paper to search for.
+
+    Returns:
+        str: A message indicating the result of the search.
+    """
     try:
         adapter = UnpaywallAdapter()
         paper = adapter.fetch_by_doi(doi)
@@ -33,6 +62,12 @@ def unpaywall_handler(doi: str) -> str:
         return f"An error occurred: {e}"
 
 def get_unpaywall_tool() -> McpTool:
+    """
+    Factory function to create an McpTool for the Unpaywall tool.
+
+    Returns:
+        McpTool: An instance of McpTool configured for the Unpaywall tool.
+    """
     return McpTool(
         name="unpaywall",
         description="Searches Unpywall for a given DOI to find open-access versions of a research paper.",
