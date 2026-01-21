@@ -1,12 +1,13 @@
 """Module for interacting with Google Scholar to search for papers.
 """
 
-from pydantic import BaseModel, Field
-from typing import Any, Dict
 
-from agent.domain.schemas.mcp import McpTool
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field
+
+from agent.domain.schemas.mcp import McpTool
+
 
 class ScholarQuery(BaseModel):
     """Represents a query for Google Scholar.
