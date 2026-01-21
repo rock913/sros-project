@@ -5,14 +5,14 @@ handling cases where Langfuse is not configured (e.g., missing API keys).
 """
 
 import os
-from typing import Optional
+
 from langfuse import Langfuse
 
 
 class LangfuseManager:
     """Manages Langfuse instance with safe initialization."""
 
-    _instance: Optional[Langfuse] = None
+    _instance: Langfuse | None = None
     _enabled: bool = False
 
     @classmethod
@@ -45,7 +45,7 @@ class LangfuseManager:
             cls._enabled = False
 
     @classmethod
-    def get_instance(cls) -> Optional[Langfuse]:
+    def get_instance(cls) -> Langfuse | None:
         """Get the Langfuse instance.
         
         Returns:

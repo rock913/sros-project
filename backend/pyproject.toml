@@ -38,6 +38,7 @@ dependencies = [
     "tenacity",
     "diff-match-patch>=20241021",
     "langfuse>=2.0.0",
+    "mcp",
 ]
 
 

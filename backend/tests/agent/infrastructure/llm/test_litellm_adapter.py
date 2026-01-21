@@ -13,22 +13,22 @@ from agent.infrastructure.llm.litellm_adapter import LiteLLMAdapter
 
 class TestLiteLLMAdapter(unittest.TestCase):
 
-    @patch('litellm.completion')
+    @patch('agent.infrastructure.llm.litellm_adapter.completion')
     def test_simple_text_response(self, mock_completion):
         mock_completion.return_value = {
-            'choices': [{'message': {'content': 'Hello, world!'}}]
+            'choices': [{'message': {'content': 'Hello world'}}]
         }
         adapter = LiteLLMAdapter()
         response = adapter.generate(messages=[{'role': 'user', 'content': 'Say hello'}])
         self.assertIsInstance(response, LLMResponse)
-        self.assertEqual(response.content, 'Hello, world!')
+        self.assertEqual(response.content, 'Hello world')
         self.assertEqual(response.tool_calls, [])
 
-    @patch('litellm.completion')
+    @patch('agent.infrastructure.llm.litellm_adapter.completion')
     def test_structured_output(self, mock_completion):
         class MyModel(BaseModel):
             value: int
-
+    
         mock_completion.return_value = {
             'choices': [{'message': {'content': '{"value": 42}'}}]
         }
@@ -37,16 +37,13 @@ class TestLiteLLMAdapter(unittest.TestCase):
         self.assertIsInstance(response, MyModel)
         self.assertEqual(response.value, 42)
 
-    @patch('litellm.completion')
-    def test_fallback_retries(self, mock_completion):
-        mock_completion.side_effect = [Exception("API Error"), {
-            'choices': [{'message': {'content': 'Hello, world!'}}]
-        }]
+    @patch('agent.infrastructure.llm.litellm_adapter.completion')
+    def test_error_handling(self, mock_completion):
+        mock_completion.side_effect = Exception("API Error")
         adapter = LiteLLMAdapter()
-        response = adapter.generate(messages=[{'role': 'user', 'content': 'Say hello'}])
-        self.assertIsInstance(response, LLMResponse)
-        self.assertEqual(response.content, 'Hello, world!')
-        self.assertEqual(response.tool_calls, [])
+        with self.assertRaises(Exception) as context:
+            adapter.generate(messages=[{'role': 'user', 'content': 'Say hello'}])
+        self.assertIn("LiteLLM Error", str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

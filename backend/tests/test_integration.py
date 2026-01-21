@@ -1,23 +1,23 @@
-import pytest
 import os
-import numpy as np
-from unittest.mock import patch, MagicMock
-from dotenv import load_dotenv
-from langgraph.graph import StateGraph, END, START
-from langchain_core.messages import HumanMessage, AIMessage
+from unittest.mock import MagicMock, patch
 
-from agent.graph import (
+import numpy as np
+import pytest
+from dotenv import load_dotenv
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph import END, START, StateGraph
+
+from agent.database import Base, Document, SessionLocal, init_db
+from agent.application.workflows.research_workflow import (
+    automated_resource_management,
+    execute_searches,
     generate_initial_queries,
+    ingest_and_embed_documents,
     reflection_and_refinement,
     retrieve_and_synthesize_report,
-    ingest_and_embed_documents,
-    execute_searches,
     should_continue_searching,
-    automated_resource_management,
-    MAX_RESEARCH_LOOPS
 )
 from agent.state import AgentState
-from agent.database import init_db, Document, Base, SessionLocal
 
 load_dotenv()
 

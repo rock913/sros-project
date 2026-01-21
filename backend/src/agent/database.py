@@ -1,11 +1,11 @@
 import os
 import uuid
-from sqlalchemy import create_engine, Column, Text, String
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import sessionmaker, declarative_base
-from pgvector.sqlalchemy import Vector
+
 from dotenv import load_dotenv
-from sqlalchemy import text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, String, Text, create_engine, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 

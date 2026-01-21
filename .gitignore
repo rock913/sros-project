@@ -215,3 +215,4 @@ node_modules/
 dist/
 build/
 
+.aider*

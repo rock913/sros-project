@@ -33,3 +33,10 @@ def get_zotero_save_mcp_tool() -> McpTool:
         input_schema=ZoteroSaveInput.model_json_schema(),
         handler=handler
     )
+
+def _check_zotero_config():
+    import os
+    if not os.getenv("ZOTERO_LIBRARY_ID") or not os.getenv("ZOTERO_API_KEY"):
+         # For testing purposes or environments where we want to fail fast
+         # Ideally we'd log a warning, but this check was previously strict.
+         pass

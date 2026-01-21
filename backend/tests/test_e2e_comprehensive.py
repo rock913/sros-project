@@ -10,6 +10,7 @@ Comprehensive E2E testing for:
 
 import sys
 import time
+
 from test_e2e_hitl_flow import E2EHITLTest
 
 
@@ -234,7 +235,7 @@ class ComprehensiveE2ETest:
             
             # Second response (should fail)
             import requests
-            url = f"http://127.0.0.1:8000/agent/hitl/respond"
+            url = "http://127.0.0.1:8000/agent/hitl/respond"
             response = requests.post(url, params={
                 "request_id": request_id,
                 "decision": "reject"

@@ -11,14 +11,14 @@ Responsibilities here:
  - Verify that the litellm completion call receives the expected model name.
 """
 
-import json
 import asyncio
-from unittest.mock import MagicMock
-from pytest_bdd import scenario, given, when, then, parsers
-from langchain_core.messages import HumanMessage
-from agent.graph import graph
-from agent.configuration import Configuration
 import pathlib
+
+from langchain_core.messages import HumanMessage
+from pytest_bdd import given, parsers, scenario, then, when
+
+from agent.configuration import Configuration
+from agent.application.workflows.research_workflow import graph
 
 
 @scenario('../features/multi_model_support.feature', 'The agent can use different models for embedding and text generation')

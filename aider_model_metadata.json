@@ -1,0 +1,6 @@
+{
+    "openai/qwen-max": {
+        "max_tokens": 4096,
+        "max_input_tokens": 28000
+    }
+}

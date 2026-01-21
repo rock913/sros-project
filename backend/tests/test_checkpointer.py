@@ -3,10 +3,11 @@ Unit tests for LangGraph Checkpointer functionality
 Tests the basic checkpoint save/load without running full research workflow
 """
 
-import pytest
 import uuid
-from agent.graph import graph
+
 from langgraph.checkpoint.postgres import PostgresSaver
+
+from agent.application.workflows.research_workflow import graph
 
 
 def test_checkpointer_is_configured():

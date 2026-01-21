@@ -13,8 +13,8 @@ This test validates:
 
 import asyncio
 import json
-import sys
 import os
+import sys
 import uuid
 from datetime import datetime
 

@@ -1,19 +1,11 @@
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch
+from langgraph.graph import END, START, StateGraph
+
 from agent.database import init_db
 from agent.state import AgentState
-from langgraph.graph import StateGraph, END, START
-from agent.graph import (
-    generate_initial_queries,
-    execute_searches,
-    reflection_and_refinement,
-    automated_resource_management,
-    ingest_and_embed_documents,
-    retrieve_and_synthesize_report,
-    should_continue_searching,
-    continue_to_web_research,
-)
+
 
 @pytest.fixture(scope='session', autouse=True)
 def db_session():
@@ -22,8 +14,11 @@ def db_session():
 
 @pytest.fixture(autouse=True)
 def reset_graph_globals():
-    from agent import graph
-    graph.embeddings = None
+    import sys
+    # Avoid importing agent.graph if not already loaded to prevent side-effects (DB pool init)
+    if 'agent.graph' in sys.modules:
+        from agent import graph
+        graph.embeddings = None
     yield
 
 @pytest.fixture
@@ -32,6 +27,17 @@ def test_graph():
     Provides a graph compiled WITHOUT checkpointer for testing.
     This avoids PostgresSaver dependency in unit tests.
     """
+    from agent.application.workflows.research_workflow import (
+        automated_resource_management,
+        continue_to_web_research,
+        execute_searches,
+        generate_initial_queries,
+        ingest_and_embed_documents,
+        reflection_and_refinement,
+        retrieve_and_synthesize_report,
+        should_continue_searching,
+    )
+
     builder = StateGraph(AgentState)
     builder.add_node("generate_initial_queries", generate_initial_queries)
     builder.add_node("execute_searches", execute_searches)

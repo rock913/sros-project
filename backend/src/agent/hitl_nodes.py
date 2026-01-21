@@ -1,5 +1,4 @@
-"""
-Human-in-the-Loop (HITL) Node Implementation
+"""Human-in-the-Loop (HITL) Node Implementation
 
 Phase 3.6: HITL Decision Points
 - query_approval: User reviews and approves/modifies generated queries
@@ -11,15 +10,16 @@ Date: 2025-10-14
 """
 
 import uuid
-from typing import Dict, Any, Optional
 from datetime import datetime
-from langchain_core.runnables import RunnableConfig
+from typing import Any, Dict
 
 from langchain_core.messages import AIMessage
-from agent.state import AgentState
+from langchain_core.runnables import RunnableConfig
+
 from agent.database import get_db_connection
-from agent.models import HITLDecision
 from agent.langfuse_manager import LangfuseManager
+from agent.models import HITLDecision
+from agent.state import AgentState
 
 
 def create_hitl_request(
@@ -27,11 +27,10 @@ def create_hitl_request(
     decision_type: str,
     prompt: str,
     options: list,
-    context: Optional[Dict[str, Any]] = None,
+    context: Dict[str, Any] | None = None,
     timeout_seconds: int = 300
 ) -> str:
-    """
-    Create a HITL decision request and store it in database
+    """Create a HITL decision request and store it in database
     
     Args:
         session_id: Session UUID
@@ -65,8 +64,7 @@ def create_hitl_request(
 
 
 def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
-    """
-    HITL Node 1: Query Approval
+    """HITL Node 1: Query Approval
     
     Pauses execution and asks user to approve/reject/modify generated queries.
     This node triggers when initial queries have been generated.
@@ -170,8 +168,7 @@ def query_approval_node(state: AgentState, config: RunnableConfig) -> Dict[str, 
 
 
 def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
-    """
-    HITL Point 2: Paper Selection
+    """HITL Point 2: Paper Selection
     
     当搜索到的论文数量 > 20 时触发人工选择
     用户从列表中选择要深入分析的论文
@@ -312,8 +309,7 @@ def paper_selection_node(state: AgentState, config: RunnableConfig) -> Dict[str,
 
 
 def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
-    """
-    HITL Point 3: Report Revision
+    """HITL Point 3: Report Revision
     
     用户审核生成的研究报告，可以：
     1. 接受报告 (approve)
@@ -436,8 +432,7 @@ def report_revision_node(state: AgentState, config: RunnableConfig) -> Dict[str,
 
 
 def check_hitl_response(state: AgentState, decision_type: str) -> bool:
-    """
-    Helper function to check if user has responded to a specific HITL request
+    """Helper function to check if user has responded to a specific HITL request
     
     Args:
         state: Current agent state

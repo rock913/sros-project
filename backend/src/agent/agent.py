@@ -1,5 +1,4 @@
-"""
-This module defines the agent executor by compiling the graph from agent.graph.
+"""This module defines the agent executor by compiling the graph from agent.graph.
 """
 
 from agent.graph import graph

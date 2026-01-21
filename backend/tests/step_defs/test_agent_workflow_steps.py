@@ -1,15 +1,14 @@
-import pytest
-from pytest_bdd import scenario, given, when, then, parsers
-from unittest.mock import MagicMock, call, patch
-import json
 import asyncio
 import io
+import json
 from contextlib import redirect_stdout
-import fitz # Added import for fitz
+from unittest.mock import MagicMock, patch
+
+import pytest
+from langchain_core.messages import HumanMessage
+from pytest_bdd import given, parsers, scenario, then, when
 
 # Import the agent state (but NOT the production graph with checkpointer)
-from agent.state import AgentState
-from langchain_core.messages import HumanMessage
 
 # --- Test Scenarios ---
 

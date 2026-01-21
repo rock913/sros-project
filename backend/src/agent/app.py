@@ -1,27 +1,25 @@
-import asyncio
 import os
-import uvicorn
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-from uuid import UUID, uuid4
-from datetime import datetime
-from sqlalchemy import text
 from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any, Dict, List
+from uuid import UUID, uuid4
 
-# Correctly import the 'graph' object from agent.graph
-from agent.graph import graph, async_graph
-from agent.database import init_db, get_all_documents
-from agent.state import AgentState
-import agent.db_manager as db_manager
-import agent.analytics as analytics
-from agent.models import Session, Paper, Report, SessionEvent
-from agent.document_utils import DocumentDiffer, ConflictDetector
-from agent.langfuse_manager import LangfuseManager
-
+import uvicorn
 from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 from starlette.websockets import WebSocketState
+
+import agent.analytics as analytics
+import agent.db_manager as db_manager
+from agent.database import get_all_documents, init_db
+from agent.document_utils import DocumentDiffer
+
+# Correctly import the 'graph' object from agent.graph
+from agent.graph import async_graph, graph
+from agent.langfuse_manager import LangfuseManager
+
 # Remove LangServe to avoid Pydantic conflicts
 # from langserve import add_routes
 
@@ -49,16 +47,16 @@ class AgentInput(BaseModel):
 
 class ConfigurableConfig(BaseModel):
     """Configuration for the agent, including thread management."""
-    thread_id: Optional[str] = Field(None, description="The ID of the conversation thread. If omitted, a new one is created.")
+    thread_id: str | None = Field(None, description="The ID of the conversation thread. If omitted, a new one is created.")
 
 class AgentConfig(BaseModel):
     """Full configuration wrapper."""
-    configurable: Optional[ConfigurableConfig] = Field(None, description="Configurable options for the agent")
+    configurable: ConfigurableConfig | None = Field(None, description="Configurable options for the agent")
 
 class AgentInvokeRequest(BaseModel):
     """Request body for /agent/invoke endpoint."""
     input: AgentInput = Field(description="The input to the agent")
-    config: Optional[AgentConfig] = Field(None, description="Configuration for the agent run")
+    config: AgentConfig | None = Field(None, description="Configuration for the agent run")
 
 class AgentOutput(BaseModel):
     """The serializable output schema for the agent."""
@@ -71,8 +69,8 @@ class AgentOutput(BaseModel):
     knowledge_gap: str = Field(default="", description="The identified knowledge gap.")
     report: str = Field(default="", description="The final generated report.")
     # Phase 3.5.2: Session Management fields
-    session_id: Optional[str] = Field(None, description="The UUID of the associated Session record.")
-    thread_id: Optional[str] = Field(None, description="The LangGraph thread_id for state persistence.")
+    session_id: str | None = Field(None, description="The UUID of the associated Session record.")
+    thread_id: str | None = Field(None, description="The LangGraph thread_id for state persistence.")
 
 # 3. Initialize the FastAPI app with lifespan
 app = FastAPI(
@@ -93,8 +91,7 @@ app.add_middleware(
 # 4. Manually define agent endpoints (replacing LangServe add_routes)
 @app.post("/agent/invoke", response_model=AgentOutput, tags=["Agent"])
 async def invoke_agent(request: AgentInvokeRequest):
-    """
-    Invoke the research agent to start or continue a research task.
+    """Invoke the research agent to start or continue a research task.
     
     This endpoint accepts a conversation history and optional configuration,
     runs the LangGraph agent, and returns the final state including the research report.
@@ -228,8 +225,7 @@ async def invoke_agent(request: AgentInvokeRequest):
 
 @app.get("/agent/state", response_model=AgentOutput, tags=["Agent"])
 def get_agent_state():
-    """
-    Fetches the latest agent state from the database.
+    """Fetches the latest agent state from the database.
     
     This endpoint returns the current state based on ingested documents.
     It does not require a thread_id and returns a default/latest state.
@@ -259,8 +255,7 @@ def get_agent_state():
 def get_agent_state_by_thread(
     thread_id: str = Path(..., description="The ID of the conversation thread to fetch.")
 ):
-    """
-    Retrieves the current state for a specific research thread.
+    """Retrieves the current state for a specific research thread.
     
     Uses the LangGraph checkpointer to fetch the persisted state for the given thread_id.
     If the thread doesn't exist or has no checkpoints, returns a 404 error.
@@ -307,7 +302,7 @@ def get_agent_state_by_thread(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         # Fallback: Return documents from database (for testing compatibility)
         # This handles cases where checkpointer is unavailable
         documents = get_all_documents()
@@ -342,8 +337,7 @@ def ok():
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """
-    Enhanced health check endpoint with dependency validation.
+    """Enhanced health check endpoint with dependency validation.
     
     Phase 3.5.4: Production Readiness
     
@@ -481,41 +475,40 @@ class SessionCreate(BaseModel):
     """Request body for creating a session."""
     thread_id: UUID = Field(description="LangGraph thread UUID")
     title: str = Field(description="Session title", max_length=500)
-    research_topic: Optional[str] = Field(None, description="Research topic")
-    tags: Optional[List[str]] = Field(default_factory=list, description="Tags")
-    notes: Optional[str] = Field(None, description="Notes")
+    research_topic: str | None = Field(None, description="Research topic")
+    tags: List[str] | None = Field(default_factory=list, description="Tags")
+    notes: str | None = Field(None, description="Notes")
 
 class SessionUpdate(BaseModel):
     """Request body for updating a session."""
-    title: Optional[str] = Field(None, max_length=500)
-    research_topic: Optional[str] = None
-    status: Optional[str] = Field(None, pattern="^(active|completed|archived)$")
-    tags: Optional[List[str]] = None
-    notes: Optional[str] = None
+    title: str | None = Field(None, max_length=500)
+    research_topic: str | None = None
+    status: str | None = Field(None, pattern="^(active|completed|archived)$")
+    tags: List[str] | None = None
+    notes: str | None = None
 
 class SessionResponse(BaseModel):
     """Response model for session data."""
     id: str
     thread_id: str
     title: str
-    research_topic: Optional[str]
+    research_topic: str | None
     created_at: str
     updated_at: str
     status: str
     tags: List[str]
-    notes: Optional[str]
+    notes: str | None
     paper_count: int
     report_count: int
 
 
 @app.get("/sessions", response_model=List[SessionResponse], tags=["Sessions"])
 def list_sessions_endpoint(
-    status: Optional[str] = Query(None, description="Filter by status (active, completed, archived)"),
+    status: str | None = Query(None, description="Filter by status (active, completed, archived)"),
     limit: int = Query(50, le=100, description="Maximum results to return"),
     offset: int = Query(0, ge=0, description="Pagination offset")
 ):
-    """
-    List all research sessions with optional filtering.
+    """List all research sessions with optional filtering.
     
     Returns sessions ordered by creation date (newest first).
     """
@@ -545,8 +538,7 @@ def get_session_endpoint(session_id: str = Path(..., description="Session UUID")
 
 @app.post("/sessions", response_model=SessionResponse, tags=["Sessions"], status_code=201)
 def create_session_endpoint(request: SessionCreate):
-    """
-    Create a new research session.
+    """Create a new research session.
     
     The session is linked to a LangGraph thread via thread_id.
     """
@@ -609,8 +601,7 @@ def delete_session_endpoint(session_id: str = Path(..., description="Session UUI
 
 @app.get("/sessions/{session_id}/details", tags=["Sessions"])
 def get_session_details(session_id: str = Path(..., description="Session UUID")):
-    """
-    Get comprehensive session details including events, papers, reports, and statistics.
+    """Get comprehensive session details including events, papers, reports, and statistics.
     
     Returns:
         - session: Basic session information
@@ -620,8 +611,8 @@ def get_session_details(session_id: str = Path(..., description="Session UUID"))
         - stats: Aggregated statistics
     """
     try:
+
         from dateutil.parser import parse
-        from datetime import datetime
         
         session_uuid = UUID(session_id)
         
@@ -705,7 +696,7 @@ def get_session_details(session_id: str = Path(..., description="Session UUID"))
 @app.get("/sessions/{session_id}/events", tags=["Sessions"])
 def list_session_events(
     session_id: str = Path(..., description="Session UUID"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    event_type: str | None = Query(None, description="Filter by event type"),
     limit: int = Query(100, le=500, description="Maximum events to return")
 ):
     """Get all events for a session, optionally filtered by type."""
@@ -723,16 +714,15 @@ def list_session_events(
 
 @app.get("/papers", tags=["Papers"])
 def list_all_papers(
-    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
-    source: Optional[str] = Query(None, description="Filter by data source (arxiv, unpaywall, zotero)"),
-    start_date: Optional[str] = Query(None, description="Filter papers collected after this timestamp"),
-    end_date: Optional[str] = Query(None, description="Filter papers collected before this timestamp"),
-    keyword: Optional[str] = Query(None, description="Search keyword in titles and abstracts"),
+    session_id: str | None = Query(None, description="Filter by session UUID"),
+    source: str | None = Query(None, description="Filter by data source (arxiv, unpaywall, zotero)"),
+    start_date: str | None = Query(None, description="Filter papers collected after this timestamp"),
+    end_date: str | None = Query(None, description="Filter papers collected before this timestamp"),
+    keyword: str | None = Query(None, description="Search keyword in titles and abstracts"),
     limit: int = Query(100, le=500, description="Maximum results to return"),
     offset: int = Query(0, ge=0, description="Pagination offset")
 ):
-    """
-    List all papers with advanced filtering.
+    """List all papers with advanced filtering.
     
     Supports filtering by session, source, date range, and full-text keyword search.
     """
@@ -762,16 +752,15 @@ def list_all_papers(
 @app.get("/papers/export", tags=["Papers"])
 def export_papers(
     format: str = Query(..., description="Export format: bibtex, ris, or json"),
-    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
-    source: Optional[str] = Query(None, description="Filter by data source")
+    session_id: str | None = Query(None, description="Filter by session UUID"),
+    source: str | None = Query(None, description="Filter by data source")
 ):
-    """
-    Export papers to bibliography formats (BibTeX, RIS, JSON).
+    """Export papers to bibliography formats (BibTeX, RIS, JSON).
     
     Supports the same filtering options as GET /papers.
     """
     try:
-        from fastapi.responses import PlainTextResponse, JSONResponse
+        from fastapi.responses import JSONResponse, PlainTextResponse
         
         session_uuid = UUID(session_id) if session_id else None
         papers, _ = db_manager.get_all_papers(
@@ -860,14 +849,13 @@ def get_paper_details(paper_id: str = Path(..., description="Paper UUID")):
 
 @app.get("/reports", tags=["Reports"])
 def list_all_reports(
-    session_id: Optional[str] = Query(None, description="Filter by session UUID"),
-    start_date: Optional[str] = Query(None, description="Filter reports created after this timestamp"),
-    end_date: Optional[str] = Query(None, description="Filter reports created before this timestamp"),
+    session_id: str | None = Query(None, description="Filter by session UUID"),
+    start_date: str | None = Query(None, description="Filter reports created after this timestamp"),
+    end_date: str | None = Query(None, description="Filter reports created before this timestamp"),
     limit: int = Query(50, le=500, description="Maximum results to return"),
     offset: int = Query(0, ge=0, description="Pagination offset")
 ):
-    """
-    List all reports with filtering.
+    """List all reports with filtering.
     
     Supports filtering by session and date range.
     """
@@ -897,8 +885,7 @@ def compare_reports(
     report_id_1: str = Query(..., description="First report UUID (older version)"),
     report_id_2: str = Query(..., description="Second report UUID (newer version)")
 ):
-    """
-    Compare two report versions and generate a diff.
+    """Compare two report versions and generate a diff.
     
     Returns both reports and a unified diff showing changes.
     """
@@ -948,13 +935,12 @@ def compare_reports(
 def get_sessions_list(
     limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    status: Optional[str] = Query(None, regex="^(active|completed|archived)$", description="Filter by status"),
-    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    status: str | None = Query(None, regex="^(active|completed|archived)$", description="Filter by status"),
+    user_id: str | None = Query(None, description="Filter by user ID"),
     sort_by: str = Query("created_at", regex="^(created_at|duration|papers_count)$"),
     order: str = Query("desc", regex="^(asc|desc)$")
 ):
-    """
-    Phase 3.5.3: Get paginated list of sessions with filtering and sorting.
+    """Phase 3.5.3: Get paginated list of sessions with filtering and sorting.
     
     Returns:
         - sessions: List of session summaries
@@ -978,10 +964,9 @@ def get_sessions_list(
 @app.get("/analytics/sessions/stats", tags=["Analytics"])
 def get_sessions_statistics(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$", description="Time range"),
-    user_id: Optional[str] = Query(None, description="Filter by user ID")
+    user_id: str | None = Query(None, description="Filter by user ID")
 ):
-    """
-    Phase 3.5.3: Get aggregated statistics across sessions.
+    """Phase 3.5.3: Get aggregated statistics across sessions.
     
     Returns:
         - stats: Aggregated metrics (total, completed, success rate, averages)
@@ -1000,8 +985,7 @@ def get_sessions_statistics(
 
 @app.get("/analytics/sessions/{session_id}", tags=["Analytics"])
 def get_session_analytics(session_id: str = Path(..., description="Session UUID")):
-    """
-    Phase 3.5.3: Get detailed analytics for a specific session.
+    """Phase 3.5.3: Get detailed analytics for a specific session.
     
     Returns:
         - session: Complete session metadata
@@ -1028,8 +1012,7 @@ def get_session_analytics(session_id: str = Path(..., description="Session UUID"
 def get_papers_trends(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$", description="Time range")
 ):
-    """
-    Phase 3.5.3: Get paper collection trends and distribution.
+    """Phase 3.5.3: Get paper collection trends and distribution.
     
     Returns:
         - trends: Paper counts, daily breakdown, venue distribution, year distribution
@@ -1049,10 +1032,9 @@ def get_papers_trends(
 async def respond_to_hitl(
     request_id: str = Query(..., description="HITL request ID"),
     decision: str = Query(..., description="User's decision (approve/reject/modify/etc)"),
-    modified_data: Optional[Dict[str, Any]] = None
+    modified_data: Dict[str, Any] | None = None
 ):
-    """
-    Phase 3.6: Respond to a Human-in-the-Loop decision request.
+    """Phase 3.6: Respond to a Human-in-the-Loop decision request.
     
     This endpoint is called when the user makes a decision on a HITL request
     (e.g., approving queries, selecting papers, revising report).
@@ -1066,9 +1048,10 @@ async def respond_to_hitl(
         Success confirmation and next steps
     """
     try:
-        from agent.models import HITLDecision
-        from agent.database import get_db_connection
         from datetime import datetime
+
+        from agent.database import get_db_connection
+        from agent.models import HITLDecision
         
         # 1. Find the HITL decision record
         with get_db_connection() as session:
@@ -1128,8 +1111,7 @@ async def respond_to_hitl(
 async def get_pending_hitl(
     session_id: str = Query(..., description="Session UUID")
 ):
-    """
-    Phase 3.6: Get all pending HITL requests for a session.
+    """Phase 3.6: Get all pending HITL requests for a session.
     
     Useful for:
     - Reconnecting after disconnect
@@ -1143,9 +1125,10 @@ async def get_pending_hitl(
         List of pending HITL requests
     """
     try:
-        from agent.models import HITLDecision
-        from agent.database import get_db_connection
         from uuid import UUID
+
+        from agent.database import get_db_connection
+        from agent.models import HITLDecision
         
         session_uuid = UUID(session_id)
         
@@ -1185,8 +1168,7 @@ async def get_hitl_history(
     session_id: str = Query(..., description="Session UUID"),
     limit: int = Query(50, ge=1, le=200, description="Maximum number of records to return")
 ):
-    """
-    Phase 3.6: Get HITL decision history for a session.
+    """Phase 3.6: Get HITL decision history for a session.
     
     Returns all HITL decisions (pending and completed) for analytics and review.
     
@@ -1198,9 +1180,10 @@ async def get_hitl_history(
         List of HITL decisions with timestamps and outcomes
     """
     try:
-        from agent.models import HITLDecision
-        from agent.database import get_db_connection
         from uuid import UUID
+
+        from agent.database import get_db_connection
+        from agent.models import HITLDecision
         
         session_uuid = UUID(session_id)
         
@@ -1260,13 +1243,12 @@ def export_report(
     report_id: str = Path(..., description="Report UUID"),
     format: str = Query(..., description="Export format: markdown, html, or pdf")
 ):
-    """
-    Export a report to various formats (Markdown, HTML, PDF).
+    """Export a report to various formats (Markdown, HTML, PDF).
     
     Note: PDF export is a placeholder for future implementation.
     """
     try:
-        from fastapi.responses import PlainTextResponse, HTMLResponse
+        from fastapi.responses import HTMLResponse, PlainTextResponse
         
         report_uuid = UUID(report_id)
         report = db_manager.get_report_by_id(report_uuid)
@@ -1323,8 +1305,7 @@ def export_report(
 # ==================== WebSocket Streaming ====================
 @app.websocket("/agent/stream")
 async def stream_agent_progress(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time agent progress streaming.
+    """WebSocket endpoint for real-time agent progress streaming.
     
     Client sends:
     {

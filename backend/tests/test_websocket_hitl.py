@@ -13,8 +13,9 @@ This validates the real-time communication layer.
 
 import asyncio
 import json
-import websockets
 from datetime import datetime
+
+import websockets
 
 
 class WebSocketHITLTest:
@@ -82,7 +83,7 @@ class WebSocketHITLTest:
                             if msg_type == "hitl_request":
                                 hitl_received = True
                                 self.hitl_requests.append(data)
-                                self.log(f"HITL request detected!", "SUCCESS")
+                                self.log("HITL request detected!", "SUCCESS")
                                 self.log(f"  Request ID: {data.get('request_id')}", "INFO")
                                 self.log(f"  Type: {data.get('decision_type')}", "INFO")
                                 self.log(f"  Prompt: {data.get('prompt', '')[:50]}...", "INFO")

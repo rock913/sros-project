@@ -8,16 +8,16 @@ Tests the document_utils module functionality:
 - Message creation
 """
 
-import sys
 import os
+import sys
 
 # Add backend src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from agent.document_utils import (
-    DocumentDiffer,
     ConflictDetector,
-    merge_non_overlapping_edits
+    DocumentDiffer,
+    merge_non_overlapping_edits,
 )
 
 

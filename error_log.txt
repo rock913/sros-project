@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /deps/backend
+configfile: pytest.ini
+plugins: anyio-4.10.0, bdd-8.1.0, mock-3.15.1, asyncio-1.3.0, langsmith-0.6.3
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+____ ERROR collecting tests/infrastructure/tools/test_unpaywall_adapter.py _____
+ImportError while importing test module '/deps/backend/tests/infrastructure/tools/test_unpaywall_adapter.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/infrastructure/tools/test_unpaywall_adapter.py:4: in <module>
+    from agent.infrastructure.tools.unpaywall_adapter import UnpaywallAdapter
+backend/src/agent/infrastructure/tools/unpaywall_adapter.py:3: in <module>
+    from ..domain.ports.paper_fetcher import PaperFetcher
+E   ModuleNotFoundError: No module named 'agent.infrastructure.domain'
+=========================== short test summary info ============================
+ERROR backend/tests/infrastructure/tools/test_unpaywall_adapter.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.82s ===============================

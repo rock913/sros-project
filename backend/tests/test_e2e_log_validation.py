@@ -25,13 +25,11 @@ Rationale:
 
 from __future__ import annotations
 
-import re
-import os
 import glob
+import re
 from pathlib import Path
 
 import pytest
-
 
 REQUIRED_KEYS = [
     "run_id",

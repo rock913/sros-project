@@ -1,5 +1,4 @@
-"""
-SQLAlchemy models for session management and data persistence.
+"""SQLAlchemy models for session management and data persistence.
 
 This module defines the database schema for:
 - Research sessions
@@ -11,15 +10,21 @@ All tables use UUID primary keys and integrate with LangGraph's checkpointer
 via the thread_id foreign key relationship.
 """
 
-from datetime import datetime
+from typing import Any, Dict
 from uuid import uuid4
-from typing import List, Dict, Any, Optional
 
 from sqlalchemy import (
-    Column, String, Text, DateTime, Integer, ARRAY, 
-    ForeignKey, Index, func, Boolean
+    ARRAY,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -27,8 +32,7 @@ Base = declarative_base()
 
 
 class Session(Base):
-    """
-    Research session metadata.
+    """Research session metadata.
     
     Each session represents a distinct research task and is linked to a
     LangGraph thread via thread_id.
@@ -85,8 +89,7 @@ class Session(Base):
 
 
 class Paper(Base):
-    """
-    Collected research paper metadata.
+    """Collected research paper metadata.
     
     Papers are associated with a session and stored for later reference.
     """
@@ -128,8 +131,7 @@ class Paper(Base):
 
 
 class Report(Base):
-    """
-    Generated research reports.
+    """Generated research reports.
     
     Reports are versioned outputs of the research process, stored in different formats.
     """
@@ -165,8 +167,7 @@ class Report(Base):
 
 
 class SessionEvent(Base):
-    """
-    Session event log for tracking research progress.
+    """Session event log for tracking research progress.
     
     Events capture key milestones like query generation, paper retrieval, etc.
     """
@@ -203,8 +204,7 @@ class SessionEvent(Base):
 
 
 class HITLDecision(Base):
-    """
-    Human-in-the-Loop (HITL) Decision Record
+    """Human-in-the-Loop (HITL) Decision Record
     
     Phase 3.6: Stores user decisions made during AI research sessions
     at critical intervention points.

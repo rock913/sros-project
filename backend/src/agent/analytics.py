@@ -1,31 +1,29 @@
-"""
-Analytics module for Phase 3.5.3.
+"""Analytics module for Phase 3.5.3.
 
 Provides aggregated statistics and trends analysis for research sessions,
 papers, and overall system performance.
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict
 from uuid import UUID
 
-from sqlalchemy import func, desc, and_, extract, case
+from sqlalchemy import and_, case, desc, func
 from sqlalchemy.orm import joinedload
 
 from agent.db_manager import get_db
-from agent.models import Session, Paper, Report, SessionEvent
+from agent.models import Paper, Session, SessionEvent
 
 
 def get_sessions_list(
     limit: int = 50,
     offset: int = 0,
-    status: Optional[str] = None,
-    user_id: Optional[str] = None,
+    status: str | None = None,
+    user_id: str | None = None,
     sort_by: str = "created_at",
     order: str = "desc"
 ) -> Dict[str, Any]:
-    """
-    Get paginated list of sessions with optional filtering.
+    """Get paginated list of sessions with optional filtering.
     
     Args:
         limit: Maximum number of results (1-200)
@@ -122,9 +120,8 @@ def get_sessions_list(
         }
 
 
-def get_session_details(session_id: UUID) -> Optional[Dict[str, Any]]:
-    """
-    Get detailed analytics for a specific session.
+def get_session_details(session_id: UUID) -> Dict[str, Any] | None:
+    """Get detailed analytics for a specific session.
     
     Args:
         session_id: UUID of the session
@@ -224,10 +221,9 @@ def get_session_details(session_id: UUID) -> Optional[Dict[str, Any]]:
 
 def get_sessions_stats(
     time_range: str = "7d",
-    user_id: Optional[str] = None
+    user_id: str | None = None
 ) -> Dict[str, Any]:
-    """
-    Get aggregated statistics across sessions.
+    """Get aggregated statistics across sessions.
     
     Args:
         time_range: Time window (24h, 7d, 30d, all)
@@ -347,8 +343,7 @@ def get_sessions_stats(
 
 
 def get_papers_trends(time_range: str = "7d") -> Dict[str, Any]:
-    """
-    Analyze paper collection trends.
+    """Analyze paper collection trends.
     
     Args:
         time_range: Time window (24h, 7d, 30d, all)

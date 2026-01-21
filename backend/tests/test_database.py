@@ -1,8 +1,14 @@
+
 import pytest
-import os
-from sqlalchemy import create_engine, text
-from agent.database import get_db_connection, init_db, insert_documents, query_documents, Document, Base, SessionLocal
 from dotenv import load_dotenv
+from sqlalchemy import text
+
+from agent.database import (
+    Document,
+    SessionLocal,
+    insert_documents,
+    query_documents,
+)
 
 # Load environment variables from .env file
 load_dotenv()

@@ -1,0 +1,39 @@
+I have designed the domain logic and test specifications for the LLM Protocol.
+
+Files Created/Updated:
+Protocol: backend/src/agent/domain/ports/llm.py
+
+🚀 Execute Automated TDD Loop:
+
+# 1. Define Paths
+export INTERFACE="backend/src/agent/domain/ports/llm.py"
+export IMPL="backend/src/agent/infrastructure/llm/litellm_adapter.py"
+export TEST="backend/tests/agent/infrastructure/llm/test_litellm_adapter.py"
+export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
+
+# 2. Launch Aider
+aider --model openai/gpt-4o \
+  --model-metadata-file aider_model_metadata.json \
+  --read $INTERFACE --read $MCP_SCHEMA \
+  $IMPL $TEST \
+  --lint-cmd "ruff check $IMPL $TEST --fix" \
+  --test-cmd "pytest $TEST" \
+  --message "
+Task: Implementation of LLM Adapter via TDD.
+
+Context:
+- Contract: \$INTERFACE
+
+Requirements:
+1. Step 1 (Fix Imports First): Ensure clean absolute imports.
+2. Step 2 (Cleanup): This is a core infrastructure piece. No legacy cleanup yet.
+3. Step 3 (TDD): Implement tests for LiteLLMAdapter.
+   - Use 'unittest.mock' to mock 'litellm.completion'.
+   - Verify handling of simple text responses.
+   - Verify handling of structured output (Pydantic models).
+   - Test fallback/retries (mock exceptions).
+4. Step 4 (Implement): Implement the adapter logic wrapping 'litellm'.
+   - Support 'response_format' arg (mapping to Pydantic objects).
+   - Handle LiteLLM exceptions and wrap in domain exceptions if needed.
+5. Iterate until green.
+"

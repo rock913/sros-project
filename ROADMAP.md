@@ -346,166 +346,39 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 ---
 
-#### Phase 4.1: LangSmith/LangFuse Integration & Control Panel Enhancement (3 weeks)
+#### Phase 4.1: MPA (MetaGPT+PydanticAI+Aider) Pilot ✅ COMPLETE
 
-**Objective:** Deep integration with observability platforms and streamlined Control Panel UX.
+**Status:** ✅ Completed on 2026-01-20
+**Objective:** Establish the AI-Native development workflow and Hexagonal Architecture.
 
-**Vision Reference:** Leverage Chapter 4 technical stack while avoiding duplicate visualization work.
+1.  **Architecture Migration:**
+    -   ✅ Establish `domain/` (schemas, ports) and `infrastructure/` structure.
+    -   ✅ Pilot Task: Refactor `Unpaywall` tool using MPA loop.
 
-**1. LangSmith Deep Integration (Week 1):**
--   **Automatic Tracing:**
-    -   Already configured via `LANGCHAIN_TRACING_V2=true`
-    -   Add custom tags for research sessions: `session_id`, `research_topic`, `stage`
-    -   Implement run naming convention: `research-{topic}-{timestamp}`
--   **VS Code Extension Integration:**
-    -   New command: `auto-researcher.openInLangSmith`
-    -   Click session → Open LangSmith trace in browser
-    -   Deep link format: `https://smith.langchain.com/o/{org}/projects/{project}/r/{run_id}`
--   **Error Debugging:**
-    -   On research failure, show "Debug in LangSmith" button
-    -   Automatically capture error context (last 5 LLM calls, tool executions)
--   **Performance Insights:**
-    -   Query LangSmith API for session metrics
-    -   Display in Analytics Dashboard: Avg LLM latency, Token usage, Cost per session
+2.  **Tooling Setup:**
+    -   ✅ Configure Aider with Qwen Max (via OpenAI compatible API).
+    -   ✅ Define `.aiderignore` and metadata to solve context window limits.
+    -   ✅ Establish `copilot-instructions.md` for Architect role.
 
-**2. LangFuse Analytics Integration (Week 2):**
--   **Session Tracking:**
-    -   Initialize LangFuse SDK in backend
-    -   Create LangFuse trace for each research session
-    -   Tag with metadata: `user_id`, `topic`, `paper_count`
--   **Dashboard Integration:**
-    -   Embed LangFuse public dashboard in Control Panel
-    -   Show key metrics: Sessions/day, Success rate, Avg cost
-    -   Click metric → Open full LangFuse dashboard
--   **Cost Tracking:**
-    -   Real-time cost calculation per session
-    -   Alert if session exceeds budget threshold
-    -   Monthly cost reports via LangFuse API
+**Milestone:** A production-proven "Architect -> Builder" workflow is now ready for scaling.
 
-**3. Streamlined Control Panel (Week 3):**
--   **Simplified UI (Keep HTML, No React Migration):**
-    -   Remove custom "Thinking Chain" visualization → Link to LangSmith
-    -   Focus on research controls: Start, Pause, Resume, Cancel
-    -   HITL decision cards (from Phase 3.6)
-    -   Quick actions: Export, Share, Bookmark
--   **Status Dashboard:**
-    -   Current session progress (progress bar)
-    -   Active stage indicator (Query → Search → Extract → Synthesize)
-    -   Resource usage: Papers found, Tokens used, Estimated cost
--   **External Tool Links:**
-    -   "View Trace" → LangSmith
-    -   "View Analytics" → LangFuse
-    -   "View Papers" → Zotero web library
--   **Keyboard Shortcuts:**
-    -   `Ctrl+Shift+R`: Start new research
-    -   `Ctrl+Shift+P`: Pause/Resume
-    -   `Ctrl+Shift+L`: Open LangSmith trace
+#### Phase 4.2: MCP Infrastructure & Hexagonal Migration (In Progress)
 
-**Deliverables:**
--   LangSmith integration with automatic deep linking
--   LangFuse cost tracking and embedded analytics
--   Streamlined Control Panel focused on research actions
--   NO custom trace visualization (use LangSmith instead)
+**Objective:** Upgrade core infrastructure to support Model Context Protocol (MCP) and migrate remaining tools.
 
-**Milestone:** Observability achieved via best-in-class tools, Control Panel focused on research workflow.
+1.  **MCP Foundation (MPA Loop):**
+    -   Integrate `mcp` SDK.
+    -   Implement `McpServer` Protocol and `FastAPIMcpServerAdapter`.
+    -   Create standard entry point for dynamic tool registration.
 
----
+2.  **Tool Migration (The Great Refactor):**
+    -   **Arxiv:** Refactor to `ArxivAdapter` implementing `PaperSearcher` Protocol.
+    -   **Zotero:** Refactor to `ZoteroAdapter` implementing `ReferenceManager` Protocol.
+    -   **Legacy Cleanup:** Deprecate `backend/src/agent/tools_and_schemas.py`.
 
-#### Phase 4.2: Multi-Source Literature Integration (4 weeks)
+#### Phase 4.3: Research Server Deployment (Planned)
 
-**Objective:** Expand beyond arXiv to comprehensive academic database coverage.
-
-**Vision Reference:** Chapter 4.1 - "智能文献发现" with multi-API tool orchestration.
-
-**Focus:** Core literature discovery features, NOT citation network visualization (use existing tools).
-
-**1. New Literature Sources (Weeks 1-2):**
--   **PubMed Integration:**
-    -   Implement Entrez E-utilities API client
-    -   Support MeSH term expansion
-    -   Handle MEDLINE citation format
--   **Semantic Scholar API:**
-    -   Leverage citation graph for related papers
-    -   Use "Influential Citations" metric
-    -   Extract author affiliations and funding data
--   **Google Scholar (via SerpAPI):**
-    -   Implement rate-limited scraper
-    -   Parse citation counts and metrics
-    -   Handle CAPTCHA gracefully
--   **CrossRef API:**
-    -   DOI resolution and metadata enrichment
-    -   Journal impact factor lookup
-    -   Funder registry integration
-
-**2. Intelligent Query Routing (Week 3):**
--   **LLM-Powered Source Selection:**
-    -   Analyze research topic → Recommend optimal databases
-    -   Example: "quantum computing" → arXiv (physics) + IEEE Xplore
-    -   Example: "cancer treatment" → PubMed + ClinicalTrials.gov
--   **Federated Search:**
-    -   Parallel API calls to multiple sources
-    -   Result deduplication by DOI/title similarity
-    -   Unified ranking by relevance score
-
-**3. Citation Management (Week 4):**
--   **Export to External Tools:**
-    -   "View Citation Network" → Open in Connected Papers (https://www.connectedpapers.com/)
-    -   "View Author Network" → Open in Research Rabbit (https://www.researchrabbit.ai/)
-    -   Integration buttons in Paper Details view
--   **Basic Citation Tracking:**
-    -   Store citation counts from Semantic Scholar
-    -   Track "cited by" and "references" lists
-    -   Simple citation graph data (nodes + edges) for future use
--   **NO Custom Visualization:**
-    -   Do NOT build D3.js citation graphs
-    -   Leverage Connected Papers, Research Rabbit, OpenAlex
-    -   Focus on data collection, not visualization
-
-**Milestone:** Comprehensive literature discovery across major databases, with smart routing and external tool integration.
-
----
-
-#### Phase 4.3: Collaborative Research & Team Features (6 weeks)
-
-**Objective:** Enable multi-user research projects with role-based access control.
-
-**Vision Reference:** Chapter 7 - "支持团队协作" for open science ecosystems.
-
-**1. User Management (Weeks 1-2):**
--   **Authentication System:**
-    -   Implement OAuth 2.0 (GitHub, Google, ORCID)
-    -   JWT token-based session management
-    -   API key generation for programmatic access
--   **Database Schema:**
-    -   `users` table (id, email, name, orcid, avatar_url)
-    -   `team_memberships` table (team_id, user_id, role)
-    -   `research_sessions.owner_id` foreign key
-
-**2. Shared Research Sessions (Weeks 3-4):**
--   **Real-time Collaboration:**
-    -   WebSocket pub/sub for live updates
-    -   CRDTs (Conflict-free Replicated Data Types) for concurrent editing
-    -   Show "👤 Alice is viewing" indicators
--   **Permissions System:**
-    -   Roles: Owner, Editor, Viewer, Commenter
-    -   Granular permissions: Read/Write/Delete on sessions/papers/reports
-    -   Audit log for all permission changes
-
-**3. Annotation & Comments (Weeks 5-6):**
--   **Paper Annotations:**
-    -   Highlight text in PDF viewer → Add comment
-    -   Store annotations in `paper_annotations` table
-    -   Show team annotations as overlays
--   **Report Comments:**
-    -   Inline comments on Markdown (like Google Docs)
-    -   Thread discussions with replies
-    -   @mention team members for notifications
--   **Discussion Board:**
-    -   Session-level discussion threads
-    -   Markdown support with code blocks
-    -   Integrate with VS Code "Comments" API
-
-**Milestone:** Transform platform from single-user tool to collaborative research hub.
+**Objective:** Deploy the "Research Server" capability plane to support VS Code Host.
 
 ---
 
@@ -840,7 +713,7 @@ Based on Phase 3.5.3 success (100% completion, 0 critical bugs), codify best pra
 This roadmap transforms the **gemini-fullstack-langgraph-quickstart** from a technical demo into a production-ready, VS Code-native automated research platform. 
 
 **Strategic Philosophy:** 
-- ✅ **Leverage, don't rebuild**: Use LangSmith (tracing), LangFuse (analytics), Connected Papers (citation viz)
+- ✅ **Leverage, don't rebuild**: Use LangSmith for tracing, LangFuse for analytics, Connected Papers for citation viz
 - ✅ **Focus on differentiation**: HITL collaboration, multi-source literature, team features
 - ✅ **Simplicity over complexity**: Keep HTML Control Panel, avoid React migration overhead
 

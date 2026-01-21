@@ -17,7 +17,38 @@ For current development status and progress tracking, see [Development Status](D
 - �️ **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (In Development - Phase 3.5).
 - 📊 **Research Analytics Dashboard:** Visualize research trends, keyword distributions, and productivity metrics across all projects (In Development - Phase 3.5).
 - �🐳 **Containerized & Ready-to-Run:** A fully containerized environment using Docker for easy setup and consistent development.
+- â¡ï¸ **AI-Native Development:** Built using the MPA (Multi-Agent Protocol Architecture), where Copilot acts as the Architect and Aider acts as the Builder.
 - 🔌 **API-First & Extensible:** Designed with a robust API, with a VS Code extension in development for a native research experience.
+
+## Architecture
+
+The project is evolving towards a **Hexagonal Architecture** (also known as Ports and Adapters) driven by the **Model Context Protocol (MCP)**.
+
+```mermaid
+graph TD
+    subgraph Domain Layer [Architect Zone]
+        S[Schemas]
+        P[Protocols/Ports]
+    end
+    
+    subgraph Infrastructure Layer [Builder Zone]
+        A[Adapters]
+        M[MCP Server]
+        D[Database]
+    end
+    
+    subgraph Apps
+        L[LangGraph Agent]
+        V[VS Code Extension]
+    end
+    
+    L --> P
+    A -.->|implements| P
+    A --> D
+    M --> A
+    V --MCP--> M
+    S --- P
+```
 
 ## Project Structure
 

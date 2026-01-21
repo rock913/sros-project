@@ -1,5 +1,4 @@
-"""
-Document Streaming Utilities for Real-time Collaboration
+"""Document Streaming Utilities for Real-time Collaboration
 
 This module provides utilities for:
 1. Paragraph-level diff generation
@@ -10,18 +9,16 @@ This module provides utilities for:
 Used by the synthesis node to stream report generation in real-time.
 """
 
-import hashlib
 import difflib
-from typing import Dict, List, Optional, Any, Tuple
-import re
+import hashlib
+from typing import Any, Dict, List
 
 # LangFuse trace integration for document updates
 from agent.langfuse_manager import LangfuseManager
 
 
 class DocumentDiffer:
-    """
-    Handles document comparison and incremental update generation.
+    """Handles document comparison and incremental update generation.
     
     Uses Python's difflib for efficient paragraph-level comparison.
     Operates at paragraph level for optimal UX (not too fine, not too coarse).
@@ -31,8 +28,7 @@ class DocumentDiffer:
         pass
     
     def extract_paragraphs(self, text: str) -> List[str]:
-        """
-        Split Markdown text into paragraphs.
+        """Split Markdown text into paragraphs.
         
         Paragraphs are separated by double newlines (\n\n).
         Preserves code blocks and other Markdown structures.
@@ -55,8 +51,7 @@ class DocumentDiffer:
         full_text: str, 
         paragraph_index: int
     ) -> Dict[str, int]:
-        """
-        Convert paragraph index to line numbers in full document.
+        """Convert paragraph index to line numbers in full document.
         
         Args:
             full_text: Complete document text
@@ -104,8 +99,7 @@ class DocumentDiffer:
         old_text: str, 
         new_text: str
     ) -> List[Dict[str, Any]]:
-        """
-        Generate paragraph-level diffs between two document versions.
+        """Generate paragraph-level diffs between two document versions.
         
         Uses difflib.SequenceMatcher for accurate diff generation.
         
@@ -202,8 +196,7 @@ class DocumentDiffer:
         diff: Dict[str, Any],
         rationale: str = ""
     ) -> Dict[str, Any]:
-        """
-        Create WebSocket message payload for a document update.
+        """Create WebSocket message payload for a document update.
         
         Args:
             diff: Diff operation from generate_paragraph_diff()
@@ -222,8 +215,7 @@ class DocumentDiffer:
 
 
 class ConflictDetector:
-    """
-    Detects conflicts between user edits and AI edits.
+    """Detects conflicts between user edits and AI edits.
     
     Uses document version hashing to track changes.
     Identifies overlapping edits that require user resolution.
@@ -240,8 +232,7 @@ class ConflictDetector:
         user_text: str,
         ai_text: str
     ) -> Dict[str, Any]:
-        """
-        Detect if user and AI have conflicting edits.
+        """Detect if user and AI have conflicting edits.
         
         Three-way comparison:
         - base_text: Last known version before any edits
@@ -332,8 +323,7 @@ class ConflictDetector:
         conflict: Dict[str, Any],
         session_id: str
     ) -> Dict[str, Any]:
-        """
-        Create WebSocket message for conflict notification.
+        """Create WebSocket message for conflict notification.
         
         Args:
             conflict: Result from detect_conflict()
@@ -362,8 +352,7 @@ def merge_non_overlapping_edits(
     user_text: str,
     ai_text: str
 ) -> str:
-    """
-    Automatically merge non-overlapping edits from user and AI.
+    """Automatically merge non-overlapping edits from user and AI.
     
     When user and AI edit different paragraphs, combine both changes.
     This is safe because there's no conflict.

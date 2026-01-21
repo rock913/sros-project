@@ -6,7 +6,7 @@ import sys
 from agent.infrastructure.mcp.simple_mcp_server import SimpleMcpServer
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
 from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
-from agent.infrastructure.mcp.tools.zotero import ZoteroMCPTool
+from agent.infrastructure.mcp.tools.zotero import get_zotero_save_mcp_tool
 
 
 async def main():
@@ -22,7 +22,7 @@ async def main():
         arxiv_search_tool = get_arxiv_search_mcp_tool()
         server.register_tool(arxiv_search_tool)
         
-        zotero_tool = ZoteroMCPTool()
+        zotero_tool = get_zotero_save_mcp_tool()
         server.register_tool(zotero_tool)
     except Exception as e:
         sys.exit(f"Failed to register tool: {e}")

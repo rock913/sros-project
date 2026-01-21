@@ -2,9 +2,11 @@
 Tests for the FastAPI app endpoints.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+
 from agent.app import app
 from agent.database import Document
 

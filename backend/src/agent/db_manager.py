@@ -1,5 +1,4 @@
-"""
-Database session management and CRUD operations.
+"""Database session management and CRUD operations.
 
 Provides database connection pool and helper functions for interacting
 with the session management tables.
@@ -7,14 +6,14 @@ with the session management tables.
 
 import os
 from contextlib import contextmanager
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List
 from uuid import UUID
 
 from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, Session as DBSession
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-from agent.models import Base, Session, Paper, Report, SessionEvent
+from agent.models import Base, Paper, Report, Session, SessionEvent
 
 # Database connection URI from environment
 DB_URI = os.getenv(
@@ -34,8 +33,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db():
-    """
-    Initialize database tables.
+    """Initialize database tables.
     
     Creates all tables defined in models.py if they don't exist.
     Safe to call multiple times (idempotent).
@@ -46,8 +44,7 @@ def init_db():
 
 @contextmanager
 def get_db():
-    """
-    Context manager for database sessions.
+    """Context manager for database sessions.
     
     Usage:
         with get_db() as db:
@@ -69,13 +66,12 @@ def get_db():
 def create_session(
     thread_id: UUID,
     title: str,
-    research_topic: Optional[str] = None,
+    research_topic: str | None = None,
     status: str = "pending",  # Added missing parameter
-    tags: Optional[List[str]] = None,
-    notes: Optional[str] = None
+    tags: List[str] | None = None,
+    notes: str | None = None
 ) -> Dict[str, Any]:
-    """
-    Create a new research session.
+    """Create a new research session.
     
     Args:
         thread_id: LangGraph thread UUID
@@ -103,14 +99,14 @@ def create_session(
         return session.to_dict()
 
 
-def get_session_by_id(session_id: UUID) -> Optional[Dict[str, Any]]:
+def get_session_by_id(session_id: UUID) -> Dict[str, Any] | None:
     """Get session by ID."""
     with get_db() as db:
         session = db.query(Session).filter(Session.id == session_id).first()
         return session.to_dict() if session else None
 
 
-def get_session_by_thread_id(thread_id: UUID) -> Optional[Dict[str, Any]]:
+def get_session_by_thread_id(thread_id: UUID) -> Dict[str, Any] | None:
     """Get session by LangGraph thread_id."""
     with get_db() as db:
         session = db.query(Session).filter(Session.thread_id == thread_id).first()
@@ -118,12 +114,11 @@ def get_session_by_thread_id(thread_id: UUID) -> Optional[Dict[str, Any]]:
 
 
 def list_sessions(
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0
 ) -> List[Dict[str, Any]]:
-    """
-    List sessions with optional filtering.
+    """List sessions with optional filtering.
     
     Args:
         status: Filter by status (active, completed, archived)
@@ -145,14 +140,13 @@ def list_sessions(
 
 def update_session(
     session_id: UUID,
-    title: Optional[str] = None,
-    research_topic: Optional[str] = None,
-    status: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-    notes: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
-    """
-    Update session fields.
+    title: str | None = None,
+    research_topic: str | None = None,
+    status: str | None = None,
+    tags: List[str] | None = None,
+    notes: str | None = None
+) -> Dict[str, Any] | None:
+    """Update session fields.
     
     Only provided fields are updated. Returns None if session not found.
     """
@@ -178,8 +172,7 @@ def update_session(
 
 
 def delete_session(session_id: UUID) -> bool:
-    """
-    Delete a session and all associated data (cascade).
+    """Delete a session and all associated data (cascade).
     
     Returns:
         True if deleted, False if not found
@@ -198,12 +191,12 @@ def delete_session(session_id: UUID) -> bool:
 def add_paper(
     session_id: UUID,
     title: str,
-    authors: Optional[List[str]] = None,
-    abstract: Optional[str] = None,
-    doi: Optional[str] = None,
-    arxiv_id: Optional[str] = None,
-    url: Optional[str] = None,
-    extra_metadata: Optional[Dict[str, Any]] = None
+    authors: List[str] | None = None,
+    abstract: str | None = None,
+    doi: str | None = None,
+    arxiv_id: str | None = None,
+    url: str | None = None,
+    extra_metadata: Dict[str, Any] | None = None
 ) -> Dict[str, Any]:
     """Add a paper to a session."""
     with get_db() as db:
@@ -231,16 +224,15 @@ def list_papers(session_id: UUID) -> List[Dict[str, Any]]:
 
 
 def get_all_papers(
-    session_id: Optional[UUID] = None,
-    source: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    keyword: Optional[str] = None,
+    session_id: UUID | None = None,
+    source: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    keyword: str | None = None,
     limit: int = 100,
     offset: int = 0
 ) -> tuple[List[Dict[str, Any]], int]:
-    """
-    Get all papers with advanced filtering.
+    """Get all papers with advanced filtering.
     
     Args:
         session_id: Filter by session UUID
@@ -273,7 +265,7 @@ def get_all_papers(
         
         if keyword:
             # Full-text search in title and abstract
-            from sqlalchemy import or_, func
+            from sqlalchemy import func, or_
             search_term = f"%{keyword}%"
             query = query.filter(
                 or_(
@@ -291,7 +283,7 @@ def get_all_papers(
         return [p.to_dict() for p in papers], total
 
 
-def get_paper_by_id(paper_id: UUID) -> Optional[Dict[str, Any]]:
+def get_paper_by_id(paper_id: UUID) -> Dict[str, Any] | None:
     """Get a specific paper by ID."""
     with get_db() as db:
         paper = db.query(Paper).filter(Paper.id == paper_id).first()
@@ -305,7 +297,7 @@ def create_report(
     content: str,
     format: str = "markdown",
     version: int = 1,
-    extra_metadata: Optional[Dict[str, Any]] = None
+    extra_metadata: Dict[str, Any] | None = None
 ) -> Dict[str, Any]:
     """Create a report for a session."""
     with get_db() as db:
@@ -330,14 +322,13 @@ def list_reports(session_id: UUID) -> List[Dict[str, Any]]:
 
 
 def get_all_reports(
-    session_id: Optional[UUID] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    session_id: UUID | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     limit: int = 50,
     offset: int = 0
 ) -> tuple[List[Dict[str, Any]], int]:
-    """
-    Get all reports with filtering.
+    """Get all reports with filtering.
     
     Args:
         session_id: Filter by session UUID
@@ -371,14 +362,14 @@ def get_all_reports(
         return [r.to_dict() for r in reports], total
 
 
-def get_report_by_id(report_id: UUID) -> Optional[Dict[str, Any]]:
+def get_report_by_id(report_id: UUID) -> Dict[str, Any] | None:
     """Get a specific report by ID."""
     with get_db() as db:
         report = db.query(Report).filter(Report.id == report_id).first()
         return report.to_dict() if report else None
 
 
-def get_latest_report(session_id: UUID) -> Optional[Dict[str, Any]]:
+def get_latest_report(session_id: UUID) -> Dict[str, Any] | None:
     """Get the most recent report for a session."""
     with get_db() as db:
         report = (
@@ -395,7 +386,7 @@ def get_latest_report(session_id: UUID) -> Optional[Dict[str, Any]]:
 def log_event(
     session_id: UUID,
     event_type: str,
-    event_data: Optional[Dict[str, Any]] = None
+    event_data: Dict[str, Any] | None = None
 ) -> Dict[str, Any]:
     """Log an event for a session."""
     with get_db() as db:
@@ -412,7 +403,7 @@ def log_event(
 
 def list_events(
     session_id: UUID,
-    event_type: Optional[str] = None,
+    event_type: str | None = None,
     limit: int = 100
 ) -> List[Dict[str, Any]]:
     """Get events for a session, optionally filtered by type."""

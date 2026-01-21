@@ -1,12 +1,22 @@
-import pytest
-from unittest.mock import patch, MagicMock
 import os
-from sqlalchemy import create_engine
-from langchain_core.messages import HumanMessage
-from agent.graph import generate_initial_queries, execute_searches, reflection_and_refinement, should_continue_searching, automated_resource_management, ingest_and_embed_documents, retrieve_and_synthesize_report
-from agent.database import init_db, Document, Base, SessionLocal
+from unittest.mock import MagicMock, patch
+
+import pytest
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import HumanMessage
+from langgraph.graph import END, START, StateGraph
+from sqlalchemy import create_engine
+
+from agent.database import Base, Document, SessionLocal, init_db
+from agent.application.workflows.research_workflow import (
+    automated_resource_management,
+    execute_searches,
+    generate_initial_queries,
+    ingest_and_embed_documents,
+    reflection_and_refinement,
+    retrieve_and_synthesize_report,
+    should_continue_searching,
+)
 from agent.state import AgentState
 
 # Load environment variables from .env file

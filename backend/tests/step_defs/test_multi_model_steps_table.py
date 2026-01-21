@@ -1,8 +1,9 @@
-import pytest
+from unittest.mock import MagicMock, patch
+
 from pytest_bdd import given, parsers
-from unittest.mock import patch, MagicMock
 
 from agent.configuration import Configuration
+
 
 @given(parsers.parse('the agent is configured with:\n{config_table}'), target_fixture='configured_agent_context')
 def configure_agent_with_models(config_table):

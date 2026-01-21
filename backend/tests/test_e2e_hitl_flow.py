@@ -11,12 +11,11 @@ Tests the complete HITL workflow:
 This simulates the real user workflow.
 """
 
-import asyncio
 import uuid
-import json
-import requests
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
+
+import requests
 
 # Configuration
 # Use 127.0.0.1:8000 when running inside container, localhost:8121 from host
@@ -42,8 +41,8 @@ class E2EHITLTest:
         self.log("Creating test session...")
         
         # Use direct database access
-        from agent.models import Session
         from agent.database import get_db_connection
+        from agent.models import Session
         
         self.session_id = uuid.uuid4()
         self.thread_id = uuid.uuid4()
@@ -147,8 +146,8 @@ class E2EHITLTest:
         """Verify that response was recorded in database"""
         self.log(f"Verifying response for {request_id}...")
         
-        from agent.models import HITLDecision
         from agent.database import get_db_connection
+        from agent.models import HITLDecision
         
         with get_db_connection() as db:
             hitl_record = db.query(HITLDecision).filter(
@@ -208,8 +207,8 @@ class E2EHITLTest:
         """Clean up test data"""
         self.log("Cleaning up test data...")
         
-        from agent.models import Session, HITLDecision
         from agent.database import get_db_connection
+        from agent.models import HITLDecision, Session
         
         with get_db_connection() as db:
             # Delete HITL records

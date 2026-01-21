@@ -6,17 +6,17 @@ Tests for query_approval_node, paper_selection_node, and report_revision_node
 
 import uuid
 from datetime import datetime
+
 import pytest
 
-from agent.hitl_nodes import (
-    query_approval_node,
-    paper_selection_node,
-    report_revision_node,
-    create_hitl_request
-)
-from agent.state import AgentState
-from agent.models import Session
 from agent.database import get_db_connection
+from agent.hitl_nodes import (
+    paper_selection_node,
+    query_approval_node,
+    report_revision_node,
+)
+from agent.models import Session
+from agent.state import AgentState
 
 # Test UUID (valid format)
 TEST_SESSION_ID = str(uuid.uuid4())

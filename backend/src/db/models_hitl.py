@@ -1,23 +1,22 @@
-"""
-Human-in-the-Loop (HITL) Decision Models
+"""Human-in-the-Loop (HITL) Decision Models
 
 Phase 3.6: HITL & Real-time Collaboration
 Author: Development Team
 Date: 2025-10-14
 """
 
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import relationship
 
 from .base import Base
 
 
 class HITLDecision(Base):
-    """
-    Human-in-the-Loop Decision Record
+    """Human-in-the-Loop Decision Record
     
     Stores user decisions made during AI research sessions
     at critical intervention points.

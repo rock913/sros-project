@@ -2,9 +2,10 @@
 Unit tests for Session Management API endpoints
 """
 
-import pytest
 import uuid
+
 from fastapi.testclient import TestClient
+
 from agent.app import app
 
 client = TestClient(app)

@@ -1,0 +1,43 @@
+I have designed the domain logic and test specifications for DocumentStore.
+
+Files Created/Updated:
+Protocol: backend/src/agent/domain/ports/document_store.py
+
+🚀 Execute Automated TDD Loop:
+
+# 1. Define Paths
+export INTERFACE="backend/src/agent/domain/ports/document_store.py"
+export SCHEMA="backend/src/agent/domain/schemas/paper.py"
+export IMPL="backend/src/agent/infrastructure/db/postgres_document_store.py"
+export TEST="backend/tests/agent/infrastructure/db/test_postgres_document_store.py"
+export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
+
+# 2. Launch Aider
+aider --model openai/gpt-4o \
+  --model-metadata-file aider_model_metadata.json \
+  --read $INTERFACE --read $SCHEMA --read $MCP_SCHEMA \
+  --read "backend/src/agent/database.py" \
+  $IMPL $TEST \
+  --lint-cmd "ruff check $IMPL $TEST --fix" \
+  --test-cmd "pytest $TEST" \
+  --message "
+Task: Implementation of DocumentStore via TDD.
+
+Context:
+- Contract: \$INTERFACE
+- Schema: \$SCHEMA
+- DB Model: backend/src/agent/database.py
+
+Requirements:
+1. Step 1 (Fix Imports First): Ensure clean absolute imports.
+2. Step 2 (Cleanup): Not replacing legacy tools yet, but check for any 'database.py' direct access in old tests that might need this adapter later.
+3. Step 3 (TDD): Implement tests for PostgresDocumentStore.
+   - START with a Mock DB Session. Do NOT require a running Postgres.
+   - Use 'unittest.mock' to mock 'sqlalchemy.orm.Session'.
+   - Verify that 'add', 'commit' are called on save.
+   - Verify that 'execute' is called with vector distance query on search.
+4. Step 4 (Implement): Implement the adapter logic using SQLAlchemy.
+   - Note: The 'Document' ORM class (from database.py) is the internal representation.
+   - Use 'pgvector' logic correctly (typically vector <-> vector operator).
+5. Iterate until green.
+"

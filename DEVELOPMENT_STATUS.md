@@ -13,8 +13,29 @@ This document tracks the development progress of the Auto-Researcher platform ac
 | Phase 1: Backend Foundation | ✅ Complete | 4 weeks | 100% |
 | Phase 2: VS Code Skeleton | ✅ Complete | 3 weeks | 100% |
 | Phase 3: Real-time Interaction | ✅ Complete | 4 weeks | 100% |
+| **Phase 4.1: MPA (MetaGPT+PydanticAI+Aider) Architect** | 🚧 In Progress | 2 weeks | 90% |
 | **Phase 3.5: Historical Data Management** | 🚧 In Planning | 7 weeks | 0% |
 | Phase 4: Ecosystem Integration | 📋 Planned | TBD | 0% |
+
+---
+
+## Phase 4.1: MPA (MetaGPT+PydanticAI+Aider) Architect 🚧 In Progress
+
+### Overview
+Transitioning to an AI-Native development workflow where GitHub Copilot acts as the **Architect**, and Aider acts as the **Builder** and **Inspector**.
+
+### Deliverables
+- ✅ **MCP Foundation**: `McpServer` protocol and `SimpleMcpServer` implementation.
+- ✅ **Unpaywall Migration**: Ported internal logic to `UnpaywallAdapter` wrapped in MCP tool.
+- ✅ **Arxiv Migration**: Ported search logic to `ArxivAdapter` wrapped in MCP tool.
+- ✅ **Zotero Migration**: Ported save logic to `ZoteroAdapter` wrapped in MCP tool.
+- ✅ **Server Integration**: All tools registered in `backend/src/agent/infrastructure/mcp/entrypoint.py`.
+- ✅ **Automated Testing**: Comprehensive test suite for all migrated components (9/9 tests passing).
+
+### Key Files
+- `backend/src/agent/domain/ports/mcp_server.py` - Protocol definition.
+- `backend/src/agent/infrastructure/mcp/simple_mcp_server.py` - Server implementation.
+- `backend/src/agent/infrastructure/mcp/tools/*.py` - Individual tool factories.
 
 ---
 

@@ -1,19 +1,19 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agent.infrastructure.mcp.tools.zotero import ZoteroMCPTool
+from agent.infrastructure.mcp.tools.zotero import get_zotero_save_mcp_tool
 
 
 class TestZoteroMCPTool(unittest.TestCase):
-    @patch('agent.infrastructure.tools.zotero_adapter.ZoteroAdapter')
+    @patch('agent.infrastructure.mcp.tools.zotero.ZoteroAdapter')
     def test_execute_success(self, mock_zotero_adapter):
         # Mock ZoteroAdapter instance
         mock_zotero_adapter_instance = MagicMock()
         mock_zotero_adapter.return_value = mock_zotero_adapter_instance
         mock_zotero_adapter_instance.save_paper.return_value = "Saved to Zotero. Item Key: 123"
 
-        # Create ZoteroMCPTool instance
-        tool = ZoteroMCPTool()
+        # Get the tool from factory
+        tool = get_zotero_save_mcp_tool()
 
         # Create a sample paper
         paper_data = {
@@ -26,22 +26,22 @@ class TestZoteroMCPTool(unittest.TestCase):
             "publisher": "Test Publisher"
         }
 
-        # Execute the tool
-        result = tool.execute(paper_data)
+        # Execute the tool handler
+        result = tool.handler({"paper": paper_data})
 
         # Check the result
         self.assertTrue(result["success"])
         self.assertIn("Saved to Zotero. Item Key: 123", result["message"])
 
-    @patch('agent.infrastructure.tools.zotero_adapter.ZoteroAdapter')
+    @patch('agent.infrastructure.mcp.tools.zotero.ZoteroAdapter')
     def test_execute_failure(self, mock_zotero_adapter):
         # Mock ZoteroAdapter instance
         mock_zotero_adapter_instance = MagicMock()
         mock_zotero_adapter.return_value = mock_zotero_adapter_instance
         mock_zotero_adapter_instance.save_paper.side_effect = RuntimeError("Some error")
 
-        # Create ZoteroMCPTool instance
-        tool = ZoteroMCPTool()
+        # Get the tool from factory
+        tool = get_zotero_save_mcp_tool()
 
         # Create a sample paper
         paper_data = {
@@ -54,8 +54,8 @@ class TestZoteroMCPTool(unittest.TestCase):
             "publisher": "Test Publisher"
         }
 
-        # Execute the tool
-        result = tool.execute(paper_data)
+        # Execute the tool handler
+        result = tool.handler({"paper": paper_data})
 
         # Check the result
         self.assertFalse(result["success"])

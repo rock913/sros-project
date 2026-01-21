@@ -1,17 +1,14 @@
 import os
 import re
-import time
-import asyncio
-import requests
-from typing import List
-from sqlalchemy import text
 
 import fitz  # PyMuPDF
-from dotenv import load_dotenv
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.runnables import RunnableConfig
 import litellm
-from litellm.exceptions import ServiceUnavailableError, RateLimitError
+import requests
+from dotenv import load_dotenv
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
+from litellm.exceptions import RateLimitError, ServiceUnavailableError
+
 # Legacy aliases for tests
 completion = litellm.completion
 # Embeddings proxy with embed_documents for backward compatibility
@@ -23,33 +20,54 @@ class _EmbeddingsProxy:
         return [item.get('embedding') for item in getattr(resp, 'data', [])]
 embeddings = _EmbeddingsProxy()
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 # Initialize a global text splitter for document chunking
 text_splitter = RecursiveCharacterTextSplitter()
-
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, RetryError
-from agent.tools_and_schemas import (
-    SearchQueryList,
-    Reflection,
-    arxiv_tool,
-    unpaywall_tool,
-    zotero_tool,
-)
-from agent.prompts import (
-    get_current_date,
-    query_writer_instructions,
-    reflection_instructions,
-    answer_instructions,
-)
-from agent.utils import get_research_topic, parse_scientific_papers
-from langgraph.graph import StateGraph, END, START
-from langgraph.types import Send
-from agent.state import AgentState 
-from agent.database import get_db_connection, Document, query_documents
 
 # Import checkpointer for state persistence
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from psycopg_pool import ConnectionPool, AsyncConnectionPool
+from langgraph.graph import END, START, StateGraph
+
+# Ensure imports work from new location
+try:
+    from agent.tools_and_schemas import (
+        State,
+        ActionPlan,
+        ResearchStep,
+        FinalResponse
+    )
+    # The tools have been moved, need to redirect imports if necessary or check where they are used.
+    # For now, we assume agent.tools_and_schemas is still valid location for schemas.
+except ImportError:
+    # If tools_and_schemas.py was also moved, we would need to update this.
+    pass
+# ...existing code...
+from psycopg_pool import AsyncConnectionPool, ConnectionPool
+from tenacity import (
+    RetryError,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from agent.database import Document, get_db_connection, query_documents
+from agent.prompts import (
+    answer_instructions,
+    get_current_date,
+    query_writer_instructions,
+    reflection_instructions,
+)
+from agent.state import AgentState
+from agent.tools_and_schemas import (
+    Reflection,
+    SearchQueryList,
+    arxiv_tool,
+    unpaywall_tool,
+    zotero_tool,
+)
+from agent.utils import get_research_topic, parse_scientific_papers
 
 load_dotenv()
 
@@ -73,8 +91,9 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
     print("---NODE: generate_initial_queries---")
     
     # Import db_manager for event logging
-    from agent import db_manager
     from datetime import datetime
+
+    from agent import db_manager
     
     cfg = Configuration.from_runnable_config(config)
     research_topic = get_research_topic(state["messages"])
@@ -125,7 +144,7 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )
-            print(f"[Session Management] Recorded queries_generated event")
+            print("[Session Management] Recorded queries_generated event")
         except Exception as e:
             print(f"[Session Management] Failed to record event: {e}")
     
@@ -290,7 +309,7 @@ def get_doi_from_title(title: str) -> str | None:
     except (KeyError, IndexError) as e:
         print(f"---HELPER: Could not parse DOI from Crossref response: {e}")
     
-    print(f"---HELPER: No DOI found for title on Crossref.")
+    print("---HELPER: No DOI found for title on Crossref.")
     return None
 
 def automated_resource_management(state: AgentState, config: RunnableConfig) -> AgentState:
@@ -301,8 +320,9 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
     print("---NODE: automated_resource_management---")
     
     # Import db_manager for paper persistence
-    from agent import db_manager
     from datetime import datetime
+
+    from agent import db_manager
     
     session_id = state.get("session_id")
     papers_for_ingestion = []
@@ -383,7 +403,7 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
         if not doi:
             if test_mode:
                 # In test mode we still want tool invocation counts to register.
-                print(f"TEST_MODE: No DOI found; using placeholder DOI for tool invocation metrics only.")
+                print("TEST_MODE: No DOI found; using placeholder DOI for tool invocation metrics only.")
                 doi = "10.0000/placeholder"
             else:
                 print(f"No DOI found for paper (title='{paper_title}'). Skipping resource management.")
@@ -470,6 +490,7 @@ def automated_resource_management(state: AgentState, config: RunnableConfig) -> 
     return {"papers_for_ingestion": papers_for_ingestion}
 
 import numpy as np
+
 # Removed direct imports of completion and embeddings to use litellm namespace
 
 @retry(
@@ -626,8 +647,9 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     )
     
     # Import db_manager for report persistence
-    from agent import db_manager
     from datetime import datetime
+
+    from agent import db_manager
     
     cfg = Configuration.from_runnable_config(config)
     research_topic = get_research_topic(state["messages"])
@@ -692,7 +714,7 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
     
     # Phase 3.5.2: Persist report to database
     if session_id and report:
-        print(f"[Session Management] Persisting report to database...")
+        print("[Session Management] Persisting report to database...")
         try:
             # Get existing reports count to determine version number
             existing_reports = db_manager.list_reports(session_id=session_id)
@@ -733,7 +755,7 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
                 notes=f"Research completed at {datetime.utcnow().isoformat()}"
             )
             
-            print(f"[Session Management] Updated session status to 'completed'")
+            print("[Session Management] Updated session status to 'completed'")
             
         except Exception as e:
             print(f"[Session Management] Failed to persist report: {e}")
@@ -758,7 +780,11 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
 builder = StateGraph(AgentState)
 
 # Import HITL nodes (Phase 3.6)
-from agent.hitl_nodes import query_approval_node, paper_selection_node, report_revision_node
+from agent.hitl_nodes import (
+    paper_selection_node,
+    query_approval_node,
+    report_revision_node,
+)
 
 builder.add_node("generate_initial_queries", generate_initial_queries)
 builder.add_node("query_approval", query_approval_node)  # Phase 3.6: HITL Node 1
@@ -779,8 +805,7 @@ builder.add_edge(START, "generate_initial_queries")
 
 # Conditional edge after initial query generation - proceed with parallel searches
 def check_queries_and_execute_searches(state: AgentState):
-    """
-    After query generation, directly proceed with parallel searches
+    """After query generation, directly proceed with parallel searches
     (HITL query approval node is bypassed)
     
     Returns:
@@ -804,8 +829,7 @@ builder.add_edge("execute_searches", "reflection_and_refinement")
 
 # Conditional edge after reflection - check if sufficient or loop back
 def check_reflection_and_continue(state: AgentState):
-    """
-    After reflection, decide next action based on research sufficiency
+    """After reflection, decide next action based on research sufficiency
     (HITL paper selection node is bypassed)
     
     This implements the core research loop logic:
