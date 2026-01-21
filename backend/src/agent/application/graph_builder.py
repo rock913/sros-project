@@ -1,5 +1,4 @@
-"""Module to build the LangGraph application.
-"""
+"""Module to build the LangGraph application."""
 
 from agent.infrastructure.tools.scholar_adapter import get_scholar_tool
 from langchain.graphs import (
