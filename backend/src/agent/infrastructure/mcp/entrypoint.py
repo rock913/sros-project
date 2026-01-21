@@ -6,6 +6,7 @@ from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
 from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
 from agent.infrastructure.mcp.tools.zotero import ZoteroMCPTool
 
+
 async def main():
     """Initialize and start the MCP Server."""
     # 1. Initialize Server

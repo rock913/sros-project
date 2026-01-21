@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from agent.infrastructure.mcp.tools.zotero import ZoteroMCPTool
-from agent.domain.schemas.paper import Paper
+
 
 class TestZoteroMCPTool(unittest.TestCase):
     @patch('agent.infrastructure.tools.zotero_adapter.ZoteroAdapter')

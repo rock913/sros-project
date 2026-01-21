@@ -1,11 +1,13 @@
 import os
+
 from pyzotero import zotero
+
 from agent.domain.ports.reference_manager import ReferenceManager
 from agent.domain.schemas.paper import Paper
 
+
 class ZoteroAdapter(ReferenceManager):
-    """
-    Adapter for interacting with Zotero API via pyzotero.
+    """Adapter for interacting with Zotero API via pyzotero.
     """
     
     def __init__(self, library_id: str = None, api_key: str = None, library_type: str = "user"):
@@ -19,8 +21,7 @@ class ZoteroAdapter(ReferenceManager):
         self.zot = zotero.Zotero(self.library_id, self.library_type, self.api_key)
 
     def save_paper(self, paper: Paper) -> str:
-        """
-        Convert valid Paper domain object to Zotero item and save it.
+        """Convert valid Paper domain object to Zotero item and save it.
         """
         # 1. Create Template
         template = self.zot.item_template('journalArticle')

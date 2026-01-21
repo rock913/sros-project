@@ -1,6 +1,8 @@
-from agent.infrastructure.tools.zotero_adapter import ZoteroAdapter
-from agent.domain.schemas.paper import Paper
 from mcp import MCPTool, MCPToolResult
+
+from agent.domain.schemas.paper import Paper
+from agent.infrastructure.tools.zotero_adapter import ZoteroAdapter
+
 
 class ZoteroMCPTool(MCPTool):
     """Wrapper for ZoteroAdapter to be used as an MCP Tool."""
