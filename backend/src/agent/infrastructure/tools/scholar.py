@@ -1,6 +1,4 @@
-"""Module for interacting with Google Scholar to search for papers.
-"""
-
+"""Module for interacting with Google Scholar to search for papers."""
 
 import requests
 from bs4 import BeautifulSoup
@@ -10,8 +8,7 @@ from agent.domain.schemas.mcp import McpTool
 
 
 class ScholarQuery(BaseModel):
-    """Represents a query for Google Scholar.
-    """
+    """Represents a query for Google Scholar."""
     query: str = Field(..., description="The search query for Google Scholar.")
 
 
