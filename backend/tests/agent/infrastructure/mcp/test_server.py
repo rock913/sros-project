@@ -43,7 +43,7 @@ class TestFastMcpServer(unittest.TestCase):
             input_schema={"type": "object", "properties": {}},
             handler=lambda: None
         )
-        tool2 = MccpTool(
+        tool2 = McpTool(  # Fixed the typo here
             name="test_tool2",
             description="Another test tool",
             input_schema={"type": "object", "properties": {}},
