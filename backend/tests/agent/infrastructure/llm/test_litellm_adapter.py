@@ -1,8 +1,11 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from agent.infrastructure.llm.litellm_adapter import LiteLLMAdapter
-from agent.domain.ports.llm import LLMResponse
+from unittest.mock import patch
+
 from pydantic import BaseModel
+
+from agent.domain.ports.llm import LLMResponse
+from agent.infrastructure.llm.litellm_adapter import LiteLLMAdapter
+
 
 class TestLiteLLMAdapter(unittest.TestCase):
 
