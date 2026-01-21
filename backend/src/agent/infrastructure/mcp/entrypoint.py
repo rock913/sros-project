@@ -1,5 +1,5 @@
-import asyncio
 import sys
+import asyncio
 
 from agent.infrastructure.mcp.simple_mcp_server import SimpleMcpServer
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
@@ -7,8 +7,7 @@ from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
 
 
 async def main():
-    """Main entrypoint for the MCP Server.
-    """
+    """Initialize and start the MCP Server."""
     # 1. Initialize Server
     server = SimpleMcpServer(name="gemini-research-agent")
 
@@ -16,11 +15,9 @@ async def main():
     try:
         unpaywall_tool = get_unpaywall_mcp_tool()
         server.register_tool(unpaywall_tool)
-        print(f"Registered tool: {unpaywall_tool.name}", file=sys.stderr)
         
         arxiv_search_tool = get_arxiv_search_mcp_tool()
         server.register_tool(arxiv_search_tool)
-        print(f"Registered tool: {arxiv_search_tool.name}", file=sys.stderr)
     except Exception as e:
         print(f"Failed to register tool: {e}", file=sys.stderr)
         sys.exit(1)

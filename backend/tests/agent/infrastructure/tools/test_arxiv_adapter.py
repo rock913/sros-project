@@ -1,3 +1,7 @@
+"""
+Unit tests for the ArxivAdapter class.
+"""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +16,6 @@ class TestArxivAdapter(unittest.TestCase):
     def test_search(self, MockSearch, MockClient):
         # Mock the arxiv.Client and arxiv.Search
         mock_client = MockClient.return_value
-        mock_search = MockSearch.return_value
         mock_result = MagicMock()
         mock_result.doi = '1234.5678'
         mock_result.title = 'Test Title'
