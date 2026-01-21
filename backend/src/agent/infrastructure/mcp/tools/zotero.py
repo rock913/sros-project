@@ -1,5 +1,4 @@
-"""Tools for interacting with Zotero via MCP.
-"""
+"""Tools for interacting with Zotero via MCP."""
 
 from mcp import MCPTool, MCPToolResult
 
