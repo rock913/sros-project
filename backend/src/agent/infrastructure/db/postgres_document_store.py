@@ -1,12 +1,13 @@
-"""
-PostgresDocumentStore implementation for storing and retrieving research documents with vector embeddings.
+"""PostgresDocumentStore implementation for storing and retrieving research documents with vector embeddings.
 """
 
-from typing import List, Optional
+from typing import List
 
+from agent.database import Document as DbDocument
+from agent.database import get_db_connection
 from agent.domain.ports.document_store import DocumentStore
-from agent.database import Document as DbDocument, get_db_connection
 from agent.domain.schemas.paper import Paper
+
 
 class PostgresDocumentStore(DocumentStore):
     def save_document(self, paper: Paper, content: str, embedding: List[float]) -> None:

@@ -5,10 +5,10 @@ Unit tests for PostgresDocumentStore.
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agent.infrastructure.db.postgres_document_store import PostgresDocumentStore
-from agent.domain.ports.document_store import DocumentStore
-from agent.domain.schemas.paper import Paper
 from agent.database import Document as DbDocument
+from agent.domain.schemas.paper import Paper
+from agent.infrastructure.db.postgres_document_store import PostgresDocumentStore
+
 
 class TestPostgresDocumentStore(unittest.TestCase):
     @patch('agent.infrastructure.db.postgres_document_store.get_db_connection')
