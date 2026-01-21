@@ -1,8 +1,8 @@
-"""
-Module for adapting arXiv search results to domain objects.
+"""Module for adapting arXiv search results to domain objects.
 """
 
-from typing import List, Optional
+from typing import List
+
 import arxiv
 
 from agent.domain.ports.paper_searcher import PaperSearcher
@@ -42,7 +42,7 @@ class ArxivAdapter(PaperSearcher):
     def _to_domain(self, r: arxiv.Result) -> Paper:
         """Convert arxiv.Result to domain Paper."""
         # Handle cases where DOI might be None
-        doi: Optional[str] = r.doi if r.doi else None
+        doi: str | None = r.doi if r.doi else None
         
         # Arxiv papers are generally "Open Access" in terms of visibility, 
         # but technically Green OA. We mark them as OA with URL.

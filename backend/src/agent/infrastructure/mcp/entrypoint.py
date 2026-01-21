@@ -1,5 +1,5 @@
-import sys
 import asyncio
+import sys
 
 from agent.infrastructure.mcp.simple_mcp_server import SimpleMcpServer
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
