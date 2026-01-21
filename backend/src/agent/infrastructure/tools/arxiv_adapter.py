@@ -1,5 +1,5 @@
 import warnings
-from typing import List
+from typing import List, Optional
 import arxiv
 from agent.domain.ports.paper_searcher import PaperSearcher
 from agent.domain.schemas.paper import Paper, OpenAccessInfo
@@ -38,7 +38,8 @@ class ArxivAdapter(PaperSearcher):
 
     def _to_domain(self, r: arxiv.Result) -> Paper:
         """Convert arxiv.Result to domain Paper."""
-        # Check primary category or mapping
+        # Handle cases where DOI might be None
+        doi: Optional[str] = r.doi if r.doi else None
         
         # Arxiv papers are generally "Open Access" in terms of visibility, 
         # but technically Green OA. We mark them as OA with URL.
@@ -52,11 +53,11 @@ class ArxivAdapter(PaperSearcher):
         authors = [a.name for a in r.authors]
         
         return Paper(
-            doi=r.doi, # Might be None for recent preprints
+            doi=doi,
             title=r.title,
             authors=authors,
             publication_date=r.published.date(),
             publisher="arXiv",
             oa_info=oa_info,
-            abstract=r.summary # Map summary to abstract
+            abstract=r.summary  # Map summary to abstract
         )
