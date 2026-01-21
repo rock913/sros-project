@@ -1,9 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from agent.application.graph_builder import build_graph, AppConfig
-from agent.infrastructure.tools.scholar_adapter import get_scholar_tool
-from agent.infrastructure.tools.unpaywall_adapter import get_unpaywall_tool
+
+from agent.application.graph_builder import AppConfig, build_graph
 from agent.infrastructure.mcp.server import FastMcpServer
+
 
 def test_build_graph_registers_tools():
     # Arrange
