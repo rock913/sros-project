@@ -1,24 +1,25 @@
-"""
-Module to build the LangGraph application.
+"""Module to build the LangGraph application.
 """
 
-from pydantic import BaseModel
-from agent.infrastructure.mcp.server import FastMcpServer
 from agent.infrastructure.tools.scholar_adapter import get_scholar_tool
+from langchain.graphs import (
+    CompiledStateGraph,  # Assuming this is a placeholder for the actual graph type
+)
+from pydantic import BaseModel
+
+from agent.infrastructure.mcp.server import FastMcpServer
 from agent.infrastructure.tools.unpaywall_adapter import get_unpaywall_tool
-from langchain.graphs import CompiledStateGraph  # Assuming this is a placeholder for the actual graph type
+
 
 class AppConfig(BaseModel):
-    """
-    Configuration for the application.
+    """Configuration for the application.
     
     For now, we don't need any specific configuration.
     """
     pass
 
 def build_graph(config: AppConfig) -> CompiledStateGraph:
-    """
-    Build the graph for the LangGraph application.
+    """Build the graph for the LangGraph application.
 
     Args:
         config (AppConfig): The application configuration.
