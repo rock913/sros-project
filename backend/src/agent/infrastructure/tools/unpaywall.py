@@ -41,7 +41,6 @@ def unpaywall_handler(doi: str) -> str:
     Returns:
         str: A message indicating the result of the search.
     """
-
     try:
         adapter = UnpaywallAdapter()
         paper = adapter.fetch_by_doi(doi)
