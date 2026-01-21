@@ -1,17 +1,31 @@
-from agent.infrastructure.tools.scholar_adapter import get_scholar_tool
-from langchain.graphs import (
-    CompiledStateGraph,  # Assuming this is a placeholder for the actual graph type
-)
+"""
+Module to build the LangGraph application.
+"""
+
 from pydantic import BaseModel
-
 from agent.infrastructure.mcp.server import FastMcpServer
+from agent.infrastructure.tools.scholar_adapter import get_scholar_tool
 from agent.infrastructure.tools.unpaywall_adapter import get_unpaywall_tool
-
+from langchain.graphs import CompiledStateGraph  # Assuming this is a placeholder for the actual graph type
 
 class AppConfig(BaseModel):
-    pass  # For now, we don't need any specific configuration
+    """
+    Configuration for the application.
+    
+    For now, we don't need any specific configuration.
+    """
+    pass
 
 def build_graph(config: AppConfig) -> CompiledStateGraph:
+    """
+    Build the graph for the LangGraph application.
+
+    Args:
+        config (AppConfig): The application configuration.
+
+    Returns:
+        CompiledStateGraph: The compiled state graph.
+    """
     # Initialize the MCP server
     mcp_server = FastMcpServer()
 

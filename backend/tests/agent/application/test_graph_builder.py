@@ -16,7 +16,7 @@ def test_build_graph_registers_tools():
          patch('agent.application.graph_builder.get_unpaywall_tool', return_value=unpaywall_tool_mock):
         
         # Act
-        graph = build_graph(config)
+        build_graph(config)
 
         # Assert
         mcp_server_mock.register_tool.assert_any_call(scholar_tool_mock)
