@@ -15,7 +15,11 @@ def get_arxiv_search_mcp_tool() -> McpTool:
     """Create and return an MCP tool for searching academic papers on arXiv."""
     adapter = ArxivAdapter()
     
-    async def handler(input_data: ArxivSearchInput) -> list:
+    async def handler(input_data: dict | ArxivSearchInput) -> list:
+        # Ensure input_data is an instance of ArxivSearchInput
+        if isinstance(input_data, dict):
+            input_data = ArxivSearchInput(**input_data)
+        
         results = adapter.search(input_data.query, input_data.max_results)
         return [result.dict() for result in results]
     
