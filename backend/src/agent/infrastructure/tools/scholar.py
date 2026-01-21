@@ -1,14 +1,15 @@
+
 import requests
-from typing import Dict, Any
 from pydantic import BaseModel, Field
+
 from agent.domain.schemas.mcp import McpTool
+
 
 class ScholarQuery(BaseModel):
     query: str = Field(..., description="The search query for Google Scholar.")
 
 def search_google_scholar(query: str) -> str:
-    """
-    Search Google Scholar for papers based on a query.
+    """Search Google Scholar for papers based on a query.
     
     Args:
         query (str): The search query for Google Scholar.
@@ -27,8 +28,7 @@ def search_google_scholar(query: str) -> str:
     return f"Results for query '{query}':\n- Test Paper 1 by Author 1\n- Test Paper 2 by Author 2"
 
 def get_scholar_tool() -> McpTool:
-    """
-    Factory function to create an McpTool for searching Google Scholar.
+    """Factory function to create an McpTool for searching Google Scholar.
     
     Returns:
         McpTool: An McpTool object for the Google Scholar search tool.

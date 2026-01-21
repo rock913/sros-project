@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from agent.infrastructure.tools.scholar import get_scholar_tool
+from unittest.mock import MagicMock, patch
+
 from agent.domain.schemas.mcp import McpTool
+from agent.infrastructure.tools.scholar import get_scholar_tool
+
 
 class TestScholarTool(unittest.TestCase):
 
