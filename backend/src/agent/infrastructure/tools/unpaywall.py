@@ -1,5 +1,4 @@
-"""
-This module provides an adapter for interacting with the Unpaywall API.
+"""This module provides an adapter for interacting with the Unpaywall API.
 """
 
 import os
@@ -8,6 +7,7 @@ from typing import Any, Dict
 import requests
 
 from agent.domain.schemas.mcp import McpTool
+
 
 class UnpaywallAdapter:
     """Adapter for fetching open-access information from Unpaywall."""
@@ -43,7 +43,6 @@ def unpaywall_handler(doi: str) -> str:
     Returns:
         str: A message indicating the result of the search.
     """
-
     try:
         adapter = UnpaywallAdapter()
         paper = adapter.fetch_by_doi(doi)

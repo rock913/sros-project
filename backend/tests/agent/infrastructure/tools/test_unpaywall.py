@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.tools.unpaywall import get_unpaywall_tool
 
+
 def test_get_unpaywall_tool_returns_valid_mcp_tool():
     """
     Test that the get_unpaywall_tool function returns a valid McpTool instance.
