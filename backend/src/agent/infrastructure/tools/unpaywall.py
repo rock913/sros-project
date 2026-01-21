@@ -1,8 +1,10 @@
 import os
+from typing import Any, Dict
+
 import requests
-from typing import Any, Callable, Dict
-from pydantic import BaseModel, Field
+
 from agent.domain.schemas.mcp import McpTool
+
 
 class UnpaywallAdapter:
     def fetch_by_doi(self, doi: str) -> Dict[str, Any]:
