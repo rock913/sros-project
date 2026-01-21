@@ -30,8 +30,8 @@ class TestZoteroMCPTool(unittest.TestCase):
         result = tool.execute(paper_data)
 
         # Check the result
-        self.assertTrue(result.success)
-        self.assertIn("Saved to Zotero. Item Key: 123", result.message)
+        self.assertTrue(result["success"])
+        self.assertIn("Saved to Zotero. Item Key: 123", result["message"])
 
     @patch('agent.infrastructure.tools.zotero_adapter.ZoteroAdapter')
     def test_execute_failure(self, mock_zotero_adapter):
@@ -58,5 +58,5 @@ class TestZoteroMCPTool(unittest.TestCase):
         result = tool.execute(paper_data)
 
         # Check the result
-        self.assertFalse(result.success)
-        self.assertIn("Some error", result.message)
+        self.assertFalse(result["success"])
+        self.assertIn("Some error", result["message"])

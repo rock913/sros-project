@@ -1,6 +1,6 @@
 """Tools for interacting with Zotero via MCP."""
 
-from agent.domain.schemas.mcp import McpTool, MCPToolResult
+from agent.domain.schemas.mcp import McpTool
 from agent.domain.schemas.paper import Paper
 from agent.infrastructure.tools.zotero_adapter import ZoteroAdapter
 
@@ -20,11 +20,11 @@ class ZoteroMCPTool(McpTool):
         """Return the description of the tool."""
         return "Save a paper to Zotero."
 
-    def execute(self, paper_data: dict) -> MCPToolResult:
+    def execute(self, paper_data: dict) -> dict:
         """Execute the tool to save a paper to Zotero."""
         try:
             paper = Paper(**paper_data)
             result = self.zotero_adapter.save_paper(paper)
-            return MCPToolResult(success=True, message=result)
+            return {"success": True, "message": result}
         except Exception as e:
-            return MCPToolResult(success=False, message=str(e))
+            return {"success": False, "message": str(e)}
