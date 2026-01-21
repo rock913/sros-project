@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from agent.domain.schemas.mcp import McpTool  # Updated import statement
-
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
 
 
