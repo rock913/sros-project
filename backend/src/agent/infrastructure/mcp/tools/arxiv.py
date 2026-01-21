@@ -1,6 +1,8 @@
 from agent.infrastructure.mcp.base import McpTool
-from agent.infrastructure.tools.arxiv_adapter import ArxivAdapter
 from pydantic import BaseModel
+
+from agent.infrastructure.tools.arxiv_adapter import ArxivAdapter
+
 
 class ArxivSearchInput(BaseModel):
     query: str

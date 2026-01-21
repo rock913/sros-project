@@ -1,12 +1,13 @@
-import sys
 import asyncio
+import sys
+
 from agent.infrastructure.mcp.simple_mcp_server import SimpleMcpServer
-from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
+from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
+
 
 async def main():
-    """
-    Main entrypoint for the MCP Server.
+    """Main entrypoint for the MCP Server.
     """
     # 1. Initialize Server
     server = SimpleMcpServer(name="gemini-research-agent")

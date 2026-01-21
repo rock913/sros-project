@@ -1,17 +1,17 @@
-import warnings
-from typing import List, Optional
+from typing import List
+
 import arxiv
+
 from agent.domain.ports.paper_searcher import PaperSearcher
-from agent.domain.schemas.paper import Paper, OpenAccessInfo
+from agent.domain.schemas.paper import OpenAccessInfo, Paper
+
 
 class ArxivAdapter(PaperSearcher):
-    """
-    Adapter for searching papers on arXiv.org using the 'arxiv' python package.
+    """Adapter for searching papers on arXiv.org using the 'arxiv' python package.
     """
     
     def search(self, query: str, max_results: int = 5) -> List[Paper]:
-        """
-        Search arXiv for papers and convert them to domain objects.
+        """Search arXiv for papers and convert them to domain objects.
         """
         # Construct client (default settings)
         client = arxiv.Client()
@@ -39,7 +39,7 @@ class ArxivAdapter(PaperSearcher):
     def _to_domain(self, r: arxiv.Result) -> Paper:
         """Convert arxiv.Result to domain Paper."""
         # Handle cases where DOI might be None
-        doi: Optional[str] = r.doi if r.doi else None
+        doi: str | None = r.doi if r.doi else None
         
         # Arxiv papers are generally "Open Access" in terms of visibility, 
         # but technically Green OA. We mark them as OA with URL.

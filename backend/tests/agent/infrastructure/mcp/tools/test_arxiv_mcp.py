@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
+from unittest.mock import MagicMock, patch
+
 from agent.infrastructure.mcp.base import McpTool
-from agent.infrastructure.tools.arxiv_adapter import ArxivAdapter
-from pydantic import BaseModel
+
+from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
+
 
 class TestArxivMcpTool(unittest.TestCase):
 

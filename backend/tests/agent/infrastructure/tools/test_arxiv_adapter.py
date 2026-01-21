@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+from agent.domain.schemas.paper import OpenAccessInfo, Paper
 from agent.infrastructure.tools.arxiv_adapter import ArxivAdapter
-from agent.domain.schemas.paper import Paper, OpenAccessInfo
+
 
 class TestArxivAdapter(unittest.TestCase):
 
