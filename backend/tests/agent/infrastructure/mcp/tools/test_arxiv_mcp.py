@@ -5,7 +5,7 @@ Unit tests for the arXiv MCP tool.
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agent.infrastructure.mcp.base import McpTool
+from agent.domain.schemas.mcp import McpTool  # Updated import statement
 
 from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
 
