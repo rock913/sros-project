@@ -11,16 +11,20 @@ from agent.infrastructure.tools.scholar import get_scholar_tool
 
 class TestScholarTool(unittest.TestCase):
 
-    @patch('requests.get')
+    @patch('agent.infrastructure.tools.scholar.requests.get')
     def test_get_scholar_tool(self, mock_requests_get):
         # Mock the response from requests.get
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            'papers': [
-                {'title': 'Test Paper 1', 'authors': ['Author 1'], 'abstract': 'Abstract 1'},
-                {'title': 'Test Paper 2', 'authors': ['Author 2'], 'abstract': 'Abstract 2'}
-            ]
-        }
+        mock_response.text = """
+        <html>
+            <body>
+                <h3 class="gs_rt">Test Paper 1</h3>
+                <div class="gs_a">Author 1</div>
+                <h3 class="gs_rt">Test Paper 2</h3>
+                <div class="gs_a">Author 2</div>
+            </body>
+        </html>
+        """
         mock_requests_get.return_value = mock_response
 
         # Get the scholar tool
@@ -46,8 +50,8 @@ class TestScholarTool(unittest.TestCase):
         result = tool.handler(query='test query')
 
         # Check if the handler returns the expected result
-        self.assertIn('Test Paper 1', result)
-        self.assertIn('Test Paper 2', result)
+        self.assertIn('Test Paper 1 by Author 1', result)
+        self.assertIn('Test Paper 2 by Author 2', result)
 
 if __name__ == '__main__':
     unittest.main()

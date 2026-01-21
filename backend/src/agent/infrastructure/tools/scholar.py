@@ -2,9 +2,11 @@
 """
 
 from pydantic import BaseModel, Field
+from typing import Any, Dict
 
 from agent.domain.schemas.mcp import McpTool
-
+import requests
+from bs4 import BeautifulSoup
 
 class ScholarQuery(BaseModel):
     """Represents a query for Google Scholar.
@@ -21,12 +23,17 @@ def search_google_scholar(query: str) -> str:
     Returns:
         str: A string containing the results of the search.
     """
-    # Mocked URL for demonstration purposes
     url = f"https://scholar.google.com/scholar?q={query}"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
 
-    # For demonstration, we will return a fixed response
-    # In a real scenario, you would parse the response and extract the relevant information
-    return f"Results for query '{query}':\n- Test Paper 1 by Author 1\n- Test Paper 2 by Author 2"
+    results = []
+    for item in soup.select('.gs_ri'):
+        title = item.select_one('.gs_rt').text
+        authors = item.select_one('.gs_a').text
+        results.append(f"{title} by {authors}")
+
+    return "\n".join(results)
 
 
 def get_scholar_tool() -> McpTool:
