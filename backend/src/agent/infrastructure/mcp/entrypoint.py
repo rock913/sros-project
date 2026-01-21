@@ -23,7 +23,6 @@ async def main():
         sys.exit(1)
 
     # 3. Start Server
-    print("MCP Server starting on Stdio...", file=sys.stderr)
     try:
         await server.start()
     except Exception as e:

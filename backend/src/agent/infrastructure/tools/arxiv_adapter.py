@@ -1,5 +1,4 @@
-"""Module for adapting arXiv search results to domain objects.
-"""
+"""Module for adapting arXiv search results to domain objects."""
 
 from typing import List
 

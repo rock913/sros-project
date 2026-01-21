@@ -1,5 +1,4 @@
-"""Module for creating an MCP tool to search for academic papers on arXiv.
-"""
+"""Module for creating an MCP tool to search for academic papers on arXiv."""
 
 from agent.infrastructure.mcp.base import McpTool
 from pydantic import BaseModel
