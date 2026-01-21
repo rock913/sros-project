@@ -1,8 +1,8 @@
 """Module for creating an MCP tool to search for academic papers on arXiv."""
 
-from agent.domain.schemas.mcp import McpTool
 from pydantic import BaseModel
 
+from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.tools.arxiv_adapter import ArxivAdapter
 
 
