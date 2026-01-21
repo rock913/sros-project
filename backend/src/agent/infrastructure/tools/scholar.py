@@ -1,23 +1,19 @@
-"""
-Module for interacting with Google Scholar to search for papers.
+"""Module for interacting with Google Scholar to search for papers.
 """
 
-import requests
 from pydantic import BaseModel, Field
 
 from agent.domain.schemas.mcp import McpTool
 
 
 class ScholarQuery(BaseModel):
-    """
-    Represents a query for Google Scholar.
+    """Represents a query for Google Scholar.
     """
     query: str = Field(..., description="The search query for Google Scholar.")
 
 
 def search_google_scholar(query: str) -> str:
-    """
-    Search Google Scholar for papers based on a query.
+    """Search Google Scholar for papers based on a query.
 
     Args:
         query (str): The search query for Google Scholar.
@@ -34,8 +30,7 @@ def search_google_scholar(query: str) -> str:
 
 
 def get_scholar_tool() -> McpTool:
-    """
-    Create an McpTool for searching Google Scholar.
+    """Create an McpTool for searching Google Scholar.
 
     Returns:
         McpTool: An McpTool object for the Google Scholar search tool.
