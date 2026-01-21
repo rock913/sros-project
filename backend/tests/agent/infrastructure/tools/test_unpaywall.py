@@ -1,12 +1,12 @@
+"""
+This module contains tests for the Unpaywall tool.
+"""
+
 import os
 from unittest.mock import MagicMock, patch
 
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.tools.unpaywall import get_unpaywall_tool
-
-"""
-This module contains tests for the Unpaywall tool.
-"""
 
 def test_get_unpaywall_tool_returns_valid_mcp_tool():
     """
