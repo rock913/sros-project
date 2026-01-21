@@ -1,3 +1,7 @@
+"""
+Unit tests for the Google Scholar search tool.
+"""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
