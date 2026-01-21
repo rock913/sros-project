@@ -1,11 +1,13 @@
 from typing import List
-from agent.domain.ports.mcp_server import McpServer
-from agent.domain.schemas.mcp import McpTool
+
 from fastmcp import FastMCP  # Assuming this is the FastMCP library
 
+from agent.domain.ports.mcp_server import McpServer
+from agent.domain.schemas.mcp import McpTool
+
+
 class FastMcpServer(McpServer):
-    """
-    Adapter implementation of McpServer using the 'fastmcp' library.
+    """Adapter implementation of McpServer using the 'fastmcp' library.
     """
 
     def __init__(self, fastmcp_instance: FastMCP):

@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from fastmcp import FastMCP  # Assuming this is the FastMCP library
-from agent.infrastructure.mcp.server import FastMcpServer
+from unittest.mock import patch
+
 from agent.domain.schemas.mcp import McpTool
+from agent.infrastructure.mcp.server import FastMcpServer
+
 
 class TestFastMcpServer(unittest.TestCase):
 
