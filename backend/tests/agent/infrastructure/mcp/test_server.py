@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.mcp.server import FastMcpServer
@@ -43,7 +43,7 @@ class TestFastMcpServer(unittest.TestCase):
             input_schema={"type": "object", "properties": {}},
             handler=lambda: None
         )
-        tool2 = McpTool(
+        tool2 = MccpTool(
             name="test_tool2",
             description="Another test tool",
             input_schema={"type": "object", "properties": {}},
