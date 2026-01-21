@@ -1,5 +1,4 @@
-"""
-Implementation of the McpServer protocol using the 'fastmcp' library.
+"""Implementation of the McpServer protocol using the 'fastmcp' library.
 """
 
 from typing import List
