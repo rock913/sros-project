@@ -1,15 +1,16 @@
 from typing import List
 
+from fastmcp import FastMCP  # Assuming this is the FastMCP library
+
 from agent.domain.ports.mcp_server import McpServer
 from agent.domain.schemas.mcp import McpTool
-from fastmcp import FastMCP  # Assuming this is the FastMCP library
+
 
 class FastMcpServer(McpServer):
     """Adapter implementation of McpServer using the 'fastmcp' library."""
 
     def __init__(self, fastmcp_instance: FastMCP):
-        """
-        Initialize the FastMcpServer with a FastMCP instance.
+        """Initialize the FastMcpServer with a FastMCP instance.
         
         Args:
             fastmcp_instance: An instance of the FastMCP server.
@@ -18,8 +19,7 @@ class FastMcpServer(McpServer):
         self.tools = {}
 
     def register_tool(self, tool: McpTool) -> None:
-        """
-        Register a tool with the FastMCP server.
+        """Register a tool with the FastMCP server.
         
         Args:
             tool: The tool to be registered.
@@ -33,8 +33,7 @@ class FastMcpServer(McpServer):
         self.fastmcp.add_tool(tool.name, tool.handler)
 
     def list_tools(self) -> List[McpTool]:
-        """
-        List all registered tools.
+        """List all registered tools.
         
         Returns:
             A list of all registered tools.
@@ -42,7 +41,6 @@ class FastMcpServer(McpServer):
         return list(self.tools.values())
 
     async def start(self) -> None:
-        """
-        Start the FastMCP server.
+        """Start the FastMCP server.
         """
         await self.fastmcp.start()
