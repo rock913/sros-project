@@ -23,18 +23,16 @@ async def main():
         zotero_tool = ZoteroMCPTool()
         server.register_tool(zotero_tool)
     except Exception as e:
-        print(f"Failed to register tool: {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(f"Failed to register tool: {e}")
 
     # 3. Start Server
     try:
         await server.start()
     except Exception as e:
-        print(f"Server crashed: {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(f"Server crashed: {e}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Server stopped by user", file=sys.stderr)
+        sys.exit("Server stopped by user")
