@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.mcp.server import FastMcpServer
@@ -8,11 +8,13 @@ from agent.infrastructure.mcp.server import FastMcpServer
 Test cases for the FastMcpServer class.
 """
 
-class TestFastMcpServer(unittest.TestCase):
+class TestFastMcpServer(unittest.IsolatedAsyncioTestCase):
 
     @patch('agent.infrastructure.mcp.server.FastMCP')
     def setUp(self, MockFastMCP):
         self.mock_fastmcp = MockFastMCP()
+        # Ensure the mock's start method is awaitable
+        self.mock_fastmcp.start = AsyncMock() 
         self.server = FastMcpServer(self.mock_fastmcp)
 
     def test_registration_success(self):
@@ -56,8 +58,8 @@ class TestFastMcpServer(unittest.TestCase):
         self.assertIn(tool1, tools)
         self.assertIn(tool2, tools)
 
-    def test_start_server(self):
-        self.server.start()
+    async def test_start_server(self):
+        await self.server.start()
         self.mock_fastmcp.start.assert_called_once()
 
 if __name__ == '__main__':
