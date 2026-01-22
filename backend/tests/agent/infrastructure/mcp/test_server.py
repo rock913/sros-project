@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from agent.domain.schemas.mcp import McpTool
 from agent.infrastructure.mcp.server import FastMcpServer
