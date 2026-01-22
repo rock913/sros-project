@@ -20,10 +20,10 @@ def get_unpaywall_mcp_tool() -> McpTool:
     """
 
     def handler(args: dict) -> str:
-        try:
+        if isinstance(args, dict):
             unpaywall_args = UnpaywallArgs(**args)
-        except Exception as e:
-            return f"Error: {e}"
+        else:
+            unpaywall_args = args
 
         adapter = UnpaywallAdapter()
         try:
