@@ -107,7 +107,7 @@ if [ "$LANGFUSE_RUNNING" = true ]; then
     echo "     docker-compose -f docker-compose-dev.yml up -d"
     echo ""
     echo "  2. 运行连接测试:"
-    echo "     docker exec -it langgraph-api python /deps/backend/test_langfuse_connection.py"
+    echo "     docker exec -it langgraph-api python -m pytest /deps/backend/tests/infrastructure/langfuse/test_langfuse_connection.py -v"
     echo ""
     echo "  3. 查看 LangFuse Dashboard:"
     echo "     http://localhost:3000"

@@ -89,24 +89,19 @@ Protocol: backend/src/agent/domain/ports/[file].py
 
 🚀 Execute Automated TDD Loop:
 
-# 1. Define Paths
 export INTERFACE="backend/src/agent/domain/ports/[interface_name].py"
 export SCHEMA="backend/src/agent/domain/schemas/[schema_name].py"
 export IMPL="backend/src/agent/infrastructure/[layer]/[impl_name].py"
 export TEST="backend/tests/agent/infrastructure/test_[impl_name].py"
-# Important: Add the MCP Base Schema and legacy references as read-only source
 export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
 
-# 2. Launch Aider (Self-Correction Loop)
-# Note: Use --read for read-only context files to save tokens and prevent accidental edits
-# Note: Use --yes to avoid interactive prompts in CI/CD or non-interactive environments
 aider --model dashscope/qwen-max \
   --model-metadata-file aider_model_metadata.json \
   --read $INTERFACE --read $SCHEMA --read $MCP_SCHEMA \
   $IMPL $TEST \
   --lint-cmd "ruff check $IMPL $TEST --fix" \
   --test-cmd "pytest $TEST" \
-  --yes \
+  --yes --no-suggest-shell-commands \
   --message "
 Task: Implementation of [feature_name] via TDD.
 

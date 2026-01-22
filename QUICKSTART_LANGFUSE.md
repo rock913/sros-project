@@ -89,15 +89,72 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 
 ### 步骤 3: 验证 LangFuse 集成 (5 分钟)
 
+LangFuse Connection Test
+
+📋 Step 1: Checking environment variables...
+✅ LANGFUSE_PUBLIC_KEY: pk-lf-xxxxxxx...
+✅ LANGFUSE_SECRET_KEY: sk-lf-xxxxxxx...
+✅ LANGFUSE_HOST: http://localhost:3000
+
+📦 Step 2: Importing LangFuse SDK...
+✅ LangFuse SDK imported successfully
+
+🔌 Step 3: Initializing LangFuse client...
+✅ LangFuse client initialized
+
+📊 Step 4: Creating test trace...
+✅ Test trace created
+   Trace ID: xxx-xxx-xxx
+
+🔍 Step 5: Creating test span...
+✅ Test span created and completed
+
+📝 Step 6: Updating trace output...
+✅ Trace output updated
+
+🚀 Step 7: Flushing data to LangFuse...
+✅ Data flushed to LangFuse
+
+✅ LangFuse Connection Test PASSED!
+
+📊 Next Steps:
+   1. Visit your LangFuse Dashboard: http://localhost:3000
+   2. Go to the 'Traces' page
+   3. Look for a trace named 'Connection Test'
+   ...
+```
+
+✅ 如果看到 "LangFuse Connection Test PASSED!"，说明集成成功！
 #### 3.1 运行连接测试脚本
 
 ```bash
 # 在容器内运行测试脚本
-docker exec -it langgraph-api python /deps/backend/test_langfuse_connection.py
+docker exec -it langgraph-api python -m pytest /deps/backend/tests/infrastructure/langfuse/test_langfuse_connection.py -v
 ```
 
 **预期输出**:
 ```
+===================================== test session starts ======================================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /deps/backend
+configfile: pytest.ini
+plugins: anyio-4.10.0, bdd-8.1.0, mock-3.15.1, asyncio-1.3.0, langsmith-0.6.3
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/infrastructure/langfuse/test_langfuse_connection.py::test_langfuse_connection PASSED [100%]
+
+====================================== 1 passed in 1.79s =======================================
+
+📊 Next Steps:
+   1. Visit your LangFuse Dashboard: http://localhost:3000
+   2. Go to the 'Traces' page
+   3. Look for a trace named 'Connection Test'
+   ...
+```
+
+✅ 如果看到 "1 passed"，说明集成成功！
 ======================================================================
 LangFuse Connection Test
 ======================================================================
@@ -303,7 +360,7 @@ trace = langfuse.trace(
 
 ---
 
-## 🔧 常见问题排查
+## � 常见问题排查
 
 ### 问题 1: 环境变量未生效
 

@@ -18,10 +18,14 @@ class TestScholarTool(unittest.TestCase):
         mock_response.text = """
         <html>
             <body>
-                <h3 class="gs_rt">Test Paper 1</h3>
-                <div class="gs_a">Author 1</div>
-                <h3 class="gs_rt">Test Paper 2</h3>
-                <div class="gs_a">Author 2</div>
+                <div class="gs_ri">
+                  <h3 class="gs_rt">Test Paper 1</h3>
+                  <div class="gs_a">Author 1</div>
+                </div>
+                <div class="gs_ri">
+                  <h3 class="gs_rt">Test Paper 2</h3>
+                  <div class="gs_a">Author 2</div>
+                </div>
             </body>
         </html>
         """

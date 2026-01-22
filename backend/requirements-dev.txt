@@ -6,3 +6,4 @@ testcontainers[postgresql]
 pytest-bdd
 websockets
 aider-chat
+fastmcp
