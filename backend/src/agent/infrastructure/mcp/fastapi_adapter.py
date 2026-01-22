@@ -1,8 +1,10 @@
+from typing import Any, Dict, List
+
 from fastapi import FastAPI
+
 from agent.domain.ports.mcp_server import McpServer
 from agent.domain.schemas.mcp import McpTool
-from typing import List, Callable, Dict, Any
-from pydantic import BaseModel
+
 
 class FastAPIMcpServerAdapter(McpServer):
     def __init__(self, app: FastAPI):

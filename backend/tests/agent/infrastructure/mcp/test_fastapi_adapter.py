@@ -1,10 +1,12 @@
+from unittest.mock import patch
+
 import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
-from agent.infrastructure.mcp.fastapi_adapter import FastAPIMcpServerAdapter
-from agent.domain.ports.mcp_server import McpServer
-from agent.domain.schemas.mcp import McpTool
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from agent.domain.schemas.mcp import McpTool
+from agent.infrastructure.mcp.fastapi_adapter import FastAPIMcpServerAdapter
+
 
 def test_registration_of_tools():
     app = FastAPI()
