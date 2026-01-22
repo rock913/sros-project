@@ -45,7 +45,7 @@ class TestFastMcpServer(unittest.IsolatedAsyncioTestCase):
             input_schema={"type": "object", "properties": {}},
             handler=lambda: None
         )
-        tool2 = McpTool(  # Fixed the typo here
+        tool2 = McpTool(
             name="test_tool2",
             description="Another test tool",
             input_schema={"type": "object", "properties": {}},
