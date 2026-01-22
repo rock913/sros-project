@@ -7,13 +7,11 @@ from agent.domain.schemas.mcp import McpTool
 
 
 class FastAPIMcpServerAdapter(McpServer):
-    """
-    Adapter for integrating MCP server functionality with a FastAPI application.
+    """Adapter for integrating MCP server functionality with a FastAPI application.
     """
 
     def __init__(self, app: FastAPI):
-        """
-        Initialize the FastAPIMcpServerAdapter.
+        """Initialize the FastAPIMcpServerAdapter.
 
         Args:
             app (FastAPI): The FastAPI application instance.
@@ -22,8 +20,7 @@ class FastAPIMcpServerAdapter(McpServer):
         self.tools: Dict[str, McpTool] = {}
 
     def register_tool(self, tool: McpTool) -> None:
-        """
-        Register a tool with the MCP server.
+        """Register a tool with the MCP server.
 
         Args:
             tool (McpTool): The tool to register.
@@ -36,8 +33,7 @@ class FastAPIMcpServerAdapter(McpServer):
         self.tools[tool.name] = tool
 
     def list_tools(self) -> List[McpTool]:
-        """
-        List all registered tools.
+        """List all registered tools.
 
         Returns:
             List[McpTool]: A list of all registered tools.
@@ -45,8 +41,7 @@ class FastAPIMcpServerAdapter(McpServer):
         return list(self.tools.values())
 
     async def start(self) -> None:
-        """
-        Start the MCP server and register the execute_tool endpoint.
+        """Start the MCP server and register the execute_tool endpoint.
         """
         @self.app.post("/execute/{tool_name}")
         async def execute_tool(tool_name: str, input_data: Dict[str, Any]):
