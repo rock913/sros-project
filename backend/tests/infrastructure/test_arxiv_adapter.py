@@ -4,8 +4,11 @@ from unittest.mock import MagicMock, patch
 from agent.domain.schemas.paper import Paper
 from agent.infrastructure.adapters.arxiv_adapter import ArxivAdapter
 
-
 class TestArxivAdapter(unittest.TestCase):
+    """
+    Test cases for the ArxivAdapter class.
+    """
+
     @patch('arxiv.Search')
     def test_basic_search(self, mock_search):
         # Mock the search results
