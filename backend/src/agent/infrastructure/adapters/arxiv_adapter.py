@@ -1,5 +1,4 @@
-"""
-Module for the ArxivAdapter, which is used to search for academic papers on Arxiv.
+"""Module for the ArxivAdapter, which is used to search for academic papers on Arxiv.
 """
 
 from typing import List
