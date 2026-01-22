@@ -20,13 +20,14 @@ def get_unpaywall_mcp_tool() -> McpTool:
     """
 
     def handler(args: dict) -> str:
-        doi = args.get("doi")
-        if not doi:
-            return "Error: DOI is required"
-        
+        try:
+            unpaywall_args = UnpaywallArgs(**args)
+        except Exception as e:
+            return f"Error: {e}"
+
         adapter = UnpaywallAdapter()
         try:
-            paper = adapter.fetch_by_doi(doi=doi)
+            paper = adapter.fetch_by_doi(doi=unpaywall_args.doi)
             if paper is None:
                 return "Paper not found"
             
