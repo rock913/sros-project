@@ -1,10 +1,9 @@
 from typing import List
-from agent.domain.schemas.paper import Paper
+
 from agent.domain.ports.paper_searcher import PaperSearcher
 from agent.domain.schemas.mcp import McpTool
-from pydantic import BaseModel
-import arxiv
-import os
+from agent.domain.schemas.paper import Paper
+
 
 class ArxivAdapter(PaperSearcher):
     def search(self, query: str, max_results: int = 5) -> List[Paper]:
