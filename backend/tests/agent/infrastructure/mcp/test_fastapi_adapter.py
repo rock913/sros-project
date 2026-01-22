@@ -20,6 +20,7 @@ def test_registration_of_tools():
     adapter.register_tool(tool)
     assert len(adapter.list_tools()) == 1
 
+
 def test_duplicate_tool_registration():
     app = FastAPI()
     adapter = FastAPIMcpServerAdapter(app)
@@ -32,6 +33,7 @@ def test_duplicate_tool_registration():
     adapter.register_tool(tool)
     with pytest.raises(ValueError):
         adapter.register_tool(tool)
+
 
 def test_listing_registered_tools():
     app = FastAPI()
@@ -55,6 +57,7 @@ def test_listing_registered_tools():
     assert tools[0].name == "fetch-paper"
     assert tools[1].name == "search-papers"
 
+
 @patch("agent.infrastructure.mcp.fastapi_adapter.uvicorn.run")
 def test_tool_execution_via_server(mock_run):
     app = FastAPI()
@@ -70,6 +73,7 @@ def test_tool_execution_via_server(mock_run):
     response = client.post("/execute/fetch-paper", json={"paper_id": "123"})
     assert response.status_code == 200
     assert response.json() == "Fetching paper 123"
+
 
 @patch("agent.infrastructure.mcp.fastapi_adapter.uvicorn.run")
 def test_server_lifecycle(mock_run):
