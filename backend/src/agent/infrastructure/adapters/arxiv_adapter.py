@@ -4,14 +4,13 @@ from agent.domain.ports.paper_searcher import PaperSearcher
 from agent.domain.schemas.mcp import McpTool
 from agent.domain.schemas.paper import Paper
 
+
 class ArxivAdapter(PaperSearcher):
-    """
-    Adapter for searching academic papers on Arxiv.
+    """Adapter for searching academic papers on Arxiv.
     """
 
     def search(self, query: str, max_results: int = 5) -> List[Paper]:
-        """
-        Search for academic papers on Arxiv.
+        """Search for academic papers on Arxiv.
 
         Args:
             query: The search string.
@@ -24,8 +23,7 @@ class ArxivAdapter(PaperSearcher):
         pass
 
 def get_tool() -> McpTool:
-    """
-    Get the MCP tool for Arxiv search.
+    """Get the MCP tool for Arxiv search.
 
     Returns:
         McpTool: The MCP tool for Arxiv search.
