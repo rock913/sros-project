@@ -38,7 +38,7 @@ def get_unpaywall_mcp_tool() -> McpTool:
                 return "No open access version found"
         except ValueError as e:
             if "Invalid DOI format" in str(e):
-                return f"An error occurred: Invalid DOI format"
+                return "An error occurred: Invalid DOI format"
             raise
         except Exception as e:
             return f"An error occurred: {e}"
