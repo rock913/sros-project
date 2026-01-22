@@ -19,12 +19,28 @@ def get_unpaywall_mcp_tool() -> McpTool:
         McpTool: The MCP tool for fetching papers.
     """
 
-    def handler(doi: str) -> str:
+    def handler(args: dict) -> str:
+        doi = args.get("doi")
+        if not doi:
+            return "Error: DOI is required"
+        
         adapter = UnpaywallAdapter()
-        paper = adapter.fetch_by_doi(doi=doi)
-        if paper is None:
-            return "Paper not found"
-        return paper.model_dump_json()
+        try:
+            paper = adapter.fetch_by_doi(doi=doi)
+            if paper is None:
+                return "Paper not found"
+            
+            # Extract the relevant information for the old format
+            if paper.oa_info and paper.oa_info.oa_url:
+                return f"Open access version found! Status: {paper.oa_info.oa_status}. URL: {paper.oa_info.oa_url}"
+            else:
+                return "No open access version found"
+        except ValueError as e:
+            if "Invalid DOI format" in str(e):
+                return f"An error occurred: Invalid DOI format"
+            raise
+        except Exception as e:
+            return f"An error occurred: {e}"
 
     unpaywall_tool = McpTool(
         name="unpaywall-fetch-paper",
