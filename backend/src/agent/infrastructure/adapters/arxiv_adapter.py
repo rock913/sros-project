@@ -1,3 +1,7 @@
+"""
+Module for the ArxivAdapter, which is used to search for academic papers on Arxiv.
+"""
+
 from typing import List
 
 from agent.domain.ports.paper_searcher import PaperSearcher
@@ -6,8 +10,7 @@ from agent.domain.schemas.paper import Paper
 
 
 class ArxivAdapter(PaperSearcher):
-    """Adapter for searching academic papers on Arxiv.
-    """
+    """Adapter for searching academic papers on Arxiv."""
 
     def search(self, query: str, max_results: int = 5) -> List[Paper]:
         """Search for academic papers on Arxiv.

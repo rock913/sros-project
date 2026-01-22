@@ -1,3 +1,7 @@
+"""
+Test cases for the ArxivAdapter class.
+"""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
