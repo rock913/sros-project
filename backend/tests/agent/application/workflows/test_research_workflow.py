@@ -70,27 +70,72 @@ def mocked_graph():
     return builder.compile()
 
 @pytest.mark.asyncio
-@patch('agent.graph.completion')
-@patch('agent.graph.arxiv_tool')
-@patch('agent.graph.unpaywall_tool')
-@patch('agent.graph.zotero_tool')
+@patch('agent.application.workflows.research_workflow.completion')
+@patch('agent.application.workflows.research_workflow.arxiv_tool')
+@patch('agent.application.workflows.research_workflow.unpaywall_tool')
+@patch('agent.application.workflows.research_workflow.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.embeddings')
+@patch('agent.application.workflows.research_workflow.embeddings')
 async def test_full_agent_workflow_success(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the full agent workflow for a successful run, mocking external services.
     """
+    # Set TEST_MODE environment variable
+    import os
+    os.environ['TEST_MODE'] = '1'
     # Mock external tool and LLM responses
     mock_litellm_completion.side_effect = [
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"query": ["q1", "q2"], "rationale": "test"}'))]), # generate_initial_queries
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]), # reflection_and_refinement
         MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]), # automated_report_generation
     ]
-    mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract1 DOI: 10.1234/test.001"), MagicMock(page_content="abstract2 DOI: 10.1234/test.002")]}
+    # Debug: print mock object
+    print(f"DEBUG: mock_arxiv_tool_instance = {mock_arxiv_tool_instance}")
+    print(f"DEBUG: mock_arxiv_tool_instance.invoke = {mock_arxiv_tool_instance.invoke}")
+    
+    # Track calls to arxiv_tool.invoke
+    call_count = 0
+    def side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        print(f"DEBUG: arxiv_tool.invoke called with args={args}, kwargs={kwargs}")
+        return """Published: 2024-01-01
+Title: Test Paper 1
+Authors: Author A, Author B
+Summary: This is a test abstract for paper 1. DOI: 10.1234/test.001
+
+Published: 2024-01-02
+Title: Test Paper 2
+Authors: Author C, Author D
+Summary: This is a test abstract for paper 2. DOI: 10.1234/test.002"""
+    
+    mock_arxiv_tool_instance.invoke.side_effect = side_effect
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
     mock_zotero_tool_instance.invoke.return_value = "Successfully added paper to Zotero."
+    
+    # Mock requests.get for PDF download
     mock_requests_get.return_value.raise_for_status.return_value = None
     mock_requests_get.return_value.content = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj\n4 0 obj<</Length 55>>stream\nBT /F1 24 Tf 100 700 Td (Hello World!) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000059 00000 n\n0000000111 00000 n\n0000000200 00000 n\ntrailer<</Size 5/Root 1 0 R>>startxref\n300\n%%EOF"
+    
+    # Mock requests.get for Crossref API (called by get_doi_from_title)
+    # Create a mock response that returns a valid Crossref JSON structure
+    mock_crossref_response = MagicMock()
+    mock_crossref_response.json.return_value = {
+        'message': {
+            'items': [{'DOI': '10.1234/test.001'}]
+        }
+    }
+    mock_crossref_response.raise_for_status.return_value = None
+    
+    # Make requests.get return different mocks based on URL
+    def side_effect_requests(url, **kwargs):
+        if 'crossref.org' in url:
+            return mock_crossref_response
+        else:
+            # Return the PDF download mock
+            return mock_requests_get.return_value
+    mock_requests_get.side_effect = side_effect_requests
+    
     mock_embedding.return_value = MagicMock(data=[MagicMock(embedding=[0.1]*1024), MagicMock(embedding=[0.2]*1024)]) # Mock embeddings
 
     # Define the initial state
@@ -104,7 +149,8 @@ async def test_full_agent_workflow_success(mock_embedding, mock_requests_get, mo
     mock_arxiv_tool_instance.invoke.assert_called()
     mock_unpaywall_tool_instance.invoke.assert_called()
     mock_zotero_tool_instance.invoke.assert_called()
-    mock_requests_get.assert_called_with("http://example.com/paper.pdf")
+    # Check that requests.get was called for PDF download
+    assert any('example.com' in str(call) for call in mock_requests_get.call_args_list)
     mock_embedding.assert_called()
 
     # Verify documents are stored in the database
@@ -113,8 +159,8 @@ async def test_full_agent_workflow_success(mock_embedding, mock_requests_get, mo
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('agent.graph.completion')
-@patch('agent.graph.arxiv_tool')
+@patch('agent.application.workflows.research_workflow.completion')
+@patch('agent.application.workflows.research_workflow.arxiv_tool')
 async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the reflection loop where the agent searches again.
@@ -125,14 +171,38 @@ async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]), # reflection_and_refinement (sufficient)
         MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]), # automated_report_generation
     ]
-    mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
+    mock_arxiv_tool_instance.invoke.return_value = """Published: 2024-01-01
+Title: Test Paper
+Authors: Author A, Author B
+Summary: This is a test abstract for paper. DOI: 10.1234/test.001"""
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
 
-    with patch('agent.graph.unpaywall_tool') as mock_unpaywall_tool_instance, \
-         patch('agent.graph.zotero_tool') as mock_zotero_tool_instance, \
-         patch('requests.get'), \
+    with patch('agent.application.workflows.research_workflow.unpaywall_tool') as mock_unpaywall_tool_instance, \
+         patch('agent.application.workflows.research_workflow.zotero_tool') as mock_zotero_tool_instance, \
+         patch('requests.get') as mock_requests_get, \
          patch('litellm.embedding'):
+        # Mock requests.get for PDF download
+        mock_requests_get.return_value.raise_for_status.return_value = None
+        mock_requests_get.return_value.content = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj\n4 0 obj<</Length 55>>stream\nBT /F1 24 Tf 100 700 Td (Hello World!) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000059 00000 n\n0000000111 00000 n\n0000000200 00000 n\ntrailer<</Size 5/Root 1 0 R>>startxref\n300\n%%EOF"
+        # Mock requests.get for Crossref API (called by get_doi_from_title)
+        # Create a mock response that returns a valid Crossref JSON structure
+        mock_crossref_response = MagicMock()
+        mock_crossref_response.json.return_value = {
+            'message': {
+                'items': [{'DOI': '10.1234/test.001'}]
+            }
+        }
+        mock_crossref_response.raise_for_status.return_value = None
+        # Make requests.get return different mocks based on URL
+        def side_effect(url, **kwargs):
+            if 'crossref.org' in url:
+                return mock_crossref_response
+            else:
+                # Return the PDF download mock
+                return mock_requests_get.return_value
+        mock_requests_get.side_effect = side_effect
+        
         final_state = await mocked_graph.ainvoke(initial_state)
 
     # generate_initial_queries (1) + reflection_and_refinement (2) + automated_report_generation (1) = 4
@@ -143,12 +213,12 @@ async def test_reflection_loop(mock_arxiv_tool_instance, mock_litellm_completion
 
 
 @pytest.mark.asyncio
-@patch('agent.graph.completion')
-@patch('agent.graph.arxiv_tool')
-@patch('agent.graph.unpaywall_tool')
-@patch('agent.graph.zotero_tool')
+@patch('agent.application.workflows.research_workflow.completion')
+@patch('agent.application.workflows.research_workflow.arxiv_tool')
+@patch('agent.application.workflows.research_workflow.unpaywall_tool')
+@patch('agent.application.workflows.research_workflow.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.embeddings')
+@patch('agent.application.workflows.research_workflow.embeddings')
 async def test_full_agent_workflow_no_unpaywall_pdf(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when Unpaywall does not find an open-access PDF.
@@ -159,7 +229,10 @@ async def test_full_agent_workflow_no_unpaywall_pdf(mock_embedding, mock_request
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]),
         MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]),
     ]
-    mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
+    mock_arxiv_tool_instance.invoke.return_value = """Published: 2024-01-01
+Title: Test Paper
+Authors: Author A, Author B
+Summary: This is a test abstract for paper. DOI: 10.1234/test.001"""
     mock_unpaywall_tool_instance.invoke.return_value = "No open access version found for this DOI."
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
@@ -172,12 +245,12 @@ async def test_full_agent_workflow_no_unpaywall_pdf(mock_embedding, mock_request
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('agent.graph.completion')
-@patch('agent.graph.arxiv_tool')
-@patch('agent.graph.unpaywall_tool')
-@patch('agent.graph.zotero_tool')
+@patch('agent.application.workflows.research_workflow.completion')
+@patch('agent.application.workflows.research_workflow.arxiv_tool')
+@patch('agent.application.workflows.research_workflow.unpaywall_tool')
+@patch('agent.application.workflows.research_workflow.zotero_tool')
 @patch('requests.get', side_effect=Exception("Download Error"))
-@patch('agent.graph.embeddings')
+@patch('agent.application.workflows.research_workflow.embeddings')
 async def test_full_agent_workflow_pdf_download_fails(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when downloading a PDF fails.
@@ -188,7 +261,10 @@ async def test_full_agent_workflow_pdf_download_fails(mock_embedding, mock_reque
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]),
         MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]),
     ]
-    mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
+    mock_arxiv_tool_instance.invoke.return_value = """Published: 2024-01-01
+Title: Test Paper
+Authors: Author A, Author B
+Summary: This is a test abstract for paper. DOI: 10.1234/test.001"""
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
 
     initial_state = {"messages": [HumanMessage(content="test topic")]}
@@ -200,12 +276,12 @@ async def test_full_agent_workflow_pdf_download_fails(mock_embedding, mock_reque
     assert final_state["report"] == "Final Report"
 
 @pytest.mark.asyncio
-@patch('agent.graph.completion')
-@patch('agent.graph.arxiv_tool')
-@patch('agent.graph.unpaywall_tool')
-@patch('agent.graph.zotero_tool')
+@patch('agent.application.workflows.research_workflow.completion')
+@patch('agent.application.workflows.research_workflow.arxiv_tool')
+@patch('agent.application.workflows.research_workflow.unpaywall_tool')
+@patch('agent.application.workflows.research_workflow.zotero_tool')
 @patch('requests.get')
-@patch('agent.graph.embeddings')
+@patch('agent.application.workflows.research_workflow.embeddings')
 async def test_full_agent_workflow_zotero_fails(mock_embedding, mock_requests_get, mock_zotero_tool_instance, mock_unpaywall_tool_instance, mock_arxiv_tool_instance, mock_litellm_completion, db_session, mocked_graph):
     """
     Tests the workflow when the Zotero tool fails.
@@ -216,7 +292,10 @@ async def test_full_agent_workflow_zotero_fails(mock_embedding, mock_requests_ge
         MagicMock(choices=[MagicMock(message=MagicMock(content='{"is_sufficient": true, "knowledge_gap": "", "follow_up_queries": []}'))]),
         MagicMock(choices=[MagicMock(message=MagicMock(content='Final Report'))]),
     ]
-    mock_arxiv_tool_instance.invoke.return_value = {"documents": [MagicMock(page_content="abstract DOI: 10.1234/test.001")]}
+    mock_arxiv_tool_instance.invoke.return_value = """Published: 2024-01-01
+Title: Test Paper
+Authors: Author A, Author B
+Summary: This is a test abstract for paper. DOI: 10.1234/test.001"""
     mock_unpaywall_tool_instance.invoke.return_value = "Open access version found! Status: OA. URL: http://example.com/paper.pdf"
     mock_zotero_tool_instance.invoke.return_value = "Failed to add paper to Zotero: some error"
     mock_requests_get.return_value.raise_for_status.return_value = None

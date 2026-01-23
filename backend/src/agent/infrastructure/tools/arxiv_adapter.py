@@ -38,8 +38,9 @@ class ArxivAdapter(PaperSearcher):
 
     def _to_domain(self, r: arxiv.Result) -> Paper:
         """Convert arxiv.Result to domain Paper."""
-        # Handle cases where DOI might be None
-        doi: str | None = r.doi if r.doi else None
+        # Use arXiv ID as DOI if DOI is not available
+        # arXiv ID format: e.g., "2306.04338v1" from get_short_id()
+        doi = r.doi if r.doi else f"arxiv:{r.get_short_id()}"
         
         # Arxiv papers are generally "Open Access" in terms of visibility, 
         # but technically Green OA. We mark them as OA with URL.

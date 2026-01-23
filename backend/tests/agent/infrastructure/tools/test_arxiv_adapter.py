@@ -19,7 +19,12 @@ class TestArxivAdapter(unittest.TestCase):
         mock_result = MagicMock()
         mock_result.doi = '1234.5678'
         mock_result.title = 'Test Title'
-        mock_result.authors = [MagicMock(name='Author 1'), MagicMock(name='Author 2')]
+        # Create mock authors with actual string names
+        author1 = MagicMock()
+        author1.name = 'Author 1'
+        author2 = MagicMock()
+        author2.name = 'Author 2'
+        mock_result.authors = [author1, author2]
         mock_result.published = MagicMock(date=lambda: '2023-01-01')
         mock_result.summary = 'Test Abstract'
         mock_result.pdf_url = 'http://example.com/pdf'
@@ -37,7 +42,7 @@ class TestArxivAdapter(unittest.TestCase):
         self.assertEqual(results[0].doi, '1234.5678')
         self.assertEqual(results[0].title, 'Test Title')
         self.assertEqual(results[0].authors, ['Author 1', 'Author 2'])
-        self.assertEqual(results[0].publication_date, '2023-01-01')
+        self.assertEqual(str(results[0].publication_date), '2023-01-01')
         self.assertEqual(results[0].publisher, 'arXiv')
         self.assertEqual(results[0].abstract, 'Test Abstract')
         self.assertEqual(results[0].oa_info, OpenAccessInfo(is_oa=True, oa_status="green", oa_url='http://example.com/pdf'))

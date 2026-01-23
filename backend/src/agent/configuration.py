@@ -37,9 +37,9 @@ class Configuration(BaseModel):
     )
     
     generation_llm_provider: str = Field(
-        default="gemini",
+        default="openai",
         metadata={
-            "description": "The litellm provider for generation tasks (Google Gemini via API key by default)."
+            "description": "The litellm provider for generation tasks (DashScope Qwen via OpenAI-compatible API by default)."
         },
     )
 
@@ -51,7 +51,7 @@ class Configuration(BaseModel):
     )
 
     generation_model: str = Field(
-        default="gemini-2.5-flash",
+        default="qwen-max",
         metadata={
             "description": "The name of the language model to use for generation tasks (query generation, reflection, and final answer)."
         },

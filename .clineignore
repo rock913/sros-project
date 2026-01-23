@@ -1,0 +1,11 @@
+# Logs
+logs
+*.log
+
+# Build artifacts and heavy binaries
+vscode-extension/**/vscode-*-linux-*/
+vscode-extension/*.asar
+vscode-extension/*.bin
+
+# Backend cache
+backend/unpaywall_cache/

@@ -14,10 +14,10 @@ For current development status and progress tracking, see [Development Status](D
 - 📚 **Automated Literature Management:** Discovers academic papers (Arxiv), finds open-access PDFs (Unpaywall), and automatically organizes them in a Zotero library.
 - ✍️ **RAG-Powered Knowledge Synthesis:** Builds a vector knowledge base from full-text papers to generate deep, context-aware insights.
 - 📄 **Cited Report Generation:** Produces a complete report on the research topic, fully supported by citations from the collected literature.
-- �️ **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (In Development - Phase 3.5).
-- 📊 **Research Analytics Dashboard:** Visualize research trends, keyword distributions, and productivity metrics across all projects (In Development - Phase 3.5).
-- �🐳 **Containerized & Ready-to-Run:** A fully containerized environment using Docker for easy setup and consistent development.
-- â¡ï¸ **AI-Native Development:** Built using the MPA (Multi-Agent Protocol Architecture), where Copilot acts as the Architect and Aider acts as the Builder.
+- 📚 **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (Phase 3.5 - On Hold).
+- 📊 **Research Analytics Dashboard:** Visualize research trends, keyword distributions, and productivity metrics across all projects (Phase 3.5 - On Hold).
+- 🐳 **Containerized & Ready-to-Run:** A fully containerized environment using Docker for easy setup and consistent development.
+- ⚡ **AI-Native Development:** Built using the MPA (Multi-Agent Protocol Architecture), where Copilot acts as the Architect and Aider acts as the Builder (Phase 4.1 - Complete ✅ - **E2E Workflow Verified**).
 - 🔌 **API-First & Extensible:** Designed with a robust API, with a VS Code extension in development for a native research experience.
 
 ## Architecture
@@ -117,6 +117,8 @@ This project employs a comprehensive, multi-layered testing strategy to ensure q
 For a complete guide on the testing philosophy, what to run, and how to run it, please refer to the canonical **[TESTING.md](TESTING.md)** document. It is the single source of truth for all verification procedures.
 
 > The E2E snapshot testing methodology is also detailed in `GEMINI.md`.
+
+**✅ E2E Workflow Verification**: The full research workflow (topic input → query generation → parallel searches → reflection loops → document ingestion → report synthesis) has been verified and is working correctly in the development environment.
 
 <details>
 <summary><strong>Alternative: Local Setup without Docker</strong></summary>

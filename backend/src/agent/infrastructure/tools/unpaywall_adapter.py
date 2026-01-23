@@ -7,6 +7,34 @@ try:
 except ImportError:
     Unpywall = None
 
+
+def _extract_author_names(raw_authors: list) -> list[str]:
+    """Extract author names from Unpaywall's raw author data.
+    
+    Unpaywall returns authors as a list of dictionaries with keys like:
+    - raw_author_name: The author's name as a string
+    - author_name: Alternative key for author name
+    - author_position: Position in author list (first, middle, last)
+    - is_corresponding: Whether author is corresponding author
+    - raw_affiliation_strings: List of affiliation strings
+    
+    Args:
+        raw_authors: List of author dictionaries from Unpaywall
+        
+    Returns:
+        List of author names as strings
+    """
+    author_names = []
+    for author in raw_authors:
+        if isinstance(author, dict):
+            # Try different possible keys for author name
+            name = author.get('raw_author_name') or author.get('author_name') or str(author)
+            author_names.append(name)
+        else:
+            author_names.append(str(author))
+    return author_names
+
+
 class UnpaywallAdapter(PaperFetcher):
     """Adapter for fetching paper metadata and full-text availability using Unpaywall.
     """
@@ -37,9 +65,12 @@ class UnpaywallAdapter(PaperFetcher):
             # Extract relevant information
             first_paper = paper_data.iloc[0]
             title = first_paper.get('title', None)
-            authors = first_paper.get('z_authors', [])
+            raw_authors = first_paper.get('z_authors', [])
             publication_date = first_paper.get('published_date', None)
             publisher = first_paper.get('publisher', None)
+            
+            # Extract author names from raw author data
+            authors = _extract_author_names(raw_authors)
             
             # Open Access Information
             oa_info = None

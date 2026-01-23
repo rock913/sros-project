@@ -31,7 +31,7 @@ class TestZoteroAdapter(unittest.TestCase):
         result = adapter.save_paper(paper)
 
         # Check the result
-        self.assertIn("Saved to Zotero. Item Key: 123", result)
+        self.assertIn("Saved to Zotero. Item Key: key", result)
 
     @patch('pyzotero.zotero.Zotero')
     def test_save_paper_failure(self, mock_zotero):

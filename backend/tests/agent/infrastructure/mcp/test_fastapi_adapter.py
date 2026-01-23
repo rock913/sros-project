@@ -60,6 +60,7 @@ def test_listing_registered_tools():
 
 @patch("agent.infrastructure.mcp.fastapi_adapter.uvicorn.run")
 def test_tool_execution_via_server(mock_run):
+    import asyncio
     app = FastAPI()
     client = TestClient(app)
     adapter = FastAPIMcpServerAdapter(app)
@@ -70,6 +71,7 @@ def test_tool_execution_via_server(mock_run):
         handler=lambda paper_id: f"Fetching paper {paper_id}"
     )
     adapter.register_tool(tool)
+    asyncio.run(adapter.start())
     response = client.post("/execute/fetch-paper", json={"paper_id": "123"})
     assert response.status_code == 200
     assert response.json() == "Fetching paper 123"

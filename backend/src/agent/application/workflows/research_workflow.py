@@ -28,6 +28,7 @@ text_splitter = RecursiveCharacterTextSplitter()
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 
 # Ensure imports work from new location
 try:
@@ -900,21 +901,31 @@ sync_connection_pool = ConnectionPool(
     }
 )
 
-# Create ASYNC connection pool for async endpoints (/agent/stream)
-async_connection_pool = AsyncConnectionPool(
-    conninfo=DB_URI,
-    max_size=20,  # Maximum number of connections in the pool
-    kwargs={
-        "autocommit": True,  # Required for AsyncPostgresSaver
-        "prepare_threshold": 0,  # Disable prepared statements for compatibility
-    }
-)
-
 # Initialize synchronous checkpointer for /agent/invoke
 sync_checkpointer = PostgresSaver(sync_connection_pool)
 
-# Initialize asynchronous checkpointer for /agent/stream
-async_checkpointer = AsyncPostgresSaver(async_connection_pool)
+# Lazy initialization for async connection pool to avoid "no running loop" error in tests
+_async_connection_pool = None
+_async_checkpointer = None
+
+def get_async_checkpointer():
+    """Get or create async checkpointer lazily."""
+    global _async_connection_pool, _async_checkpointer
+    
+    if _async_checkpointer is None:
+        # Create ASYNC connection pool for async endpoints (/agent/stream)
+        _async_connection_pool = AsyncConnectionPool(
+            conninfo=DB_URI,
+            max_size=20,  # Maximum number of connections in the pool
+            kwargs={
+                "autocommit": True,  # Required for AsyncPostgresSaver
+                "prepare_threshold": 0,  # Disable prepared statements for compatibility
+            }
+        )
+        # Initialize asynchronous checkpointer for /agent/stream
+        _async_checkpointer = AsyncPostgresSaver(_async_connection_pool)
+    
+    return _async_checkpointer
 
 # Phase 3.6: HITL Configuration
 # Specify nodes where execution should pause for human input
@@ -929,7 +940,17 @@ graph = builder.compile(
 )
 
 # 2. Asynchronous graph for /agent/stream endpoint  
-async_graph = builder.compile(
-    checkpointer=async_checkpointer
-    # interrupt_before=HITL_INTERRUPT_NODES  # DISABLED: Allow auto-completion
-)
+# Note: async_checkpointer is now created lazily via get_async_checkpointer()
+async_graph = None
+
+def get_async_graph():
+    """Get or create async graph lazily."""
+    global async_graph
+    
+    if async_graph is None:
+        async_graph = builder.compile(
+            checkpointer=get_async_checkpointer()
+            # interrupt_before=HITL_INTERRUPT_NODES  # DISABLED: Allow auto-completion
+        )
+    
+    return async_graph
