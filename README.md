@@ -12,7 +12,8 @@ For current development status and progress tracking, see [Development Status](D
 - 🤖 **Autonomous Research Agent:** Employs a multi-stage LangGraph agent to automate research from topic to final report.
 - 🧠 **Reflective & Iterative Search:** Intelligently generates search queries, reflects on results, and refines its strategy to cover knowledge gaps.
 - 📚 **Automated Literature Management:** Discovers academic papers (Arxiv), finds open-access PDFs (Unpaywall), and automatically organizes them in a Zotero library.
-- ✍️ **RAG-Powered Knowledge Synthesis:** Builds a vector knowledge base from full-text papers to generate deep, context-aware insights.
+- 🌐 **Knowledge Graph Construction (V2.1):** Builds a Neo4j-based citation graph using the CiTO ontology to map relationships between papers (Supporting/Refuting).
+- ✍️ **Reflexion-Based Writing (V2.1):** Implements "Citation Verification" loops to ensure every claim in the generated report is grounded in actual retrieved evidence.
 - 📄 **Cited Report Generation:** Produces a complete report on the research topic, fully supported by citations from the collected literature.
 - 📚 **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (Phase 3.5 - On Hold).
 - 📊 **Research Analytics Dashboard:** Visualize research trends, keyword distributions, and productivity metrics across all projects (Phase 3.5 - On Hold).
@@ -23,6 +24,14 @@ For current development status and progress tracking, see [Development Status](D
 ## Architecture
 
 The project is evolving towards a **Hexagonal Architecture** (also known as Ports and Adapters) driven by the **Model Context Protocol (MCP)**.
+
+### V2.1 System Architecture
+
+The system follows a "Three-Plane" model integrated with Hexagonal Architecture:
+
+1.  **Interaction Plane (VS Code):** Native TreeView for task navigation and Webview for HITL Decision Cards.
+2.  **Intelligence Plane (LangGraph):** A "Writer's Room" of specialized agents (Supervisor, Librarian, Analyst, Scribe).
+3.  **Capability Plane (MCP Servers):** Distributed tools for Research, Knowledge Graph (Neo4j), and Zotero sync.
 
 ```mermaid
 graph TD

@@ -1,8 +1,15 @@
 import os
-from typing import Any
+from typing import Any, Union
 
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
+
+# Check if langchain_core is available
+try:
+    import langchain_core
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
 
 
 class Configuration(BaseModel):
@@ -57,6 +64,20 @@ class Configuration(BaseModel):
         },
     )
 
+    generation_api_key: str = Field(
+        default="",
+        metadata={
+            "description": "API Key for generation model (auto-configured for Qwen/DashScope)."
+        },
+    )
+
+    generation_api_base: str = Field(
+        default="",
+        metadata={
+            "description": "Base URL for generation model (auto-configured for Qwen/DashScope)."
+        },
+    )
+
     number_of_initial_queries: int = Field(
         default=3,
         metadata={"description": "The number of initial search queries to generate."},
@@ -95,8 +116,15 @@ class Configuration(BaseModel):
         inst = cls(**values)
 
         # 修复逻辑：如果模型是 qwen 系列，强制使用 openai provider (DashScope 兼容)
-        if "qwen" in inst.generation_model.lower() and inst.generation_llm_provider != "openai":
-            inst.generation_llm_provider = "openai"
+        if "qwen" in inst.generation_model.lower():
+            if inst.generation_llm_provider != "openai":
+                inst.generation_llm_provider = "openai"
+
+            # Auto-configure DashScope credentials for Qwen models
+            if not inst.generation_api_key:
+                inst.generation_api_key = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("QWEN_API_KEY") or ""
+            if not inst.generation_api_base:
+                inst.generation_api_base = os.environ.get("DASHSCOPE_API_BASE") or "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
         # Automatic fallback: if provider is vertex_ai but no ADC credentials are present, and a GEMINI_API_KEY
         # is supplied, switch to gemini provider to avoid 500 errors.

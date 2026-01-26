@@ -1112,14 +1112,16 @@ function activate(context) {
     const manuscriptCodeLensProvider = new ManuscriptCodeLensProvider_1.ManuscriptCodeLensProvider();
     context.subscriptions.push(vscode.languages.registerCodeLensProvider({ scheme: 'research-manuscript', language: 'markdown' }, manuscriptCodeLensProvider));
     // Create provider instances
-    const assetLibraryProvider = new AssetLibraryProvider();
-    const manuscriptProvider = new ManuscriptProvider();
+    // 修复：package.json 中未定义这些视图，导致启动报错 "No view is registered with id: manuscript"
+    // const assetLibraryProvider = new AssetLibraryProvider();
+    // const manuscriptProvider = new ManuscriptProvider();
     // Register Tree Views
-    vscode.window.registerTreeDataProvider('assetLibrary', assetLibraryProvider);
-    vscode.window.registerTreeDataProvider('manuscript', manuscriptProvider);
+    // 修复：注释掉未定义的视图注册，避免启动错误
+    // vscode.window.registerTreeDataProvider('assetLibrary', assetLibraryProvider);
+    // vscode.window.registerTreeDataProvider('manuscript', manuscriptProvider);
     // Register Commands
     // Phase Frontend Fix: Start New Research Command
-    const startResearchCommand = vscode.commands.registerCommand('auto-researcher.start', async () => {
+    const startResearchCommand = vscode.commands.registerCommand('auto-researcher.startResearch', async () => {
         try {
             // 1. Prompt user for research topic
             const topic = await vscode.window.showInputBox({
@@ -1210,8 +1212,8 @@ function activate(context) {
                         vscode.window.showInformationMessage(`🎉 Research completed!\nSession ID: ${data.session_id}\nThread ID: ${threadId}`);
                         // Auto-refresh Manuscript and Asset Library to show new content
                         console.log('[Research] Auto-refreshing Manuscript and Asset Library...');
-                        manuscriptProvider.refresh();
-                        assetLibraryProvider.refresh();
+                        // manuscriptProvider.refresh(); // 修复：provider 已注释掉
+                        // assetLibraryProvider.refresh(); // 修复：provider 已注释掉
                     },
                     onError: (error) => {
                         console.error('[Research] Error:', error);
@@ -1262,12 +1264,12 @@ function activate(context) {
         panel.webview.html = generateControlPanelHTML(agentState, healthStatus);
     });
     const refreshAssetLibraryCommand = vscode.commands.registerCommand('auto-researcher.refreshAssetLibrary', () => {
-        assetLibraryProvider.refresh();
-        vscode.window.showInformationMessage('Asset Library refreshed.');
+        // assetLibraryProvider.refresh(); // 修复：provider 已注释掉
+        vscode.window.showInformationMessage('Asset Library refresh not available.');
     });
     const refreshManuscriptCommand = vscode.commands.registerCommand('auto-researcher.refreshManuscript', () => {
-        manuscriptProvider.refresh();
-        vscode.window.showInformationMessage('Manuscript refreshed.');
+        // manuscriptProvider.refresh(); // 修复：provider 已注释掉
+        vscode.window.showInformationMessage('Manuscript refresh not available.');
     });
     // Phase 3.5.2: New commands for Paper management
     const viewPaperDetailsCommand = vscode.commands.registerCommand('researchAgent.viewPaperDetails', async (paper) => {
@@ -1374,13 +1376,8 @@ function activate(context) {
         if (!groupBy) {
             return;
         }
-        const groupMap = {
-            'Session': 'session',
-            'Source': 'source',
-            'Date': 'date'
-        };
-        assetLibraryProvider.setGrouping(groupMap[groupBy]);
-        vscode.window.showInformationMessage(`Papers grouped by ${groupBy}`);
+        // assetLibraryProvider.setGrouping(groupMap[groupBy]); // 修复：provider 已注释掉
+        vscode.window.showInformationMessage(`Paper grouping not available (provider disabled).`);
     });
     // Phase 3.5.3 Week 3: Analytics Dashboard Command
     const showAnalyticsCommand = vscode.commands.registerCommand('auto-researcher.showAnalytics', async () => {
@@ -1483,8 +1480,9 @@ function activate(context) {
                                             vscode.window.showInformationMessage(`🎉 Research completed! Session ID: ${data.session_id}`);
                                             // Auto-refresh Manuscript and Asset Library to show new content
                                             console.log('[Analytics Dashboard] Auto-refreshing Manuscript and Asset Library...');
-                                            manuscriptProvider.refresh();
-                                            assetLibraryProvider.refresh();
+                                            // manuscriptProvider.refresh(); // 修复：provider 已注释掉
+                                            // assetLibraryProvider.refresh(); // 修复：provider 已注释掉
+                                            researchSessionsTreeProvider.refresh(); // 添加：刷新新的统一视图
                                         },
                                         onError: (error) => {
                                             progressPanel.webview.postMessage({

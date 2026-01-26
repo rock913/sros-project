@@ -1,4 +1,4 @@
-from typing import Protocol, Optional
+from typing import Protocol, Optional, List
 from agent.domain.schemas.paper import Paper
 
 class ReferenceManager(Protocol):
@@ -28,5 +28,17 @@ class ReferenceManager(Protocol):
             
         Returns:
             str: The ID or Status of the saved item.
+        """
+        ...
+
+    def get_paper_details(self, item_key: str) -> Optional[Paper]:
+        """
+        Retrieve full details including PDF path/notes for a paper.
+        """
+        ...
+
+    def search(self, query: str) -> List[Paper]:
+        """
+        Search within the reference manager's library.
         """
         ...

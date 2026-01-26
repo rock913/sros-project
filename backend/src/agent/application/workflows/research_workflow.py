@@ -112,6 +112,8 @@ def generate_initial_queries(state: AgentState, config: RunnableConfig) -> Agent
             response_format={"type": "json_object", "schema": SearchQueryList.model_json_schema()},
             num_retries=3,
             custom_llm_provider=cfg.generation_llm_provider,
+            api_key=cfg.generation_api_key or None,
+            base_url=cfg.generation_api_base or None,
         )
         search_queries = SearchQueryList.model_validate_json(response.choices[0].message.content).query
     except ServiceUnavailableError as e:
@@ -251,7 +253,9 @@ def reflection_and_refinement(state: AgentState, config: RunnableConfig) -> Agen
             messages=[{"content": prompt, "role": "user"}],
             response_format={"type": "json_object", "schema": Reflection.model_json_schema()},
             num_retries=3,
-                custom_llm_provider=cfg.generation_llm_provider,
+            custom_llm_provider=cfg.generation_llm_provider,
+            api_key=cfg.generation_api_key or None,
+            base_url=cfg.generation_api_base or None,
         )
         reflection_result = Reflection.model_validate_json(response.choices[0].message.content)
         print(f"Reflection: Sufficient? {reflection_result.is_sufficient}. Gap: {reflection_result.knowledge_gap}")
@@ -704,6 +708,8 @@ def retrieve_and_synthesize_report(state: AgentState, config: RunnableConfig) ->
             messages=[{"content": prompt, "role": "user"}],
             num_retries=3,
             custom_llm_provider=cfg.generation_llm_provider,
+            api_key=cfg.generation_api_key or None,
+            base_url=cfg.generation_api_base or None,
         )
         report = response.choices[0].message.content
         llm_span.end(output={"report_length": len(report), "word_count": len(report.split())})

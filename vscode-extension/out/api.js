@@ -24,10 +24,11 @@ exports.getPaperTrends = getPaperTrends;
 exports.getSessionDetails = getSessionDetails;
 exports.getSessionDetailsV2 = getSessionDetailsV2;
 const axios_1 = require("axios");
-// API Base URL - Use localhost:8121 for host machine debugging, langgraph-api:8000 for container
-// In dev container, set VSCODE_RESEARCH_AGENT_URL=http://langgraph-api:8000
-// For local debugging, defaults to localhost:8121 (matches docker-compose port mapping 8121:8000)
-const API_BASE_URL = process.env.VSCODE_RESEARCH_AGENT_URL || 'http://localhost:8121';
+// API Base URL
+// Default to langgraph-api:8000 for Dev Container environment (service-to-service communication)
+// For local host debugging, set VSCODE_RESEARCH_AGENT_URL=http://localhost:8121
+const API_BASE_URL = process.env.VSCODE_RESEARCH_AGENT_URL || 'http://langgraph-api:8000';
+console.log('[API] Using Base URL:', API_BASE_URL);
 /**
  * Checks the health of the backend API.
  * @returns A promise that resolves with the response data.
@@ -371,7 +372,7 @@ const WebSocket = require("ws");
  */
 async function startResearchStream(topic, callbacks, threadId) {
     return new Promise((resolve, reject) => {
-        const wsUrl = API_BASE_URL.replace('http', 'ws').replace('8121', '8121') + '/agent/stream';
+        const wsUrl = API_BASE_URL.replace('http', 'ws') + '/agent/stream';
         console.log(`[WebSocket] Connecting to ${wsUrl}...`);
         const ws = new WebSocket(wsUrl);
         ws.on('open', () => {
