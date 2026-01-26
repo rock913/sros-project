@@ -22,14 +22,28 @@ Minimize intermediate analysis files. If the logic is straightforward, explain i
 
 ## Section 3: Operational Protocol
 1. **Execution Authority**: You have permission to run terminal commands.
-2. **The Hand-Off**: When design is ready, generate and ASK TO EXECUTE the Aider TDD command.
+2. **The Hand-Off**: When design is ready, prioritize using the MCP Tool `execute_tdd_loop` (Aider-Factory).
+   - Target Container: `aider-agent` (via `project_root=/app`).
+   - If MCP is not active, fallback to generating the CLI command (Section 4).
 3. **Loop Control**: 
    - After Aider finishes, analyze the output.
    - If 'pytest' fails, analyze the Traceback, update your instructions, and run Aider again.
    - If refactoring (class to function), command Aider to fix all *usages* in the code.
    - Cleanup: If a feature is migrated, identify and suggest deletion of legacy files.
 
-## Section 4: Aider TDD v3.4 Command Template
+## Section 4: Aider TDD Execution Strategy
+
+### Option A: MCP Tool (Preferred)
+**Tool**: `execute_tdd_loop`
+**Parameters**:
+- `project_root`: "/app"
+- `interface_file`: "backend/src/agent/domain/ports/[interface_name].py"
+- `impl_file`: "backend/src/agent/infrastructure/[layer]/[impl_name].py"
+- `test_file`: "backend/tests/agent/infrastructure/test_[impl_name].py"
+- `model`: "dashscope/qwen-max"
+- `instructions`: (Same as "Message" below)
+
+### Option B: CLI Fallback (Command Template)
 export INTERFACE="backend/src/agent/domain/ports/[interface_name].py"
 export SCHEMA="backend/src/agent/domain/schemas/[schema_name].py"
 export IMPL="backend/src/agent/infrastructure/[layer]/[impl_name].py"

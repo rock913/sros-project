@@ -73,12 +73,15 @@ class Configuration(BaseModel):
 
     @classmethod
     def from_runnable_config(
-        cls, config: RunnableConfig | None = None
+        cls, config: Union[RunnableConfig, dict, None] = None
     ) -> "Configuration":
         """Create a Configuration instance from a RunnableConfig."""
-        configurable = (
-            config["configurable"] if config and "configurable" in config else {}
-        )
+        if LANGCHAIN_AVAILABLE:
+            configurable = (
+                config["configurable"] if config and "configurable" in config else {}
+            )
+        else:
+            configurable = {}
 
         # Get raw values from environment or config
         raw_values: dict[str, Any] = {
@@ -90,6 +93,10 @@ class Configuration(BaseModel):
         values = {k: v for k, v in raw_values.items() if v is not None}
 
         inst = cls(**values)
+
+        # 修复逻辑：如果模型是 qwen 系列，强制使用 openai provider (DashScope 兼容)
+        if "qwen" in inst.generation_model.lower() and inst.generation_llm_provider != "openai":
+            inst.generation_llm_provider = "openai"
 
         # Automatic fallback: if provider is vertex_ai but no ADC credentials are present, and a GEMINI_API_KEY
         # is supplied, switch to gemini provider to avoid 500 errors.

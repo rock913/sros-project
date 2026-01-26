@@ -1,23 +1,20 @@
 /**
  * Phase 3.7: Unified Research View Provider
  * WebviewViewProvider for the master-detail research sessions view
+ * Now uses React-based Collaboration UI instead of HTML strings
  */
 
 import * as vscode from 'vscode';
 import { getSessionsList, getSessionDetailsV2 } from './api';
-import { 
-    generateUnifiedResearchViewHTML,
-    Session,
-    SessionDetails 
-} from './unifiedResearchView';
 
 export class UnifiedResearchViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'auto-researcher.researchSessionsView';
 
     private _view?: vscode.WebviewView;
-    private _sessions: Session[] = [];
+    // @ts-ignore - Will be removed in React version
+    private _sessions: any[] = []; // TODO: Remove if not needed in React version
     private _selectedSessionId: string | null = null;
-    private _sessionDetails: SessionDetails | null = null;
+    private _sessionDetails: any | null = null;
 
     constructor(
         private readonly _extensionContext: vscode.ExtensionContext,
@@ -201,7 +198,7 @@ export class UnifiedResearchViewProvider implements vscode.WebviewViewProvider {
     }
 
     private async _openPDF(paperId: string) {
-        const paper = this._sessionDetails?.papers.find(p => p.id === paperId);
+        const paper = this._sessionDetails?.papers.find((p: any) => p.id === paperId);
         if (!paper?.pdf_url) {
             vscode.window.showWarningMessage('PDF URL not available for this paper');
             return;
@@ -214,7 +211,7 @@ export class UnifiedResearchViewProvider implements vscode.WebviewViewProvider {
     }
 
     private async _copyBibTeX(paperId: string) {
-        const paper = this._sessionDetails?.papers.find(p => p.id === paperId);
+        const paper = this._sessionDetails?.papers.find((p: any) => p.id === paperId);
         if (!paper) {
             vscode.window.showWarningMessage('Paper not found');
             return;
@@ -236,11 +233,28 @@ export class UnifiedResearchViewProvider implements vscode.WebviewViewProvider {
 
     private _updateWebview() {
         if (this._view) {
-            this._view.webview.html = generateUnifiedResearchViewHTML(
-                this._sessions,
-                this._selectedSessionId,
-                this._sessionDetails
-            );
+            // Get the URI for the built webview assets
+            const extensionUri = this._extensionContext.extensionUri;
+            const webviewUri = vscode.Uri.joinPath(extensionUri, 'out', 'webview');
+
+            // Convert URIs to webview URIs
+            const scriptUri = this._view.webview.asWebviewUri(vscode.Uri.joinPath(webviewUri, 'webview.js'));
+            const styleUri = this._view.webview.asWebviewUri(vscode.Uri.joinPath(webviewUri, 'style.css'));
+
+            // Create the HTML that loads the React application
+            this._view.webview.html = `<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Auto Researcher Webview</title>
+                    <link rel="stylesheet" href="${styleUri}">
+                </head>
+                <body>
+                    <div id="root"></div>
+                    <script type="module" src="${scriptUri}"></script>
+                </body>
+                </html>`;
         }
     }
 }

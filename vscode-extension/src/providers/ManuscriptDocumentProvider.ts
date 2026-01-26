@@ -23,11 +23,31 @@ function parseManuscriptUri(uri: vscode.Uri): ManuscriptUri {
   // URI format: research-manuscript://session-abc123/v2
   const authority = uri.authority; // session-abc123
   const path = uri.path; // /v2
-  
-  const sessionId = authority.replace('session-', '');
+
+  // Robust session ID extraction - handle potential prefixes or malformed URIs
+  let sessionId = authority;
+  if (authority.startsWith('session-')) {
+    sessionId = authority.replace('session-', '');
+  }
+
+  // Validate UUID format - if not valid, try to extract from path or other parts
+  const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  if (!uuidRegex.test(sessionId)) {
+    // Try extracting from the full URI string as fallback
+    const fullUri = uri.toString();
+    const sessionMatch = fullUri.match(/session-([0-9a-fA-F-]{36})/);
+    if (sessionMatch) {
+      sessionId = sessionMatch[1];
+    } else {
+      console.warn(`[ManuscriptProvider] Could not extract valid UUID from URI: ${fullUri}`);
+      // Return a placeholder that will trigger an error message
+      sessionId = 'invalid-session-id';
+    }
+  }
+
   const versionMatch = path.match(/^\/v(\d+)$/);
   const version = versionMatch ? parseInt(versionMatch[1], 10) : 1;
-  
+
   return { sessionId, version };
 }
 

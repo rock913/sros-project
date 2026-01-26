@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y git curl build-essential && rm -rf /var/lib/apt/lists/*
+
+# Install Aider, MCP SDK and common tools
+RUN pip install --no-cache-dir aider-chat mcp[cli] ruff pytest pydantic-ai python-dotenv
+
+# Set working directory
+WORKDIR /app
+
+# Copy MCP service script
+COPY backend/src/aider_mcp_launcher.py /usr/local/bin/aider_mcp_launcher.py
+
+# Set PYTHONPATH
+ENV PYTHONPATH=/app/backend/src
+
+# Default command
+CMD ["tail", "-f", "/dev/null"]

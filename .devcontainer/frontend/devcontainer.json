@@ -4,7 +4,7 @@
     "../../docker-compose-dev.yml"
   ],
   "service": "vscode-dev",
-  "workspaceFolder": "/workspaces/gemini-fullstack-langgraph-quickstart",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/vscode-extension",
   "customizations": {
     "vscode": {
       "extensions": [

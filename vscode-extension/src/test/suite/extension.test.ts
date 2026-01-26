@@ -16,6 +16,46 @@ suite('Extension Test Suite', () => {
         sandbox.restore();
     });
 
+    // Helper to create a robust mock context
+    const createMockContext = () => ({
+        subscriptions: [],
+        asAbsolutePath: (relativePath: string) => `/mock/path/${relativePath}`,
+        extensionUri: vscode.Uri.file('/mock/path'),
+        environmentVariableCollection: {} as any,
+        extensionMode: vscode.ExtensionMode.Test,
+        storageUri: vscode.Uri.file('/mock/storage'),
+        globalStorageUri: vscode.Uri.file('/mock/globalStorage'),
+        logUri: vscode.Uri.file('/mock/log'),
+        extension: {
+            id: 'mock.extension',
+            extensionUri: vscode.Uri.file('/mock/path'),
+            packageJSON: { version: '0.0.1' },
+            isActive: true,
+            exports: undefined,
+            activate: () => Promise.resolve(),
+        } as any,
+        secrets: {
+            get: () => Promise.resolve(undefined),
+            store: () => Promise.resolve(),
+            delete: () => Promise.resolve(),
+            onDidChange: new vscode.EventEmitter().event,
+        },
+        workspaceState: {
+            get: () => undefined,
+            update: () => Promise.resolve(),
+            keys: () => []
+        } as any,
+        globalState: {
+            get: () => undefined,
+            update: () => Promise.resolve(),
+            keys: () => [],
+            setKeysForSync: () => {}
+        } as any,
+        extensionPath: '/mock/path',
+        storagePath: '/mock/storage',
+        globalStoragePath: '/mock/globalStorage'
+    } as unknown as vscode.ExtensionContext);
+
     // Test for successful health check
     test('should show an information message on successful health check', async () => {
         const checkHealthStub = sandbox.stub(api, 'checkHealth').resolves({ status: 'ok' });
@@ -23,7 +63,7 @@ suite('Extension Test Suite', () => {
         // Stub command registration to prevent side effects between tests
         sandbox.stub(vscode.commands, 'registerCommand');
 
-        const mockContext: any = { subscriptions: [] };
+        const mockContext = createMockContext();
         activate(mockContext);
         await new Promise(resolve => setImmediate(resolve));
 
@@ -41,7 +81,7 @@ suite('Extension Test Suite', () => {
         // Stub command registration to prevent side effects between tests
         sandbox.stub(vscode.commands, 'registerCommand');
 
-        const mockContext: any = { subscriptions: [] };
+        const mockContext = createMockContext();
         activate(mockContext);
         await new Promise(resolve => setImmediate(resolve));
 
@@ -57,7 +97,7 @@ suite('Extension Test Suite', () => {
         const registerTreeDataProviderStub = sandbox.stub(vscode.window, 'registerTreeDataProvider');
         const registerCommandStub = sandbox.stub(vscode.commands, 'registerCommand');
 
-        const mockContext: any = { subscriptions: [] };
+        const mockContext = createMockContext();
         activate(mockContext);
 
         assert.ok(registerTreeDataProviderStub.calledWith('assetLibrary', sinon.match.any), 'assetLibrary should be registered');
@@ -122,16 +162,35 @@ suite('Extension Test Suite', () => {
     });    // TDD: Asset Library should display papers from backend
     test('should display papers from backend in Asset Library view', async () => {
         // 1. (Red) Setup the test for failure
-        const mockState: api.AgentState = {
-            // Backend API uses snake_case
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            literature_abstracts: [
-                { title: 'Paper 1', authors: ['Author A'], abstract: 'Abstract 1' },
-                { title: 'Paper 2', authors: ['Author B', 'Author C'], abstract: 'Abstract 2' },
-            ],
-            report: '', // Add missing property to satisfy the interface
+        const mockPapers = {
+            papers: [
+                { 
+                    id: '1', 
+                    session_id: 'session-1', 
+                    title: 'Paper 1', 
+                    authors: ['Author A'], 
+                    abstract: 'Abstract 1', 
+                    doi: null, 
+                    arxiv_id: null, 
+                    url: null, 
+                    created_at: new Date().toISOString(), 
+                    extra_metadata: {}
+                },
+                { 
+                    id: '2', 
+                    session_id: 'session-2', 
+                    title: 'Paper 2', 
+                    authors: ['Author B', 'Author C'], 
+                    abstract: 'Abstract 2', 
+                    doi: null, 
+                    arxiv_id: null, 
+                    url: null, 
+                    created_at: new Date().toISOString(), 
+                    extra_metadata: {}
+                },
+            ]
         };
-        sandbox.stub(api, 'getAgentState').resolves(mockState);
+        sandbox.stub(api, 'getAllPapers').resolves(mockPapers as any);
 
         // We will create this provider in the implementation step
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -141,24 +200,29 @@ suite('Extension Test Suite', () => {
         // 2. Get the children from the provider
         const children = await assetLibraryProvider.getChildren();
 
-        // 3. Assert the results
-        assert.strictEqual(children.length, 2, 'Should return two paper items');
-        assert.strictEqual(children[0].label, 'Paper 1', 'First paper title should match');
-        assert.strictEqual(children[0].description, 'Author A', 'First paper authors should match');
-        assert.strictEqual(children[1].label, 'Paper 2', 'Second paper title should match');
-        assert.strictEqual(children[1].description, 'Author B, Author C', 'Second paper authors should match');
+        // 3. Assert the results (AssetLibrary now groups by session by default)
+        assert.strictEqual(children.length, 2, 'Should return two session groups');
+        assert.ok(children[0].label && (children[0].label as string).includes('session-1'), 'First session label should match');
+        assert.ok(children[1].label && (children[1].label as string).includes('session-2'), 'Second session label should match');
     });
 
     // TDD: Manuscript should display report from backend
     test('should display report from backend in Manuscript view', async () => {
         // 1. (Red) Setup the test for failure
-        const mockState: api.AgentState = {
-            // Backend API uses snake_case
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            literature_abstracts: [],
-            report: 'This is the generated research report.',
+        const mockReports = {
+            reports: [
+                {
+                    id: '1',
+                    session_id: 'session-1',
+                    content: 'This is the generated research report.',
+                    format: 'markdown',
+                    version: 1,
+                    created_at: new Date().toISOString(),
+                    extra_metadata: {}
+                }
+            ]
         };
-        sandbox.stub(api, 'getAgentState').resolves(mockState);
+        sandbox.stub(api, 'getAllReports').resolves(mockReports as any);
 
         // We will create this provider in the implementation step
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -168,20 +232,18 @@ suite('Extension Test Suite', () => {
         // 2. Get the children from the provider
         const children = await manuscriptProvider.getChildren();
 
-        // 3. Assert the results
-        assert.strictEqual(children.length, 1, 'Should return one report item');
-        assert.strictEqual(children[0].label, mockState.report, 'Report content should match');
+        // 3. Assert the results (ManuscriptProvider now groups by session)
+        assert.strictEqual(children.length, 1, 'Should return one session group');
+        // The label for report group is usually the session ID or similar
+        assert.ok(children[0].label && (children[0].label as string).includes('session-1'), 'Session label should match');
     });
 
     // TDD: Manuscript should display message when report is empty
-    test('should display "No report found" when report is empty', async () => {
-        const mockState: api.AgentState = {
-            // Backend API uses snake_case
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            literature_abstracts: [],
-            report: '',
+    test('should display "No reports found" when report is empty', async () => {
+        const mockReports = {
+            reports: []
         };
-        sandbox.stub(api, 'getAgentState').resolves(mockState);
+        sandbox.stub(api, 'getAllReports').resolves(mockReports as any);
 
         // eslint-disable-next-line @typescript-eslint/naming-convention
         const { ManuscriptProvider } = await import('../../extension');
@@ -189,7 +251,7 @@ suite('Extension Test Suite', () => {
         const children = await manuscriptProvider.getChildren();
 
         assert.strictEqual(children.length, 1, 'Should return one item');
-        assert.strictEqual(children[0].label, 'No report found', 'Should display "No report found"');
+        assert.strictEqual(children[0].label, 'No reports found', 'Should display "No reports found"');
     });
 
     // TDD: Asset Library refresh should trigger onDidChangeTreeData event

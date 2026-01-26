@@ -17,7 +17,7 @@ from agent.database import get_all_documents, init_db
 from agent.document_utils import DocumentDiffer
 
 # Correctly import the 'graph' object from agent.graph
-from agent.graph import async_graph, graph
+from agent.graph import async_graph, graph, get_async_graph
 from agent.langfuse_manager import LangfuseManager
 
 # Remove LangServe to avoid Pydantic conflicts
@@ -1437,7 +1437,7 @@ async def stream_agent_progress(websocket: WebSocket):
             HEARTBEAT_INTERVAL = 30  # Send heartbeat every 30 seconds
             
             # Use async_graph.astream for asynchronous streaming with async checkpointer
-            async for chunk in async_graph.astream(input_data, config=config):
+            async for chunk in get_async_graph().astream(input_data, config=config):
                 # Check if we need to send a heartbeat
                 current_time = time.time()
                 if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
