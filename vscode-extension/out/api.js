@@ -155,19 +155,23 @@ async function startResearch(threadId, topic) {
 async function getThreadState(threadId) {
     try {
         const response = await axios_1.default.get(`${API_BASE_URL}/agent/state/${threadId}`);
-        return response.data;
+        const output = response.data.values || {};
+        return {
+            // Backend API uses snake_case, map to frontend property names
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            literature_abstracts: output.literature_abstracts || [],
+            report: output.report || '',
+            ...output,
+        };
     }
     catch (error) {
         console.error('Error fetching thread state:', error);
-        // Return empty state if thread not found
-        if (error.response && error.response.status === 404) {
-            return {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                literature_abstracts: [],
-                report: '',
-            };
-        }
-        throw new Error(`Failed to fetch thread state: ${error.message}`);
+        // Return empty state on error (e.g., thread not found yet)
+        return {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            literature_abstracts: [],
+            report: '',
+        };
     }
 }
 // ==================== Phase 3.5.2: Paper Management APIs ====================
@@ -379,7 +383,8 @@ async function startResearchStream(topic, callbacks, threadId) {
             console.log('[WebSocket] Connected');
             ws.send(JSON.stringify({
                 messages: [{ role: 'user', 'content': topic }],
-                thread_id: threadId
+                thread_id: threadId,
+                workflow: "costorm"
             }));
             // Return WebSocket instance immediately after connection
             resolve(ws);

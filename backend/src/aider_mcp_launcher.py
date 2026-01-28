@@ -4,8 +4,54 @@ import sys
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
+# Set PYTHONPATH environment variable for imports
+os.environ['PYTHONPATH'] = os.path.join(os.path.dirname(__file__), '..', '..')
+
+# Add backend/src to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
 # Initialize MCP Server
 mcp = FastMCP("Aider-Factory")
+
+# Import and register MCP tools conditionally to maintain separation of concerns
+load_business_tools = os.environ.get("LOAD_BUSINESS_TOOLS", "false").lower() == "true"
+
+if load_business_tools:
+    print("Loading business tools (Application Plane)...")
+    try:
+        from agent.infrastructure.mcp.tools.arxiv import get_arxiv_search_mcp_tool
+        arxiv_tool = get_arxiv_search_mcp_tool()
+        mcp.add_tool(arxiv_tool.name, arxiv_tool.handler)
+        print(f"✓ Registered arxiv tool: {arxiv_tool.name}")
+    except Exception as e:
+        print(f"✗ Failed to register arxiv tool: {e}")
+
+    try:
+        from agent.infrastructure.mcp.tools.orchestrator import get_orchestrator_mcp_tool
+        orchestrator_tool = get_orchestrator_mcp_tool()
+        mcp.add_tool(orchestrator_tool.name, orchestrator_tool.handler)
+        print(f"✓ Registered orchestrator tool: {orchestrator_tool.name}")
+    except Exception as e:
+        print(f"✗ Failed to register orchestrator tool: {e}")
+
+    try:
+        from agent.infrastructure.mcp.tools.unpaywall import get_unpaywall_mcp_tool
+        unpaywall_tool = get_unpaywall_mcp_tool()
+        mcp.add_tool(unpaywall_tool.name, unpaywall_tool.handler)
+        print(f"✓ Registered unpaywall tool: {unpaywall_tool.name}")
+    except Exception as e:
+        print(f"✗ Failed to register unpaywall tool: {e}")
+
+    try:
+        from agent.infrastructure.mcp.tools.zotero import get_zotero_save_mcp_tool
+        zotero_tool = get_zotero_save_mcp_tool()
+        mcp.add_tool(zotero_tool.name, zotero_tool.handler)
+        print(f"✓ Registered zotero tool: {zotero_tool.name}")
+    except Exception as e:
+        print(f"✗ Failed to register zotero tool: {e}")
+else:
+    print("Skipping business tools (Control Plane mode). Only meta-tools available.")
+
 
 @mcp.tool()
 async def execute_tdd_loop(
@@ -75,4 +121,9 @@ async def execute_tdd_loop(
         return f"Error executing Aider: {str(e)}"
 
 if __name__ == "__main__":
-    mcp.run()
+    import asyncio
+    try:
+        asyncio.run(mcp.run())
+    except Exception as e:
+        print(f"MCP server error: {e}", file=sys.stderr)
+        sys.exit(1)

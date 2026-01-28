@@ -17,6 +17,7 @@ const documentCollaboration_1 = require("./documentCollaboration");
 const ResearchSessionsTreeProvider_1 = require("./ResearchSessionsTreeProvider");
 const ManuscriptDocumentProvider_1 = require("./providers/ManuscriptDocumentProvider");
 const ManuscriptCodeLensProvider_1 = require("./providers/ManuscriptCodeLensProvider");
+const MindMapProvider_1 = require("./providers/MindMapProvider");
 const researchCommands = require("./commands/researchSessionCommands");
 /**
  * Generates enhanced HTML for the AI Control Panel webview
@@ -1097,7 +1098,7 @@ function createHitlRequestHandler(wsConnection, progressPanel) {
         console.log('[Research] Auto-approved HITL request:', hitlData.request_id);
     };
 }
-function activate(context) {
+async function activate(context) {
     console.log('Congratulations, your extension "auto-researcher" is now active!');
     // Phase 3.6 Week 3: Initialize Document Collaboration Manager
     const docCollabManager = new documentCollaboration_1.DocumentCollaborationManager(context);
@@ -1108,6 +1109,9 @@ function activate(context) {
     // Phase 3.7 方案 B: Register Manuscript Document Provider
     const manuscriptDocProvider = new ManuscriptDocumentProvider_1.ManuscriptDocumentProvider();
     context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('research-manuscript', manuscriptDocProvider));
+    // Phase 5.2 Sprint 3: Register MindMap Provider for live Co-STORM updates
+    const mindMapProvider = new MindMapProvider_1.MindMapProvider();
+    context.subscriptions.push(vscode.window.registerTreeDataProvider('auto-researcher.mindmap', mindMapProvider));
     // Phase 3.7 方案 B: Register Manuscript CodeLens Provider
     const manuscriptCodeLensProvider = new ManuscriptCodeLensProvider_1.ManuscriptCodeLensProvider();
     context.subscriptions.push(vscode.languages.registerCodeLensProvider({ scheme: 'research-manuscript', language: 'markdown' }, manuscriptCodeLensProvider));
@@ -1736,6 +1740,81 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         researchSessionsTreeProvider.refresh();
         vscode.window.showInformationMessage('Research sessions refreshed!');
     });
+    // Phase 5.2 Sprint 3: Show MindMap Node Details Command
+    const showMindMapNodeCommand = vscode.commands.registerCommand('auto-researcher.showMindMapNode', async (node) => {
+        const panel = vscode.window.createWebviewPanel('mindmapNodeDetails', `Perspective: ${node.name}`, vscode.ViewColumn.One, { enableScripts: true });
+        // Generate HTML for node details
+        const papersHTML = node.papers && node.papers.length > 0
+            ? node.papers.map((paper, idx) => `
+                <div style="background: var(--vscode-editor-inactiveSelectionBackground); padding: 10px; margin: 5px 0; border-radius: 4px;">
+                    <h4>${idx + 1}. ${paper.title}</h4>
+                    <p><strong>Authors:</strong> ${paper.authors.join(', ')}</p>
+                    <p><strong>DOI:</strong> <a href="https://doi.org/${paper.doi}">${paper.doi}</a></p>
+                </div>
+            `).join('')
+            : '<p>No papers found yet.</p>';
+        const summaryHTML = node.summary
+            ? `<div style="background: var(--vscode-editor-inactiveSelectionBackground); padding: 15px; border-radius: 4px; margin: 15px 0;">
+                <h3>Summary</h3>
+                <p>${node.summary}</p>
+            </div>`
+            : '<p>Summary pending analysis.</p>';
+        panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${node.name}</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: var(--vscode-titleBar-activeForeground);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            padding-bottom: 10px;
+        }
+        .meta-info {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        a {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>${node.name}</h1>
+
+    <div class="meta-info">
+        <h2>Description</h2>
+        <p>${node.description}</p>
+
+        <h2>Search Keywords</h2>
+        <p><code>${node.query_keywords.join(', ')}</code></p>
+
+        <h2>Status</h2>
+        <p>Papers Found: ${node.papers ? node.papers.length : 0} | Summary: ${node.summary ? 'Available' : 'Pending'}</p>
+    </div>
+
+    <h2>Papers (${node.papers ? node.papers.length : 0})</h2>
+    ${papersHTML}
+
+    <h2>Analysis Summary</h2>
+    ${summaryHTML}
+</body>
+</html>`;
+    });
     // Phase 3.7 方案 B: Research Session Commands
     const openManuscriptCommand = vscode.commands.registerCommand('auto-researcher.openManuscript', (sessionId, version, report) => researchCommands.openManuscript(sessionId, version, report));
     const compareVersionsCommand = vscode.commands.registerCommand('auto-researcher.compareVersions', (sessionId, oldVersion, newVersion) => researchCommands.compareVersions(sessionId, oldVersion, newVersion));
@@ -1761,8 +1840,31 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         researchCommands.showSessionAnalytics(sessionId);
     });
     context.subscriptions.push(startResearchCommand, showControlPanelCommand, refreshAssetLibraryCommand, refreshManuscriptCommand, viewPaperDetailsCommand, exportPapersCommand, viewReportCommand, exportReportCommand, compareReportsCommand, changeGroupingCommand, showAnalyticsCommand, viewSessionDetailsCommand, testHITLCommand, testDocCollabCommand, refreshResearchSessionsCommand, 
+    // Phase 5.2 Sprint 3: MindMap Node Details Command
+    showMindMapNodeCommand, 
     // Phase 3.7 方案 B: Research Session Commands
     openManuscriptCommand, compareVersionsCommand, openPaperCommand, copyBibTeXCommand, exportManuscriptCommand, downloadPDFCommand, showSessionAnalyticsCommand);
+    // Register MCP Client with MindMap Provider for live Co-STORM updates
+    try {
+        const { getMcpClient } = await Promise.resolve().then(() => require('./mcp_client'));
+        const mcpClient = getMcpClient(context);
+        // Set up message handling for MindMap updates
+        mcpClient.onMessage((message) => {
+            if (message.type === 'mindmap_update' && message.payload?.mindmap) {
+                mindMapProvider.updateMindMap(message.payload.mindmap);
+            }
+        });
+        // Start MCP client asynchronously
+        mcpClient.start().then(() => {
+            console.log('[Extension] MCP Client started successfully');
+        }).catch((error) => {
+            console.error('[Extension] Failed to start MCP Client:', error);
+        });
+        console.log('[Extension] MCP Client initialized with MindMap Provider');
+    }
+    catch (error) {
+        console.error('[Extension] Failed to initialize MCP Client:', error);
+    }
     (0, api_1.checkHealth)()
         .then(data => {
         console.log('Backend health check successful:', data);

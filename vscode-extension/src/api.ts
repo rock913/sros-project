@@ -254,7 +254,8 @@ export async function invokeAgent(
         ]
       },
       config: {
-        configurable: {
+        configurable:
+        {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           thread_id: threadId
         }
@@ -301,18 +302,22 @@ export async function getThreadState(threadId: string): Promise<AgentState> {
     const response = await axios.get(
       `${API_BASE_URL}/agent/state/${threadId}`
     );
-    return response.data;
+    const output = response.data.values || {};
+    return {
+      // Backend API uses snake_case, map to frontend property names
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      literature_abstracts: output.literature_abstracts || [],
+      report: output.report || '',
+      ...output,
+    };
   } catch (error: any) {
     console.error('Error fetching thread state:', error);
-    // Return empty state if thread not found
-    if (error.response && error.response.status === 404) {
-      return {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        literature_abstracts: [],
-        report: '',
-      };
-    }
-    throw new Error(`Failed to fetch thread state: ${error.message}`);
+    // Return empty state on error (e.g., thread not found yet)
+    return {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      literature_abstracts: [],
+      report: '',
+    };
   }
 }
 
@@ -569,9 +574,10 @@ export async function startResearchStream(
       console.log('[WebSocket] Connected');
       ws.send(JSON.stringify({
         messages: [{ role: 'user', 'content': topic }],
-        thread_id: threadId
+        thread_id: threadId,
+        workflow: "costorm"
       }));
-      
+
       // Return WebSocket instance immediately after connection
       resolve(ws);
     });

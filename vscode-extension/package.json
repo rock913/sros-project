@@ -136,6 +136,12 @@
                     "name": "Research Sessions",
                     "type": "tree",
                     "icon": "$(notebook)"
+                },
+                {
+                    "id": "auto-researcher.mindmap",
+                    "name": "Knowledge Graph",
+                    "type": "tree",
+                    "icon": "$(hub)"
                 }
             ]
         },

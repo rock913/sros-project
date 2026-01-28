@@ -18,6 +18,8 @@ from agent.document_utils import DocumentDiffer
 
 # Correctly import the 'graph' object from agent.graph
 from agent.graph import async_graph, graph, get_async_graph
+from agent.application.workflows.costorm_graph import get_costorm_graph
+from agent.domain.schemas.mindmap import MindMap
 from agent.langfuse_manager import LangfuseManager
 
 # Remove LangServe to avoid Pydantic conflicts
@@ -1339,19 +1341,21 @@ async def stream_agent_progress(websocket: WebSocket):
         # 1. Receive initial request
         data = await websocket.receive_json()
         
-        # 2. Generate or use provided thread_id
+        # 2. Extract workflow type and parameters
+        workflow_type = data.get("workflow", "legacy")  # Default to legacy for backward compatibility
         thread_id = data.get("thread_id") or str(uuid4())
         messages = data.get("messages", [])
         
         # 3. Create LangFuse trace for entire WebSocket session
         trace = LangfuseManager.trace(
-            name="WebSocket Research Session",
+            name=f"WebSocket Research Session ({workflow_type})",
             input={
                 "thread_id": thread_id,
+                "workflow": workflow_type,
                 "message_count": len(messages),
                 "has_existing_thread": bool(data.get("thread_id"))
             },
-            tags=["websocket", "streaming", "research_session"]
+            tags=["websocket", "streaming", "research_session", workflow_type]
         )
         
         if not messages:
@@ -1361,20 +1365,20 @@ async def stream_agent_progress(websocket: WebSocket):
             })
             await websocket.close()
             return
-        
-        # 3. Extract research topic
+
+        # 4. Extract research topic
         user_query = ""
         for msg in reversed(messages):
             if msg.get("role") == "user":
                 user_query = msg.get("content", "")
                 break
         
-        # 4. Create Session record
+        # 5. Create Session record
         session = db_manager.create_session(
             thread_id=thread_id,
             title=f"Research: {user_query[:100]}" if user_query else "Untitled",
             research_topic=user_query,
-            tags=["websocket", "streaming"],
+            tags=["websocket", "streaming", workflow_type],
             notes=f"Started via WebSocket at {datetime.utcnow().isoformat()}"
         )
         session_id = session["id"]
@@ -1385,44 +1389,70 @@ async def stream_agent_progress(websocket: WebSocket):
             metadata={"research_topic": user_query}
         )
         
-        print(f"[WebSocket] Created session {session_id} with thread_id {thread_id}")
+        print(f"[WebSocket] Created session {session_id} with thread_id {thread_id} (workflow: {workflow_type})")
         
-        # 5. Log research_started event
+        # 6. Log research_started event
         db_manager.log_event(
             session_id=session_id,
             event_type="research_started",
             event_data={
                 "query": user_query,
+                "workflow": workflow_type,
                 "thread_id": thread_id,
                 "timestamp": datetime.utcnow().isoformat()
             }
         )
         
-        # 6. Send acknowledgment
+        # 7. Send acknowledgment
         await websocket.send_json({
             "type": "started",
             "session_id": session_id,
-            "thread_id": thread_id
+            "thread_id": thread_id,
+            "workflow": workflow_type
         })
         
-        # 7. Prepare input and config
+        # 8. Prepare input and config
         config = {"configurable": {"thread_id": thread_id}}
-        input_data = {
-            "messages": messages,
-            "session_id": session_id,
-            "thread_id": thread_id
-        }
         
-        # 8. Run agent execution with HITL streaming
-        # Note: Using sync invoke in executor due to PostgresSaver not supporting async operations
-        await websocket.send_json({
-            "type": "progress",
-            "node": "agent_start",
-            "message": "Starting research agent..."
-        })
+        # Detect workflow graph
+        selected_graph = None
         
-        # Stream graph execution using astream_events for fine-grained control
-        # This allows us to detect HITL requests in real-time
+        if workflow_type == "costorm":
+            # Co-STORM Graph (V2.1)
+            # Requires input adaption: CoStormState expects 'topic' not just 'messages'
+            input_data = {
+                "topic": user_query,
+                "messages": messages, # Pass through for history
+                # Initialize empty structures
+                "mindmap": None,
+                "perspectives": [],
+                "documents": {}
+            }
+            selected_graph = get_costorm_graph()
+            print(f"[WebSocket] Switching to Co-STORM Graph for session {session_id}")
+            
+            await websocket.send_json({
+                "type": "progress",
+                "node": "agent_start",
+                "message": "Starting Co-STORM Discovery Engine..."
+            })
+            
+        else:
+            # Legacy Linear Graph (V1.0)
+            input_data = {
+                "messages": messages,
+                "session_id": session_id,
+                "thread_id": thread_id
+            }
+            selected_graph = get_async_graph()
+            
+            await websocket.send_json({
+                "type": "progress",
+                "node": "agent_start",
+                "message": "Starting Standard Research Agent..."
+            })
+        
+        # 9. Stream graph execution using astream_events for fine-grained control
         async def stream_with_hitl_detection():
             """Stream graph execution and detect HITL requests and document updates"""
             final_result = None
@@ -1436,8 +1466,8 @@ async def stream_agent_progress(websocket: WebSocket):
             last_heartbeat = time.time()
             HEARTBEAT_INTERVAL = 30  # Send heartbeat every 30 seconds
             
-            # Use async_graph.astream for asynchronous streaming with async checkpointer
-            async for chunk in get_async_graph().astream(input_data, config=config):
+            # Use selected_graph.astream
+            async for chunk in selected_graph.astream(input_data, config=config):
                 # Check if we need to send a heartbeat
                 current_time = time.time()
                 if current_time - last_heartbeat > HEARTBEAT_INTERVAL:
@@ -1448,29 +1478,19 @@ async def stream_agent_progress(websocket: WebSocket):
                     last_heartbeat = current_time
                 # chunk is a dict with node name as key
                 for node_name, state_update in chunk.items():
-                    # 🔄 INTERRUPT DETECTION: When interrupt_before triggers,
-                    # state_update might be a tuple instead of dict
-                    # Special handling for __interrupt__ signal
+                    # 🔄 INTERRUPT DETECTION
                     if node_name == "__interrupt__":
-                        # Graph has paused - send notification to frontend
                         await websocket.send_json({
                             "type": "progress",
                             "node": node_name,
                             "message": "Workflow paused, waiting for user input..."
                         })
-                        # Don't try to access .get() on interrupt signal
                         continue
                     
-                    # Ensure state_update is a dict before calling .get()
                     if not isinstance(state_update, dict):
-                        print(f"[WebSocket] Warning: state_update is not a dict for node {node_name}, got {type(state_update)}")
-                        # Send progress update anyway
-                        await websocket.send_json({
-                            "type": "progress",
-                            "node": node_name,
-                            "message": f"Processing {node_name}..."
-                        })
-                        continue
+                        # Some legacy nodes might return state directly? Usually it's dict.
+                        # For Co-STORM, state is CoStormState (dict)
+                        pass
                     
                     # Send progress update
                     await websocket.send_json({
@@ -1478,6 +1498,26 @@ async def stream_agent_progress(websocket: WebSocket):
                         "node": node_name,
                         "message": f"Processing {node_name}..."
                     })
+
+                    # 🧠 MINDMAP UPDATE (Co-STORM V2.1)
+                    if "mindmap" in state_update and state_update["mindmap"]:
+                        current_mindmap = state_update["mindmap"]
+                        # Check if it's a MindMap object or dict
+                        if hasattr(current_mindmap, "dict"):
+                            mindmap_payload = current_mindmap.dict()
+                        else:
+                            mindmap_payload = current_mindmap
+                            
+                        # Send specific mindmap_update event
+                        await websocket.send_json({
+                            "type": "mindmap_update",
+                            "node": node_name,
+                            "payload": {
+                                "mindmap": mindmap_payload,
+                                "session_id": session_id
+                            }
+                        })
+                        print(f"[WebSocket] Sent MindMap update for node {node_name}")
                     
                     # 📝 DOCUMENT UPDATE: Check for partial report updates
                     # Note: "report" is set by retrieve_and_synthesize_report node

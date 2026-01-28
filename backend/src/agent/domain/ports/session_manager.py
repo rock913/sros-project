@@ -3,8 +3,9 @@ from datetime import datetime
 from uuid import UUID
 
 from agent.domain.schemas.session import ResearchSession, SessionEvent
-from agent.domain.schemas.report import Report, ReportVersion
 from agent.domain.schemas.paper import Paper
+
+# TODO: Add report schema and methods when Report model is available
 
 
 class SessionManager(Protocol):
@@ -156,7 +157,7 @@ class SessionManager(Protocol):
         """
         ...
 
-    def add_report_to_session(self, session_id: str, report: Report) -> None:
+    def add_report_to_session(self, session_id: str, report: any) -> None:
         """Associate a report with a research session.
 
         Args:
@@ -184,7 +185,7 @@ class SessionManager(Protocol):
         """
         ...
 
-    def get_session_reports(self, session_id: str) -> List[Report]:
+    def get_session_reports(self, session_id: str) -> List[any]:
         """Get all reports associated with a session.
 
         Args:

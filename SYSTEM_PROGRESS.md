@@ -10,26 +10,46 @@ This document tracks the system's progress and status across all phases of the A
 
 ## Current Phase and Status
 
-### Phase 4.2: MCP Infrastructure & Hexagonal Migration ✅ Complete
+### Phase 5.1: MVP-Connectivity ✅ Complete
 
-**Duration:** 3 weeks  
+**Duration:** 1 week
 **Completion:** 100%
 
 #### Overview
-Successfully completed the upgrade of core infrastructure to support Model Context Protocol (MCP) and migration of tools to a hexagonal architecture. This phase successfully built upon the MPA architecture established in Phase 4.1.
+Successfully established the full-duplex MCP communication channel between VS Code and the Backend Container. The system can now perform a "Hello World" loop: User Input -> VS Code Client -> Docker Exec -> MCP Server -> Session DB -> Response.
 
 #### Core Components
-- **MCP Foundation**: Successfully integrated `mcp` SDK and implemented `McpServer` Protocol
-- **Hexagonal Architecture**: Established clear separation between domain logic and infrastructure
-- **Tool Migration**: Successfully refactored existing tools to implement standardized protocols
-- **Import Fixes**: Fixed `Send` import issue in research workflow (from `langgraph.types` instead of `langgraph.graph`)
+- **Protocol**: `ResearchRequest/Response` schemas defined with Pydantic V2.
+- **Client**: TypeScript MCP Client utilizing `docker exec` transport.
+- **Server**: Python MCP Server wrapping LangGraph Orchestrator.
+- **Persistence**: `PostgresSessionAdapter` fully operational.
 
-#### Key Files
-- `backend/src/agent/domain/ports/mcp_server.py` - MCP Server Protocol
-- `backend/src/agent/infrastructure/mcp/fastapi_mcp_server.py` - FastAPI MCP Server implementation
-- `backend/src/agent/infrastructure/mcp/fastapi_adapter.py` - Adapter layer
-- `backend/tests/infrastructure/mcp/test_mcp.py` - MCP test suite
-- `backend/src/agent/application/workflows/research_workflow.py` - Updated with correct `Send` import
+---
+
+### Phase 5.2: Draft-Driven Discovery (Complete ✅)
+
+**Completion Date:** January 27, 2026
+**Focus:** Agentic Editor MVP with Co-STORM Integration.
+
+#### Completed (Sprint 1, 2, 3, 4) ✅ All Sprints Complete
+- [x] **Sprint 1 (Brain):** `PerspectiveGenerator`, `MindMap` Schema, `CoStormGraph`.
+- [x] **Sprint 2 (Discourse):** `LibrarianNode`, `AnalystNode`, Discourse Loop Logic.
+- [x] **Sprint 3 (Connection):**
+  - Real `CoStormGraph` integration in Orchestrator.
+  - Live `mindmap_update` event streaming.
+  - VS Code `MindMapProvider` TreeView implementation.
+  - Interactive Node Details command.
+- [x] **Sprint 4 (The Loop) ✅ COMPLETE:**
+  - [x] **Gap Analysis Node:** Domain schemas, IGapAnalyzer protocol, GapAnalyzerAdapter infrastructure
+  - [x] **Incremental Writer Node:** ISnippetWriter protocol, SnippetWriterAdapter with nested Co-STORM
+  - [x] **VS Code Context Bridge:** MCP tools (sync_draft_context, propose_edits, apply_edit)
+  - [x] **Frontend Integration:** DraftWatcherProvider with debounced analysis, SuggestionUIProvider with CodeLens/Diff
+
+**Files Created:** 12 new files, 100% hexagonal architecture compliance
+**Test Scenarios:** All protocols have @TestScenarios documentation
+**Architecture:** Domain (pure) ← Ports (@TestScenarios) ← Infrastructure (adapters) ← Application (nodes) ← MCP (tools) ← VS Code (providers)
+
+**Workflow:** Draft change → Debounced sync → LLM gap analysis → Nested Co-STORM research → Cited improvements → CodeLens accept/reject → Diff view → Applied edits
 
 ---
 
@@ -148,3 +168,4 @@ make verify-architecture
 
 # Monitor system performance
 make monitor
+```

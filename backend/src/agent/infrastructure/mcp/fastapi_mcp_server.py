@@ -29,4 +29,4 @@ class FastAPIMcpServer(McpServer):
 
         # Start the FastAPI application
         import uvicorn
-        uvicorn.run(self.app, host="0.0.0.0", port=8000)
+        uvicorn.run(self.app, host="0.0.0.0", port=8001)

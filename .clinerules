@@ -22,16 +22,27 @@ Minimize intermediate analysis files. If the logic is straightforward, explain i
 
 ## Section 3: Operational Protocol
 1. **Execution Authority**: You have permission to run terminal commands.
-2. **The Hand-Off**: When design is ready, prioritize using the MCP Tool `execute_tdd_loop` (Aider-Factory).
+2. **Terminal Hygiene (Prevent "Pending" States)**:
+   - **Truncate Output**: NEVER print >100 lines to stdout. Use `| head -n 50` or `> log.txt` for large outputs. Large buffers freeze the IDE.
+   - **Explicit Exit**: Ensure scripts have definite exit conditions. Avoid interactive modes.
+   - **Docker Exec**: Prefer `docker exec` without `-it` flags for non-interactive commands to prevent TTY signal issues.
+3. **The Hand-Off**: When design is ready, prioritize using the MCP Tool `execute_tdd_loop` (Aider-Factory).
    - Target Container: `aider-agent` (via `project_root=/app`).
    - If MCP is not active, fallback to generating the CLI command (Section 4).
-3. **Loop Control**: 
+4. **Loop Control**: 
    - After Aider finishes, analyze the output.
    - If 'pytest' fails, analyze the Traceback, update your instructions, and run Aider again.
    - If refactoring (class to function), command Aider to fix all *usages* in the code.
    - Cleanup: If a feature is migrated, identify and suggest deletion of legacy files.
 
 ## Section 4: Aider TDD Execution Strategy
+
+### ⚠️ Critical: Context Management (Anti-Context-Explosion)
+**Problem**: OpenRouter/LLMs fail if context > 200k tokens (e.g., Aider auto-scanning 200+ files).
+**Rule**: NEVER allow Aider to scan the entire monorepo.
+1. **Scope Restriction**: Explicitly pass targets (`$IMPL $TEST`) and context (`--read`). Do not rely on auto-discovery.
+2. **Concise Prompts**: Keep the `--message` under 50 lines. Focus on "Implement X via TDD".
+3. **No Noise**: Exclude `node_modules`, `logs`, or unrelated directories.
 
 ### Option A: MCP Tool (Preferred)
 **Tool**: `execute_tdd_loop`
@@ -50,6 +61,10 @@ export IMPL="backend/src/agent/infrastructure/[layer]/[impl_name].py"
 export TEST="backend/tests/agent/infrastructure/test_[impl_name].py"
 export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
 
+# ERROR PREVENTION: 
+# 1. Concise prompt to reduce token count.
+# 2. Specific file targets to prevent broad scanning.
+
 aider --model dashscope/qwen-max \
   --model-metadata-file aider_model_metadata.json \
   --read $INTERFACE --read $SCHEMA --read $MCP_SCHEMA \
@@ -58,26 +73,17 @@ aider --model dashscope/qwen-max \
   --test-cmd "pytest $TEST" \
   --yes --no-suggest-shell-commands \
   --message "
-Task: Implementation of [feature_name] via TDD.
+Task: Implement [feature_name] in \$IMPL via TDD.
 
 Context:
 - Contract: \$INTERFACE
 - Schema: \$SCHEMA
-- MCP Definitions: \$MCP_SCHEMA
 
-Requirements:
-1. Environment & Pre-checks:
-   - Ensure GITHUB_TOKEN or relevant API keys are set if hitting external APIs.
-   - If using 'litellm', ensure LLM keys are valid.
-2. Step 1 (Fix Imports First): Before logic, ensure all imports are valid and pointing to absolute paths (agent.domain...). 
-   - If refactoring, UPDATE THE TEST IMPORTS immediately to match the new implementation structure.
-3. Step 2 (Cleanup): If this replaces a legacy tool, IDENTIFY legacy tests (e.g. in tests/test_tools.py) AND UPDATE OR MOCK them.
-4. Step 3 (TDD): Write/Update unit tests in \$TEST.
-   - MUST use MOCKING for any environment variables or API calls.
-   - NO direct dependency on secrets like ZOTERO_API_KEY.
-   - For Context Managers, MOCK __enter__ explicitly.
-   - For external library imports in modules, PATCH the destination, not the source.
-5. Step 4 (Implement): Implement the adapter logic in \$IMPL.
-   - Use Factory Functions (get_tool() -> McpTool) over Class Inheritance.
-6. Iterate: If tests or linting fail, fix the code in \$IMPL or \$TEST until everything is green.
+Steps:
+1. **Fix Imports**: Ensure absolute imports (agent.domain...) work.
+2. **Pre-Test**: Check \$TEST. Update imports. Mock ALL external calls (APIs, DBs, EnvVars) using unittest.mock.
+3. **Implement**: Write adapter logic in \$IMPL. Use Factory pattern.
+4. **Verify**: Run tests until green.
+
+Focus: Strict adherence to Contract. No extra features.
 "

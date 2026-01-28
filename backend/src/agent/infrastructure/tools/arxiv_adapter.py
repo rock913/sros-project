@@ -4,11 +4,11 @@ from typing import List
 
 import arxiv
 
-from agent.domain.ports.paper_searcher import PaperSearcher
+from agent.domain.ports.paper_searcher import PaperSearcherPort
 from agent.domain.schemas.paper import OpenAccessInfo, Paper
 
 
-class ArxivAdapter(PaperSearcher):
+class ArxivAdapter(PaperSearcherPort):
     """Adapter for searching papers on arXiv.org using the 'arxiv' python package."""
     
     def search(self, query: str, max_results: int = 5) -> List[Paper]:

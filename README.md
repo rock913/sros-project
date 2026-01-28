@@ -10,9 +10,11 @@ For current development status and progress tracking, see [Development Status](D
 ## Features
 
 - 🤖 **Autonomous Research Agent:** Employs a multi-stage LangGraph agent to automate research from topic to final report.
-- 🧠 **Reflective & Iterative Search:** Intelligently generates search queries, reflects on results, and refines its strategy to cover knowledge gaps.
+- 🧠 **Co-STORM Discovery (V2.1):** Implements "Collaborative STORM" workflow where AI agents debate research perspectives, uncovering "unknown unknowns" through dynamic mind mapping.
+- 📝 **Draft-Driven Discovery (V2.1):** The agent "reads" your manuscript, identifies evidence gaps, and performs targeted retrieval to fill specific sections (Incremental Writing).
 - 📚 **Automated Literature Management:** Discovers academic papers (Arxiv), finds open-access PDFs (Unpaywall), and automatically organizes them in a Zotero library.
-- 🌐 **Knowledge Graph Construction (V2.1):** Builds a Neo4j-based citation graph using the CiTO ontology to map relationships between papers (Supporting/Refuting).
+- 🌐 **Knowledge Graph Construction:** Builds a Neo4j-based citation graph using the CiTO ontology.
+- 🔌 **Native MCP Integration:** Full-duplex communication between VS Code and Backend via Model Context Protocol (MCP), enabling "Ghost Text" and real-time steering.
 - ✍️ **Reflexion-Based Writing (V2.1):** Implements "Citation Verification" loops to ensure every claim in the generated report is grounded in actual retrieved evidence.
 - 📄 **Cited Report Generation:** Produces a complete report on the research topic, fully supported by citations from the collected literature.
 - 📚 **Historical Data Management:** Tracks all research sessions, papers, and reports with full version history and advanced analytics (Phase 3.5 - On Hold).
@@ -23,15 +25,20 @@ For current development status and progress tracking, see [Development Status](D
 
 ## Architecture
 
-The project is evolving towards a **Hexagonal Architecture** (also known as Ports and Adapters) driven by the **Model Context Protocol (MCP)**.
+The project is evolving towards a **Hexagonal Architecture** driven by the **Model Context Protocol (MCP)**.
 
 ### V2.1 System Architecture
 
-The system follows a "Three-Plane" model integrated with Hexagonal Architecture:
+The system follows a "Three-Plane" model:
 
-1.  **Interaction Plane (VS Code):** Native TreeView for task navigation and Webview for HITL Decision Cards.
-2.  **Intelligence Plane (LangGraph):** A "Writer's Room" of specialized agents (Supervisor, Librarian, Analyst, Scribe).
-3.  **Capability Plane (MCP Servers):** Distributed tools for Research, Knowledge Graph (Neo4j), and Zotero sync.
+1.  **Interaction Plane (VS Code):** 
+    -   **Dynamic Mind Map:** Visualizing the research territory.
+    -   **Steering Console:** Human-in-the-loop control for accepting/rejecting agent plans.
+2.  **Intelligence Plane (LangGraph "Writer's Room"):** 
+    -   **Supervisor (PI):** Gap Analysis & Planning.
+    -   **Librarian:** Search & Retrieval.
+    -   **Analyst:** Discourse & Synthesis.
+3.  **Capability Plane (MCP Servers):** Distributed tools for Research, Knowledge Graph, and Zotero.
 
 ```mermaid
 graph TD

@@ -86,6 +86,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile.aider
     container_name: aider-agent
+    ports:
+      - "3001:3001"
     volumes:
       - .:/app
     environment:
@@ -94,4 +96,10 @@ services:
       DASHSCOPE_API_BASE: ${DASHSCOPE_API_BASE:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LANG: C.UTF-8
-    command: tail -f /dev/null
+      MCP_PORT: 3001
+      LOAD_BUSINESS_TOOLS: "false"  # Control Plane mode: no business tools, only meta-tools
+    # Run the MCP server for Aider integration
+    command: python -m aider_mcp_launcher
+    stdin_open: true
+    tty: true
+    restart: no  # Disable restart to see errors in logs

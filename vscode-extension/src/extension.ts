@@ -33,6 +33,7 @@ import { DocumentCollaborationManager, DocumentUpdate } from './documentCollabor
 import { ResearchSessionsTreeProvider } from './ResearchSessionsTreeProvider';
 import { ManuscriptDocumentProvider } from './providers/ManuscriptDocumentProvider';
 import { ManuscriptCodeLensProvider } from './providers/ManuscriptCodeLensProvider';
+import { MindMapProvider, MindMapNode } from './providers/MindMapProvider';
 import * as researchCommands from './commands/researchSessionCommands';
 
 /**
@@ -1204,7 +1205,7 @@ function createHitlRequestHandler(
     };
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 
     console.log('Congratulations, your extension "auto-researcher" is now active!');
 
@@ -1227,6 +1228,15 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.registerTextDocumentContentProvider(
             'research-manuscript',
             manuscriptDocProvider
+        )
+    );
+
+    // Phase 5.2 Sprint 3: Register MindMap Provider for live Co-STORM updates
+    const mindMapProvider = new MindMapProvider();
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider(
+            'auto-researcher.mindmap',
+            mindMapProvider
         )
     );
 
@@ -2024,8 +2034,92 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         vscode.window.showInformationMessage('Research sessions refreshed!');
     });
 
+    // Phase 5.2 Sprint 3: Show MindMap Node Details Command
+    const showMindMapNodeCommand = vscode.commands.registerCommand('auto-researcher.showMindMapNode', async (node: MindMapNode) => {
+        const panel = vscode.window.createWebviewPanel(
+            'mindmapNodeDetails',
+            `Perspective: ${node.name}`,
+            vscode.ViewColumn.One,
+            { enableScripts: true }
+        );
+
+        // Generate HTML for node details
+        const papersHTML = node.papers && node.papers.length > 0
+            ? node.papers.map((paper, idx) => `
+                <div style="background: var(--vscode-editor-inactiveSelectionBackground); padding: 10px; margin: 5px 0; border-radius: 4px;">
+                    <h4>${idx + 1}. ${paper.title}</h4>
+                    <p><strong>Authors:</strong> ${paper.authors.join(', ')}</p>
+                    <p><strong>DOI:</strong> <a href="https://doi.org/${paper.doi}">${paper.doi}</a></p>
+                </div>
+            `).join('')
+            : '<p>No papers found yet.</p>';
+
+        const summaryHTML = node.summary
+            ? `<div style="background: var(--vscode-editor-inactiveSelectionBackground); padding: 15px; border-radius: 4px; margin: 15px 0;">
+                <h3>Summary</h3>
+                <p>${node.summary}</p>
+            </div>`
+            : '<p>Summary pending analysis.</p>';
+
+        panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${node.name}</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: var(--vscode-titleBar-activeForeground);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            padding-bottom: 10px;
+        }
+        .meta-info {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        a {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>${node.name}</h1>
+
+    <div class="meta-info">
+        <h2>Description</h2>
+        <p>${node.description}</p>
+
+        <h2>Search Keywords</h2>
+        <p><code>${node.query_keywords.join(', ')}</code></p>
+
+        <h2>Status</h2>
+        <p>Papers Found: ${node.papers ? node.papers.length : 0} | Summary: ${node.summary ? 'Available' : 'Pending'}</p>
+    </div>
+
+    <h2>Papers (${node.papers ? node.papers.length : 0})</h2>
+    ${papersHTML}
+
+    <h2>Analysis Summary</h2>
+    ${summaryHTML}
+</body>
+</html>`;
+    });
+
     // Phase 3.7 方案 B: Research Session Commands
-    const openManuscriptCommand = vscode.commands.registerCommand('auto-researcher.openManuscript', 
+    const openManuscriptCommand = vscode.commands.registerCommand('auto-researcher.openManuscript',
         (sessionId: string, version: number, report?: any) => researchCommands.openManuscript(sessionId, version, report)
     );
     
@@ -2084,6 +2178,8 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         testHITLCommand,
         testDocCollabCommand,
         refreshResearchSessionsCommand,
+        // Phase 5.2 Sprint 3: MindMap Node Details Command
+        showMindMapNodeCommand,
         // Phase 3.7 方案 B: Research Session Commands
         openManuscriptCommand,
         compareVersionsCommand,
@@ -2093,6 +2189,30 @@ AI holds tremendous promise for transforming healthcare delivery, but successful
         downloadPDFCommand,
         showSessionAnalyticsCommand
     );
+
+    // Register MCP Client with MindMap Provider for live Co-STORM updates
+    try {
+        const { getMcpClient } = await import('./mcp_client');
+        const mcpClient = getMcpClient(context);
+
+        // Set up message handling for MindMap updates
+        mcpClient.onMessage((message: any) => {
+            if (message.type === 'mindmap_update' && message.payload?.mindmap) {
+                mindMapProvider.updateMindMap(message.payload.mindmap);
+            }
+        });
+
+        // Start MCP client asynchronously
+        mcpClient.start().then(() => {
+            console.log('[Extension] MCP Client started successfully');
+        }).catch((error) => {
+            console.error('[Extension] Failed to start MCP Client:', error);
+        });
+
+        console.log('[Extension] MCP Client initialized with MindMap Provider');
+    } catch (error) {
+        console.error('[Extension] Failed to initialize MCP Client:', error);
+    }
 
     checkHealth()
         .then(data => {

@@ -216,3 +216,13 @@ dist/
 build/
 
 .aider*
+
+# Ignore accidental files starting with backtick
+`*
+
+# Generated caches
+unpaywall_cache
+backend/unpaywall_cache
+
+# VSCode build output
+vscode-extension/out/

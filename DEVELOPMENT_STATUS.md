@@ -450,3 +450,36 @@ cd vscode-extension && npm test
 4. **Session Logging:** Maintain development session logs in `.ai-sessions/development/`
 
 **For Questions or Updates:** See [CONTRIBUTING.md](CONTRIBUTING.md) or refer to active session logs.
+
+---
+
+## Phase 5.1: MVP-Connectivity ✅ Complete
+
+**Completion Date:** January 27, 2026
+
+### Overview
+Achieved the first major milestone of V2.1: Native Full-Duplex Connectivity. The VS Code extension now acts as a true MCP Host, communicating directly with the physiological brain (LangGraph) running inside the Docker container via standard I/O channels.
+
+### Core Achievements
+- ✅ **MCP Protocol Standardization**: Defined strict JSON schemas for all Client-Server interactions.
+- ✅ **Session Persistence Layer**: Implemented `PostgresSessionAdapter` with full CRUD and event logging.
+- ✅ **Orchestrator Pattern**: Successfully wrapped LangGraph workflows as callable MCP Tools.
+- **Verification**: `scripts/test_phase_5_mcp_integration.sh` passed successfully.
+
+---
+
+## Phase 5.2: Draft-Driven Discovery Loop (In Progress) 🚀
+
+**Status:** 🏗️ Sprints 1-3 Completed (2026-01-27)
+**Achievement:** The system now features a live, streaming "Mind Map" in VS Code that visualizes the AI's research thought process in real-time.
+
+### Core Architecture (Implemented)
+- **Engine**: Co-STORM Graph running in `langgraph-api` container.
+- **Transport**: Native MCP streams via `docker exec` channel.
+- **Visualization**: Custom `MindMapProvider` in VS Code Extension.
+
+### Remaining Work (Sprint 4)
+- Gap Analysis Node (The Eyes) to read drafts.
+- Incremental Writer Node (The Hands) to write content.
+
+---

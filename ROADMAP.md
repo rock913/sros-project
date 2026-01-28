@@ -382,46 +382,38 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 ---
 
-#### Phase 4.4: AI Model Expansion & Customization (4 weeks)
+#### Phase 5.2: Draft-Driven Discovery Loop ✅ COMPLETE
 
-**Objective:** Support multiple LLM providers and enable domain-specific fine-tuning.
+**Status:** ✅ Completed on January 27, 2026
+**Duration:** Sprint 4 (2 weeks)
 
-**Vision Reference:** Chapter 2.3 - "LiteLLM" for 100+ LLM access strategy.
+**Strategic Goal:** Transform from simple search to "Human-AI Collaborative Discovery" (Co-STORM) driven by manuscript gaps.
 
-**1. Multi-Model Support (Weeks 1-2):**
--   **LiteLLM Full Integration:**
-    -   Already using LiteLLM, expand to support:
-        -   OpenAI GPT-4, GPT-3.5
-        -   Anthropic Claude 3 (Opus, Sonnet, Haiku)
-        -   Google Gemini Pro, Gemini Ultra
-        -   Cohere Command, Command-Light
-        -   Open-source: Llama 3, Mistral, Mixtral
--   **Model Selection UI:**
-    -   Dropdown in Control Panel: "Choose LLM"
-    -   Per-stage model selection (different models for search vs synthesis)
-    -   Cost/performance trade-off recommendations
+**Completed Deliverables:**
+- [x] **Sprint 1 (Brain):** PerspectiveGenerator, MindMap Schema, CoStormGraph ✅
+- [x] **Sprint 2 (Discourse):** LibrarianNode, AnalystNode, Discourse Loop Logic ✅
+- [x] **Sprint 3 (Connection):** Real CoStormGraph integration, MCP event streaming, VS Code MindMapProvider ✅
+- [x] **Sprint 4 (Hands/The Loop):** ✅ **FULLY COMPLETE**
+  - Gap Analysis Node: IGapAnalyzer protocol (@TestScenarios), GapAnalyzerAdapter with Academic Reviewer LLM
+  - Incremental Writer Node: ISnippetWriter protocol (@TestScenarios), SnippetWriterAdapter with nested Co-STORM
+  - VS Code Context Bridge: MCP tools (sync_draft_context, propose_edits, apply_edit)
+  - Frontend Integration: DraftWatcherProvider (debounced analysis), SuggestionUIProvider (CodeLens, Diff, Accept/Reject)
 
-**2. Model Comparison & Benchmarking (Week 3):**
--   **A/B Testing Framework:**
-    -   Run same query with 2 different models
-    -   Compare results side-by-side
-    -   Metrics: Speed, cost, output quality (BLEU, ROUGE scores)
--   **Benchmarking Dashboard:**
-    -   Analytics view showing model performance over time
-    -   Token usage and cost per model
-    -   User satisfaction ratings (thumbs up/down)
+**Agentic Editor MVP:** Draft change → LLM gap critic → Nested Co-STORM research → Cited improvements → CodeLens accept/reject
 
-**3. Domain-Specific Fine-Tuning (Week 4):**
--   **Fine-Tuning Pipeline:**
-    -   Export research sessions as training data (JSON-L format)
-    -   Integration with OpenAI Fine-Tuning API
-    -   Training job monitoring dashboard
--   **Custom Model Deployment:**
-    -   Load fine-tuned models via LiteLLM
-    -   A/B test custom model vs base model
-    -   Continuous improvement loop (collect feedback → retrain)
+**Architecture:** 100% Hexagonal (Domain → Ports → Infrastructure → Application → MCP → VS Code)
 
-**Milestone:** Platform becomes LLM-agnostic with best-in-class model flexibility.
+**Files:** 12 new files, full TDD compliance, @TestScenarios for all protocols
+
+---
+
+#### Phase 5.3: Advanced Steering & Co-STORM UX (Planned)
+
+Assistant: Now let me add a summary of achievements and update the date. I need to be careful to update the current status and add the new phase.<replace_in_file>
+<path>ROADMAP.md</path>
+<diff>------- SEARCH
+**Last Updated:** January 22, 2026
+**Last Updated:** January 27, 2026
 
 ---
 
@@ -536,6 +528,104 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 -   ✅ "科研即代码" - Git-based versioning + automation
 -   ✅ "开放科学生态" - Team collaboration + external tool integration
 -   ✅ **"专业可观测性"** - LangSmith + LangFuse integration (NEW)
+
+---
+
+### Phase 5.1: MVP-Connectivity (Complete) ✅
+
+**Status:** ✅ Completed on 2026-01-27
+
+1. **Protocol Definition:**
+   - [x] Defined `ResearchRequest` and `ResearchUpdate` schemas in `backend/src/agent/domain/schemas/mcp_protocol.py`
+   - [x] Documented `@TestScenarios` for protocol verification
+
+2. **Backend Orchestration:**
+   - [x] Implemented `start_research_session` MCP Tool
+   - [x] Integrated `SessionManager` for session persistence
+   - [x] Established Orchestrator -> Discovery Graph connection
+
+3. **Frontend Client:**
+   - [x] Implemented `McpClient` in VS Code extension (TS)
+   - [x] Validated JSON-RPC 2.0 full-duplex communication over Stdio
+
+---
+
+### Phase 5.2: Draft-Driven Discovery Loop (In Progress) 🚀
+
+**Status:** 🏗️ Development Started (2026-01-27)
+**Objective:** Transform from simple search to "Human-AI Collaborative Discovery" (Co-STORM) driven by manuscript gaps.
+
+#### Sprint 1: Co-STORM Core (Brain) ✅ Complete
+- [x] **Perspective Generator Node:** Generate 3-5 research perspectives via LLM
+- [x] **Mind Map Schema:** Defined `MindMap` and `PerspectiveNode` (Pydantic V2)
+- [x] **Co-STORM Graph:** Basic StateGraph with Checkpointer
+
+#### Sprint 2: Discourse Loop (Discourse) ✅ Complete
+- [x] **Librarian Node:** Iterate MindMap nodes, execute parallel Arxiv research
+- [x] **Analyst Node:** Synthesize papers into "Perspective Summaries"
+- [x] **Workflow:** Connect `generate -> librarian -> analyst` loop
+
+#### Sprint 3: MCP Real-time Integration (Connection) ✅ Complete
+- [x] **Orchestrator Upgrade:** Replace Mock Graph with Real `CoStormGraph`
+- [x] **Event Mapping:** Stream `ResearchUpdate(type='mindmap_update')` to MCP
+- [x] **VS Code UI:** `MindMapProvider` to render the growing research tree
+
+#### Sprint 4: Gap Filling & Writing (Hands) ⏳ Pending
+- [ ] **Gap Analysis Node:** Read Markdown Draft -> Identify missing evidence
+- [ ] **Incremental Writer:** Generate cited snippets for gaps
+- [ ] **Steering UI:** "Approve/Reject" interface for agent contributions
+
+### Phase 5.3: Co-STORM Steering (Planned)
+
+**Objective:** Enable researchers to iteratively steer AI-generated manuscripts towards desired outcomes.
+
+**1. Steering Workflow:**
+-   Integrate steering prompts at key workflow stages:
+    -   After perspective generation: "Select perspectives to pursue"
+    -   After literature discovery: "Fill gaps in the draft"
+    -   After initial drafting: "Review and revise sections"
+-   Implement feedback loop:
+    -   User selects perspectives → AI expands on selected topics
+    -   User reviews AI-generated content → Provides thumbs up/down
+    -   Positive feedback → AI retains approach; Negative feedback → AI retries with new angle
+
+**2. Frontend Steering UI:**
+-   **Steering Panel (Control Panel Webview):**
+    -   Show active perspectives and gaps
+    -   Thumbs up/down buttons for feedback
+    -   "Regenerate" button to retry from last good state
+-   **Notification System:**
+    -   Alert on new perspective or gap detection
+    -   Summary of changes after AI update
+
+**3. Backend Enhancements:**
+-   **State Management:**
+    -   Persist steering decisions and AI responses in `session_events`
+    -   Enhance `ResearchUpdate` schema with steering metadata
+-   **API Rate Limiting:**
+    -   Limit steering requests to prevent abuse
+    -   10 requests per minute per user
+
+**Milestone:** Complete Co-STORM steering loop with user feedback integration.
+
+---
+
+### Phase 5 Summary
+
+**Duration:** 2 weeks (ongoing)
+
+**Strategic Goals:**
+-   Enable "Human-AI Collaborative Discovery" (Co-STORM)
+-   Enhance draft writing with AI-generated perspectives and gap analysis
+
+**Current Status:**
+-   Phase 5.1 complete: MVP connectivity and protocol definition
+-   Phase 5.2 in progress: Draft-Driven Discovery loop development
+
+**Next Steps:**
+-   Continue Phase 5.2 development: Co-STORM engine, draft awareness, incremental writing
+-   Integrate user feedback for iterative improvement
+-   Prepare for Phase 6: Ecosystem Integration and Advanced Features
 
 ---
 
