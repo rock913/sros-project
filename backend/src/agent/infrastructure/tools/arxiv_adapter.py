@@ -53,11 +53,14 @@ class ArxivAdapter(PaperSearcherPort):
         # Format authors
         authors = [a.name for a in r.authors]
         
+        # Convert publication date to ISO 8601 string format
+        publication_date = r.published.date().isoformat()
+        
         return Paper(
             doi=doi,
             title=r.title,
             authors=authors,
-            publication_date=r.published.date(),
+            publication_date=publication_date,
             publisher="arXiv",
             oa_info=oa_info,
             abstract=r.summary  # Map summary to abstract
