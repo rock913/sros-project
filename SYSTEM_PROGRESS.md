@@ -44,8 +44,81 @@ Successfully established the full-duplex MCP communication channel between VS Co
   - [x] **Incremental Writer Node:** ISnippetWriter protocol, SnippetWriterAdapter with nested Co-STORM
   - [x] **VS Code Context Bridge:** MCP tools (sync_draft_context, propose_edits, apply_edit)
   - [x] **Frontend Integration:** DraftWatcherProvider with debounced analysis, SuggestionUIProvider with CodeLens/Diff
+### Phase 5.2.1: Reliability & Observability Hotfix (Completed) ✅
 
-**Files Created:** 12 new files, 100% hexagonal architecture compliance
+**Status:** ✅ COMPLETE
+**Objective:** Stabilize MCP infrastructure and enforce Hexagonal Architecture purity for Co-STORM.
+
+*   **Infrastructure Stabilization (Blocking Fix)**
+    *   [x] Fix MCP Startup Timeout: Force `python -u` (unbuffered) in Docker commands.
+    *   [x] Enhance `mcp_client.ts`: Add stderr listening for immediate failure detection.
+    *   [x] Test: Add `vscode-extension/src/test/suite/mcp_command.test.ts`.
+
+*   **Domain Layer Refactoring (Architecture Enforcement)**
+    *   [x] Define `LLMProviderPort` in `backend/src/agent/domain/ports/llm_provider.py`.
+    *   [x] Implement `CoStormNode` as pure class with dependency injection (inject `LLMProvider`, `DBManager`).
+    *   [x] Eliminate direct `litellm` calls in business logic.
+    *   [x] Verify: Add `backend/tests/agent/application/nodes/test_costorm_observability.py`.
+
+*   **Frontend Data Restoration**
+    *   [x] Restore `MindMapProvider` registration in `extension.ts`.
+    *   [x] Verify `ResearchSessionsTreeProvider` data binding.
+    *   [x] Ensure `mindmap_generated` events are correctly propagated to VS Code.
+
+**Outcome:**
+- MCP connection stable (no timeouts).
+- Co-STORM domain logic isolated (18/18 provider tests passed, 5/5 node tests passed).
+- Data flow restored (MindMap rendering correctly).
+
+### Phase 5.2.2: Co-STORM Full Loop & Deep Observability (Completed) ✅
+
+**Status:** ✅ COMPLETE
+**Objective:** Close the loop (Perspectives -> Papers -> Analysis) and implement deep observability with LangFuse.
+
+*   **Architecture Governance (Analyst Node)**
+    *   [x] Refactor `AnalystNode` to use `LLMProviderPort` (Dependency Injection).
+    *   [x] Remove direct `litellm` calls in `analyst.py`.
+    *   [x] TDD: Create `backend/tests/agent/application/nodes/test_analyst.py`.
+
+*   **Librarian Node Chain Verification**
+    *   [x] Verify `PaperSearcherPort` contract implementation.
+    *   [x] Integration Test: Validate `LibrarianNode` populates `MindMap` with papers via Adapter.
+
+*   **Deep Observability (LangFuse)**
+    *   [x] Dependency: Add `langfuse` to `backend/pyproject.toml`.
+    *   [x] Infrastructure: Implement `LangFuseTracer` in `agent.infrastructure.observability`.
+    *   [x] Instrumentation: Add traces to `CoStormNode` (Group), `LibrarianNode` (Span), `AnalystNode` (Span).
+    *   [x] Frontend: Propagate Trace ID in `mindmap_generated` events.
+
+*   **Frontend Debugging Enhancements**
+    *   [x] Implement "Node Details" WebView (Show Papers/Summaries for selected node).
+    *   [x] Add Co-STORM Phase Indicator (Generating/Searching/Analyzing).
+
+**Outcome:**
+- Full Co-STORM loop verified with 100% test coverage.
+- Deep tracing enabled (LangFuse) for all nodes.
+- Frontend debugging tools operational.
+
+### Phase 5.3: Co-STORM Steering & LangGraph Studio (Current Focus)
+
+**Status:** 🏗️ PLANNING
+**Objective:** Enable Human-in-the-Loop (HITL) steering and integrate LangGraph Studio for local "Time Travel" debugging.
+
+*   **Developer Experience (LangGraph Studio)**
+    *   [ ] Configuration: Optimize `backend/langgraph.json` for Studio compatibility.
+    *   [ ] Environment: Create `docker-compose-studio.yml` for isolated Studio execution.
+    *   [ ] Validation: Verify "Time Travel" debugging for Co-STORM graph states.
+
+*   **Co-STORM Steering (HITL Nodes)**
+    *   [ ] Interrupt Logic: Add `interrupt_before=["librarian_node"]` for user review.
+    *   [ ] Perspective Selection: API to Approve/Reject generated perspectives.
+    *   [ ] State Resume: Resume workflow with filtered research plan.
+
+*   **Frontend Steering UI**
+    *   [ ] Interactive "Perspective Review" Card in WebView.
+    *   [ ] "Approve & Search" Action implementation.
+
+**Files Created:** TBD
 **Test Scenarios:** All protocols have @TestScenarios documentation
 **Architecture:** Domain (pure) ← Ports (@TestScenarios) ← Infrastructure (adapters) ← Application (nodes) ← MCP (tools) ← VS Code (providers)
 

@@ -222,6 +222,57 @@ Building on the foundation established in Phases 1-3, this phase focuses on tran
 
 ---
 
+### Phase 5.2.1: Reliability Hardening & Observability (Complete) ✅
+
+**Strategic Goal:** Ensure robust MCP connectivity and complete system observability ("fix the pipes") before advanced HITL.
+
+**1. Infrastructure Stabilization (Priority 0):**
+-   ✅ **MCP Connectivity:** Resolved Docker-based MCP server startup timeouts via unbuffered I/O (`python -u`) and stderr monitoring.
+-   ✅ **Environment Isolation:** Ensured `PYTHONPATH` and dependency injection allow seamless `docker exec` execution.
+
+**2. Hexagonal Architecture Enforcement:**
+-   ✅ **Refactoring Co-STORM:** Migrated `CoStormNode` from hybrid script/class to pure Domain Class.
+-   ✅ **Port/Adapter Pattern:** Abstracted `litellm` calls behind `LLMProviderPort` to enable isolated testing.
+-   ✅ **Observability Contract:** Implemented explicit `log_event` hooks for "MindMap Generated" events.
+
+**3. Frontend Data Recovery:**
+-   ✅ **UI Restoration:** Re-enabled `MindMapProvider` and `ResearchSessionsTreeProvider`.
+-   ✅ **Data Binding:** Verified End-to-End data flow from `generate_perspectives` -> DB -> API -> VS Code TreeView.
+
+### Phase 5.2.2: Co-STORM Full Loop & Deep Observability (Complete) ✅
+
+**Strategic Goal:** Close the Co-STORM loop (Search -> Analysis) and implement deep trace observability.
+
+**1. Analyst Node Refactoring:**
+-   ✅ **Hexagonal Integrity:** Migrated `AnalystNode` to use `LLMProviderPort` instead of direct infrastructure calls.
+-   ✅ **TDD Verification:** Implemented `test_analyst.py` with full mocking.
+
+**2. Full Loop Closure:**
+-   ✅ **Librarian Integration:** Verified `PaperSearcherPort` connects to Arxiv adapter correctly within the graph.
+-   ✅ **End-to-End Test:** Validated flow from Perspective -> Papers -> Summary -> Frontend.
+
+**3. LangFuse Observability:**
+-   ✅ **Deep Tracing:** Implemented `LangFuseTracer` and instrumented all Co-STORM nodes.
+-   ✅ **Trace Propagation:** Passed Trace IDs to frontend for deep link debugging.
+
+### Phase 5.3: Co-STORM Steering & LangGraph Studio (Current) 🚧
+
+**Strategic Goal:** Enable "Time Travel" debugging with LangGraph Studio and implement Human-in-the-Loop (HITL) steering.
+
+**1. LangGraph Studio Integration (Local IDE):**
+-   **Debugging Env:** Configure `langgraph.json` and Docker for local LangGraph Studio support.
+-   **Time Travel:** Enable developers to replay and fork graph states locally without data egress.
+-   **Visual Profiling:** Use Studio to visualize Co-STORM fan-out and merge behaviors.
+
+**2. Human-in-the-Loop (HITL) Steering:**
+-   **Checkpoint Interruption:** Modify `CoStormGraph` to pause before critical transitions (e.g., before Search).
+-   **Steering API:** Implement endpoints to Review/Approve/Reject generated perspectives.
+-   **Resume Logic:** Allow graph execution to resume with user-modified state.
+
+**3. Frontend Steering Controls:**
+-   **Interactive WebView:** Build "Perspective Review" card to accept user feedback.
+-   **Action Integration:** Connect "Approve" button to backend Resume API.
+
 ### Phase 3.6: Real-time Collaboration & Advanced HITL (3 weeks)
 
 **Strategic Goal:** Transform platform from single-user tool to fully interactive AI-Human collaborative research environment with deep VS Code integration.
@@ -832,7 +883,7 @@ This roadmap transforms the **gemini-fullstack-langgraph-quickstart** from a tec
 
 ---
 
-**Last Updated:** January 22, 2026
-**Current Phase:** 4.1 Complete ✅ | Next: 4.2 MCP Infrastructure & Hexagonal Migration
-**Project Status:** Phase 4.1 completed, continuing with Phase 4.2 development
-**Strategy:** Leverage existing observability platforms, focus on core research capabilities
+**Last Updated:** January 29, 2026
+**Current Phase:** Phase 5.3 Unified Frontend UI & Co-STORM UX (In Progress) | Next: Complete Frontend Refactor
+**Project Status:** Phase 5.2 Complete ✅, Phase 5.3 Started - Frontend refactoring to match Co-STORM capabilities
+**Strategy:** Transform fragmented UI into unified "Research Explorer" supporting nested mind map visualization
