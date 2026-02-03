@@ -1,3 +1,0 @@
-"""
-Semantic Scholar MCP Server
-"""
