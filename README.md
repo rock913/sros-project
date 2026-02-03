@@ -27,11 +27,12 @@ SROS implements a **Dual-Plane Model**:
 #### MCP Servers - ✅ ALL OPERATIONAL
 All MCP servers are located in the [`mcp_servers/`](mcp_servers/) directory:
 
-1. **semantic_scholar/** - Academic search capabilities ✅
-2. **zotero_expert/** - Local citation management ✅
-3. **manuscript_manager/** - Core manuscript operations ✅
-4. **duckdb_memory/** - Local knowledge graph storage ✅
-5. **mcp_sros_logic/** - Custom SROS logic and workflow management ✅
+1. **federal_academic_search/** - Next-generation academic search with OpenAlex + Unpaywall + Semantic Scholar federal architecture ✅
+2. **semantic_scholar/** - Legacy academic search server (DEPRECATED - replaced by federal_academic_search) 🔄
+3. **zotero_expert/** - Local citation management ✅
+4. **manuscript_manager/** - Core manuscript operations ✅
+5. **duckdb_memory/** - Local knowledge graph storage ✅
+6. **mcp_sros_logic/** - Custom SROS logic and workflow management ✅
 
 #### Workspace Structure
 Each research project uses a local-first approach with all data stored in the project directory:
@@ -50,7 +51,7 @@ The system operates on a "write-while-researching" model:
 
 1. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure tree
 2. **Detect**: Identify gaps in the manuscript (explicit `[TODO:]` and implicit logic breaks)
-3. **Retrieve**: Call `semantic_scholar` to find evidence for specific gaps
+3. **Retrieve**: Call `federal_academic_search` to find evidence for specific gaps
 4. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`
 5. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content in specified sections
 6. **Iterate**: Rescan manuscript to check if gaps are eliminated
@@ -132,7 +133,7 @@ Create a basic `draft.md`:
 python run_servers.py all
 
 # Or run individual servers
-python run_servers.py semantic-scholar --port 8001
+python run_servers.py federal-academic-search --port 8001
 python run_servers.py manuscript-manager --port 8002
 python run_servers.py duckdb-memory --port 8003
 ```
@@ -150,7 +151,7 @@ python run_servers.py duckdb-memory --port 8003
 3. Roo Code will automatically detect gaps and trigger research workflows
 
 **Step 2: Research Automation**
-1. The system automatically calls `semantic_scholar` server to find relevant papers
+1. The system automatically calls `federal_academic_search` server to find relevant papers
 2. Literature relationships are stored in the local knowledge graph (`.sros/graph.db`)
 3. Relevant findings are suggested for insertion into your manuscript
 
@@ -185,6 +186,7 @@ python run_servers.py duckdb-memory --port 8003
 - [SROS_PROJECT_PROGRESS.md](SROS_PROJECT_PROGRESS.md) - Current progress and timeline
 - [doc/SROS_DEVELOPMENT_GUIDELINES.md](doc/SROS_DEVELOPMENT_GUIDELINES.md) - Development guidelines and standards
 - [doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md](doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md) - Original architecture plan
+- [doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md](doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md) - Complete development plan for federal academic search
 
 ### Troubleshooting
 
@@ -234,11 +236,12 @@ SROS 实现了**双平面模型**：
 #### MCP 服务器 - ✅ 全部运行中
 所有 MCP 服务器位于 [`mcp_servers/`](mcp_servers/) 目录中：
 
-1. **semantic_scholar/** - 学术搜索功能 ✅
-2. **zotero_expert/** - 本地引用管理 ✅
-3. **manuscript_manager/** - 核心手稿操作 ✅
-4. **duckdb_memory/** - 本地知识图谱存储 ✅
-5. **mcp_sros_logic/** - 自定义 SROS 逻辑和工作流管理 ✅
+1. **federal_academic_search/** - 新一代学术搜索，采用OpenAlex + Unpaywall + Semantic Scholar联邦架构 ✅
+2. **semantic_scholar/** - 旧版学术搜索服务器 (已弃用 - 由federal_academic_search替代) 🔄
+3. **zotero_expert/** - 本地引用管理 ✅
+4. **manuscript_manager/** - 核心手稿操作 ✅
+5. **duckdb_memory/** - 本地知识图谱存储 ✅
+6. **mcp_sros_logic/** - 自定义 SROS 逻辑和工作流管理 ✅
 
 #### 工作区结构
 每个研究项目都采用本地优先的方法，所有数据都存储在项目目录中：
@@ -257,7 +260,7 @@ SROS 实现了**双平面模型**：
 
 1. **观察**：Roo Code 调用 `manuscript_manager` 获取当前 Markdown 结构树
 2. **检测**：识别手稿中的空白（明确的 `[TODO:]` 和隐含的逻辑断点）
-3. **检索**：调用 `semantic_scholar` 为特定空白寻找证据
+3. **检索**：调用 `federal_academic_search` 为特定空白寻找证据
 4. **构建**：将文献关系（CiTO 本体论）存储在本地 `.sros/graph.db` 中
 5. **扩展**：使用 `manuscript_manager` 原子编辑工具在指定章节插入引用内容
 6. **迭代**：重新扫描手稿以检查空白是否消除
@@ -339,7 +342,7 @@ cd 我的研究项目
 python run_servers.py all
 
 # 或运行单个服务器
-python run_servers.py semantic-scholar --port 8001
+python run_servers.py federal-academic-search --port 8001
 python run_servers.py manuscript-manager --port 8002
 python run_servers.py duckdb-memory --port 8003
 ```
@@ -357,7 +360,7 @@ python run_servers.py duckdb-memory --port 8003
 3. Roo Code 将自动检测空白并触发研究工作流
 
 **第 2 步：研究自动化**
-1. 系统自动调用 `semantic_scholar` 服务器查找相关论文
+1. 系统自动调用 `federal_academic_search` 服务器 查找相关论文
 2. 文献关系存储在本地知识图谱中（`.sros/graph.db`）
 3. 相关发现被建议插入到您的手稿中
 
@@ -392,6 +395,7 @@ python run_servers.py duckdb-memory --port 8003
 - [SROS_PROJECT_PROGRESS.md](SROS_PROJECT_PROGRESS.md) - 当前进度和时间线
 - [doc/SROS_DEVELOPMENT_GUIDELINES.md](doc/SROS_DEVELOPMENT_GUIDELINES.md) - 开发指南和标准
 - [doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md](doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md) - 原始架构计划
+- [doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md](doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md) - 联邦学术搜索完整开发计划
 
 ### 故障排除
 

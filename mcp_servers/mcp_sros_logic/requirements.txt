@@ -1,0 +1,3 @@
+# Requirements for SROS Logic MCP Server
+# Currently no additional dependencies beyond standard library
+# This server primarily coordinates with other MCP servers

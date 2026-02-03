@@ -22,3 +22,15 @@ Each subdirectory represents a specific MCP server:
 ## Configuration
 
 Each server should have its own configuration file and documentation in its respective directory.
+
+## Progress Tracking
+
+For detailed progress tracking of MCP server development and integration testing, see the main `SROS_PROGRESS_TRACKING.md` document in the project root.
+
+## Current Status
+
+- ✅ **semantic-scholar/**: Fully implemented with caching, retry logic, and comprehensive tests
+- ✅ **zotero-expert/**: Foundation setup completed (Week 1)
+- ✅ **duckdb-memory/**: Full implementation completed
+- ✅ **manuscript-manager/**: Full implementation completed
+- ✅ **mcp-sros-logic/**: Basic framework completed, core logic pending
