@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
 """
-Main entry point for Manuscript Manager MCP Server
+Main entry point for Federal Academic Search MCP Server with stdio communication
 """
 import sys
 import json
 import asyncio
-from .mcp_handler import handle_mcp_request
+from .mcp_handler import FederalAcademicSearchMCPHandler
 
 async def main(port=None):
-    """Main async function to handle MCP communication.
+    """Main async function to handle MCP communication via stdio.
     
     Args:
         port (int, optional): Port number for the server. Defaults to None.
     """
     # For stdio MCP communication
-    print("Manuscript Manager MCP Server started", file=sys.stderr)
+    print("Federal Academic Search MCP Server started", file=sys.stderr)
     sys.stderr.flush()
     
     # Example of handling a request
     if len(sys.argv) > 1 and sys.argv[1] == "--demo":
         await demo_requests()
         return
+    
+    # Create handler instance
+    handler = FederalAcademicSearchMCPHandler()
     
     # Handle MCP requests via stdin/stdout
     try:
@@ -36,7 +39,7 @@ async def main(port=None):
                 params = request.get("params", {})
                 
                 # Handle the request
-                response = handle_mcp_request(method, params)
+                response = handler.handle_request(method, params)
                 
                 # Extract result/error from response
                 if "result" in response:
@@ -93,8 +96,10 @@ async def demo_requests():
     print("Running demo requests...", file=sys.stderr)
     sys.stderr.flush()
     
+    handler = FederalAcademicSearchMCPHandler()
+    
     # Initialize request
-    init_result = handle_mcp_request("initialize", {})
+    init_result = handler.handle_request("initialize", {})
     if "result" in init_result:
         result = init_result["result"]
     else:

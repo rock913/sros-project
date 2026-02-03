@@ -13,6 +13,16 @@ from pathlib import Path
 # Add the mcp_servers directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent / "mcp_servers"))
 
+# Load environment variables from .env file
+env_path = Path(__file__).parent / ".env"
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ[key] = value
+
 def setup_logging():
     """Setup basic logging configuration."""
     logging.basicConfig(
@@ -46,7 +56,7 @@ def run_semantic_scholar_server(port=8002):
     except Exception as e:
         print(f"Error running Federal Academic Search server: {e}")
 
-def run_zotero_expert_server(port=8002):
+def run_zotero_expert_server(port=8003):
     """Run the Zotero Expert MCP server."""
     try:
         from zotero_expert.main import main as zotero_expert_main
@@ -58,24 +68,38 @@ def run_zotero_expert_server(port=8002):
     except Exception as e:
         print(f"Error running Zotero Expert server: {e}")
 
-def run_manuscript_manager_server(port=8003):
+def run_manuscript_manager_server(port=8004):
     """Run the Manuscript Manager MCP server."""
     try:
         from manuscript_manager.main import main as manuscript_manager_main
         print(f"Starting Manuscript Manager server on port {port}...")
-        manuscript_manager_main(port=port)
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is already running, create a new task
+            loop.create_task(manuscript_manager_main(port=port))
+        else:
+            # If loop is not running, run until complete
+            loop.run_until_complete(manuscript_manager_main(port=port))
     except ImportError as e:
         print(f"Error importing Manuscript Manager server: {e}")
         print("Please install required dependencies: pip install -r mcp_servers/manuscript_manager/requirements.txt")
     except Exception as e:
         print(f"Error running Manuscript Manager server: {e}")
 
-def run_duckdb_memory_server(port=8004):
+def run_duckdb_memory_server(port=8005):
     """Run the DuckDB Memory MCP server."""
     try:
         from duckdb_memory.main import main as duckdb_memory_main
         print(f"Starting DuckDB Memory server on port {port}...")
-        duckdb_memory_main(port=port)
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is already running, create a new task
+            loop.create_task(duckdb_memory_main(port=port))
+        else:
+            # If loop is not running, run until complete
+            loop.run_until_complete(duckdb_memory_main(port=port))
     except ImportError as e:
         print(f"Error importing DuckDB Memory server: {e}")
         print("Please install required dependencies: pip install -r mcp_servers/duckdb_memory/requirements.txt")
@@ -83,12 +107,19 @@ def run_duckdb_memory_server(port=8004):
     except Exception as e:
         print(f"Error running DuckDB Memory server: {e}")
 
-def run_sros_logic_server(port=8005):
+def run_sros_logic_server(port=8006):
     """Run the SROS Logic MCP server."""
     try:
         from mcp_sros_logic.main import main as sros_logic_main
         print(f"Starting SROS Logic server on port {port}...")
-        sros_logic_main(port=port)
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is already running, create a new task
+            loop.create_task(sros_logic_main(port=port))
+        else:
+            # If loop is not running, run until complete
+            loop.run_until_complete(sros_logic_main(port=port))
     except ImportError as e:
         print(f"Error importing SROS Logic server: {e}")
         print("Please install required dependencies: pip install -r mcp_servers/mcp_sros_logic/requirements.txt")

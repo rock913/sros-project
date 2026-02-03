@@ -11,7 +11,6 @@ from .config import FederalAcademicSearchConfig
 
 logger = logging.getLogger(__name__)
 
-
 class FederalAcademicSearchMCPHandler:
     """MCP Handler for Federal Academic Search Server."""
 
@@ -75,17 +74,24 @@ class FederalAcademicSearchMCPHandler:
         """Handle initialize request."""
         self._initialized = True
         return {
-            "capabilities": {
-                "search_papers": {},
-                "get_paper_details": {},
-                "get_citation_context": {},
-                "download_pdf": {},
-                "search_by_author": {},
-                "search_by_title": {},
-                "get_paper_references": {},
-                "get_tldr": {},
-                "get_cache_stats": {},
-                "clear_cache": {}
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {
+                    "name": "Federal Academic Search MCP Server",
+                    "version": "1.0.0"
+                },
+                "capabilities": {
+                    "search_papers": {},
+                    "get_paper_details": {},
+                    "get_citation_context": {},
+                    "download_pdf": {},
+                    "search_by_author": {},
+                    "search_by_title": {},
+                    "get_paper_references": {},
+                    "get_tldr": {},
+                    "get_cache_stats": {},
+                    "clear_cache": {}
+                }
             }
         }
 
@@ -113,7 +119,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in search_papers: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -141,7 +147,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in get_paper_details: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -167,7 +173,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in get_citation_context: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -192,7 +198,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in download_pdf: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -221,7 +227,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in search_by_author: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -250,7 +256,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in search_by_title: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -279,7 +285,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in get_paper_references: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -304,7 +310,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in get_tldr: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -316,7 +322,7 @@ class FederalAcademicSearchMCPHandler:
             
         try:
             stats = self.search_manager.get_cache_stats()
-            return stats
+            return {"result": stats}
         except Exception as e:
             logger.error(f"Error in get_cache_stats: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}
@@ -335,7 +341,7 @@ class FederalAcademicSearchMCPHandler:
             )
             loop.close()
             
-            return result
+            return {"result": result}
         except Exception as e:
             logger.error(f"Error in clear_cache: {str(e)}")
             return {"error": {"code": -32603, "message": str(e)}}

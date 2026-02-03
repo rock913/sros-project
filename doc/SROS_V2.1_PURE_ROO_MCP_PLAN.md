@@ -1,131 +1,194 @@
-# SROS V2.1.5 开发全手册：科研自动化操作系统
+SROS V2.1.5 开发全手册：科研自动化操作系统
 
-**版本**: V2.1.5 (Agentic & Serverless)
-**核心哲学**: 以稿件为中心，以 MCP 为触手，以 Roo Code 为大脑。
-**代号**: "Growing Doc"
+版本: V2.1.5 (MVP Ready + Context Enhanced)
+状态: ✅ 100% 功能完整 / 核心 Server 全部上线
 
-## 0. 瘦身重构计划 (The Great Purge)
 
-鉴于项目架构已从“重后端应用”转向“Serverless Agent配置”，当前代码库存在大量冗余。
+核心哲学: 以稿件为中心，以 MCP 为触手，以环境隔离确保逻辑纯净。
 
-### 0.1 归档策略
-我们将创建一个 `legacy_v1_archive/` 目录，将以下不再直接维护的模块移入，作为参考库：
+1. 架构总览 (System Architecture)
 
-*   ❌ **`backend/`**: 原 LangGraph Python 后端（包含 StateGraph, FastAPI, Dockerfile）。
-    *   *迁移价值*: 保留 `src/agent/domain/schemas` 中的 Pydantic 模型作为 MCP 开发参考。
-*   ❌ **`frontend/`**: 原 React 前端。
-*   ❌ **`vscode-extension/`**: 原独立插件源码（现有架构直接复用 Roo Code，无需自研插件 Host）。
-*   ❌ **`docker-compose*.yml`**: 不再需要编排容器服务。
+SROS 采用 双平面模型 (Two-Plane Model)，严格区分“制造工具的人（Dev）”和“使用工具的人（User）”。
 
-### 0.2 保留与新生
-项目根目录将只保留以下轻量级结构：
+1.1 控制平面 (Control Plane)
 
-```
-.
-├── .roomodes                  # Roo Code 角色定义 (Brain)
-├── .clinerules                # 全局行为准则
-├── mcp_servers/               # 能力平面 (Tools)
-│   ├── zotero-expert/
-│   ├── semantic-scholar/
-│   └── manuscript-manager/    # 核心自研
-├── doc/                       # 核心文档
-└── workspace/                 # 用户科研工作区示例
-```
+载体: Roo Code / Cline (VS Code Extension)。
 
----
+职责: 任务规划、CoT 推理、决策（决定何时检索、何时扩写）、人机交互。
 
-## 1. 架构总览 (System Architecture)
+逻辑存储:
 
-SROS 摒弃了复杂的后端服务器（LangGraph），采用 **双平面模型 (Two-Plane Model)**。
+.roomodes: 定义 SROS 的行为模式（如 Researcher vs Writer）。
 
-### 1.1 控制平面 (Control Plane - The Brain)
-*   **载体**: Roo Code / Cline (VS Code Extension).
-*   **职责**: 任务规划、CoT 推理、决策（决定何时检索、何时扩写）、人机交互。
-*   **逻辑存储**: 所有的编排逻辑存储在 `.roomodes` 和 `.clinerules` 中。
+mcp_sros_logic: 承载自定义的业务流逻辑。
 
-### 1.2 能力平面 (Capability Plane - The Tools)
-*   **载体**: 遵循 Model Context Protocol (MCP) 的标准服务器。
-*   **职责**: 执行具体的 I/O 操作（学术检索、文件结构化读写、数据库存取）。
-*   **原则**: 尽量使用成熟的社区服务器，仅自研核心科研逻辑。
+1.2 能力平面 (Capability Plane)
 
-## 2. 核心工作流：稿件驱动型调研 (Draft-Driven Discovery)
+载体: 驻留在 mcp_servers/ 目录下的 Python 脚本。
 
-系统不再是“先检索再写作”，而是“边写边补”。
+核心组件 (已落地):
 
-1.  **观察 (Observe)**: Roo Code 调用 `manuscript-mcp` 获取当前 Markdown 的结构树。
-2.  **检测 (Detect)**: 识别稿件中的 Gap (空白)。
-    *   *显式*：`[TODO: 补充实验数据]`。
-    *   *隐式*：段落过短、逻辑跳跃、缺乏引文。
-3.  **检索 (Retrieve)**: 针对特定 Gap，调用 `scholar-mcp` (Semantic Scholar) 寻找证据。
-4.  **构建 (Build)**: 将文献关系（CiTO 本体论）存入本地 `.sros/graph.db`。
-5.  **扩写 (Expand)**: 调用 `manuscript-mcp` 的原子编辑工具，在指定章节插入带有引文的内容。
-6.  **迭代 (Loop)**: 重新扫描稿件，检查 Gap 是否消除。
+federal_academic_search: 联邦学术搜索 (OpenAlex + Semantic Scholar)。
 
-## 3. 工具链集成方案 (MCP Ecosystem)
+manuscript_manager: 稿件原子化操作与结构分析。
 
-为了避免重复造轮子，SROS 集成以下成熟服务器：
+duckdb_memory: 本地知识图谱存储。
 
-### 3.1 学术检索与文献
-*   **Server**: `@fegizii/mcp-server-semanticscholar`
-    *   *用途*: 搜索论文、获取 Citation Context (引文语境)、下载 PDF。
-*   **Server**: `zotero-mcp` (Enhanced)
-    *   *用途*: 读取本地 Zotero 库，确保引文 key 一致；回写 AI 笔记。
+zotero_expert: 本地文献库管理。
 
-### 3.2 稿件操作 (核心)
-*   **Server**: `quantalogic-markdown-mcp` (或自研 `manuscript-manager`)
-    *   *用途*: 这是最核心的工具。支持 `edit_section`（基于标题的章节编辑）和原子化修改，确保 Roo Code 不会破坏大文件。
+context_ingester (新特性): 非结构化材料（笔记、AI 报告）解析与图谱注入。
 
-### 3.3 局部知识图谱 (Local Memory)
-*   **Server**: `mcp-duckdb-memory-server`
-    *   *用途*: 在项目目录下 `.sros/` 中建立 DuckDB。用于存储文献间的三元组关系（如：Paper A -> critiques -> Paper B）。
+2. 项目拓扑与环境策略 (Topology & Environment)
 
-### 3.4 自研逻辑扩展 (Custom SROS Server)
-*   **Server**: `mcp-sros-logic` (Python 实现)
-    *   *职责*:
-        *   `init_workspace()`: 初始化 `.sros` 目录。
-        *   `detect_academic_gaps()`: 基于学术规则检测稿件薄弱环节。
+（核心更新：针对生产态目录的决策）
 
-## 4. 存储与状态管理 (SROS Workspace)
+为了解决 Agent 上下文污染问题，我们定义两种截然不同的环境：
 
-系统采用 **Filesystem-as-Database**。每个科研项目是一个独立的隔离空间。
+2.1 开发环境 (Maintenance Mode)
 
-```
-/Project_Folder/
-├── .sros/                 # 隐藏状态目录
-│   ├── graph.db           # 本地局部知识图谱 (DuckDB)
-│   └── research_log.jsonl # 检索历史记录 (避免重复消耗 Token)
-├── .roomodes              # 针对当前项目的 Roo Code 行为定义
-├── draft.md               # 唯一的真理来源 (Single Source of Truth)
-└── references/            # 调研下载的 PDF 剪辑
-```
+打开目录: SROS_ROOT/ (即 Git 仓库根目录)
 
-## 5. 开发重心：Prompt 工程 (.roomodes)
+目标: 维护 MCP Server 代码、运行测试、更新架构。
 
-由于移除了 Python 后端编排，逻辑下沉到提示词中。
+Agent 行为: 允许修改 python 脚本，运行 pytest。
 
-### 5.1 角色定义
-*   **Researcher Mode**: 侧重于广度检索，更新 `.sros/graph.db`，不修改稿件。
-*   **Writer Mode**: 侧重于根据图谱和检索结果，使用 `manuscript-mcp` 更新正文。
+2.2 生产环境 (Production/Research Mode)
 
-### 5.2 核心指令示例 (System Prompt)
-> "你当前的模式是 SROS-Writer。在开始写作前，必须执行 `get_structure`。你必须在每个段落结尾检查是否引用了正确的 `[@citekey]`。如果发现逻辑断裂，必须自动激活 Researcher 模式进行深挖。"
+打开目录: SROS_ROOT/workspace/My_Project_A/ (或磁盘上任何其他文件夹)
 
-## 6. 实施路线图 (Roadmap)
+建议: 强烈建议直接打开具体的子项目文件夹，而不是父级 workspace。
 
-### 阶段 1: 基础设施连接 (Weeks 1-2)
-- [ ] **执行大清理**: 建立 `legacy_archive`，移除过时代码。
-- [ ] **集成 MCP**: 配置 `semantic-scholar` 和 `markdown-manager`。
-- [ ] **自研核心**: 编写 `mcp-sros-logic`，实现项目初始化逻辑。
+理由:
 
-### 阶段 2: 知识闭环 (Weeks 3-4)
-- [ ] **DuckDB 模型**: 在 DuckDB 中建立 CiTO (Citation Typing Ontology) 表结构。
-- [ ] **Prompt 调优**: 编写 `.roomodes`，教会 Roo Code 从 DuckDB 读取关联关系来写综述。
+上下文防火墙: Agent 只能看到当前论文的 draft.md，不会混淆项目 A 和 B 的引文。
 
-### 阶段 3: 体验优化 (Weeks 5+)
-- [ ] **决策卡片**: 利用 MCP `sampling` (input_request) 功能询问用户优先阅读哪篇论文。
-- [ ] **内容解析**: 集成本地 PDF 解析，提取高亮部分存入图谱。
+路径相对性: 所有工具默认寻找 ./draft.md 和 ./.sros/，单一入口保证工具稳定性。
 
-## 7. 避坑指南
-1.  **不要在 Prompt 里存数据**: 大量的文献信息必须存入 `graph.db`，Agent 仅按需查询，否则会触发上下文爆炸。
-2.  **原子化编辑**: 绝对禁止 Agent 使用 `writeFile` 覆盖全文，必须使用 `edit_section`。
-3.  **Local-First**: 所有的 `graph.db` 必须放在项目内，支持 Git 版本控制，方便跨设备同步。
+Git 独立性: 每个科研项目可以是一个独立的 Git Repo，方便投稿和协作。
+
+推荐的文件结构：
+
+/My_Research_Project/  <-- VS Code 打开此目录
+├── .sros/                 # [自动生成] 隐藏状态目录
+│   ├── graph.db           # 本地知识图谱 (DuckDB)
+│   └── research_log.jsonl # 检索足迹
+├── .roomodes              # [复制/软链] 项目特定的行为定义
+├── .env                   # [复制] 环境变量配置
+├── draft.md               # [核心] 单一事实来源
+├── ideas.md               # [可选] 初始想法与头脑风暴记录（Agent 会优先读取此文件理解意图）
+├── materials/             # [新增] 辅助参考材料
+│   ├── deep_research.md   # Gemini/Perplexity 生成的调研报告
+│   ├── web_clips.txt      # 网页剪藏
+│   └── notes.md           # 随手笔记
+└── references/            # [正式] 仅存放 Zotero 链接的正式 PDF 附件
+
+
+3. 核心工作流：稿件驱动型调研 (Draft-Driven Discovery)
+
+系统运作在 "Write-while-researching" 模式下，形成闭环：
+
+预热 (Warm-up / Ingest): (新特性)
+
+在开始工作前，Agent 自动扫描 ideas.md 和 materials/ 目录。
+
+提取其中的关键概念、假设和初步数据，注入 .sros/graph.db，标记为“软知识 (Soft Knowledge)”。
+
+目的：让 Agent “带薪进组”，不需要从零开始检索，而是先消化用户已有的思考。
+
+观察 (Observe):
+
+Agent 调用 manuscript_manager.get_structure() 获取当前 Markdown 结构树。
+
+检测 (Detect):
+
+Agent 识别稿件中的 Gap（显式的 [TODO:] 或隐式的逻辑断层）。
+
+优化: Agent 会先比对 Gap 与“软知识”库，如果 materials/ 中已有答案，直接引用并提示用户“根据您的调研报告...”，而不是盲目去外部搜索。
+
+检索 (Retrieve):
+
+针对特定 Gap，如果本地材料不足，则调用 federal_academic_search。
+
+V2.1.5 特性: 联邦搜索会自动聚合多源结果。
+
+构建 (Build):
+
+将文献关系（基于 CiTO 本体论）存入本地 .sros/graph.db。
+
+扩展 (Expand):
+
+使用 manuscript_manager.insert_section() 或 update_section() 进行原子化写入。
+
+安全约束: 严禁使用 writeFile 覆盖整个文档。
+
+迭代 (Iterate):
+
+重新扫描稿件，确认 Gap 是否消除。
+
+4. 启动与初始化 (Bootstrapping)
+
+V2.1.5 引入了统一的启动脚本，简化了配置流程。
+
+4.1 启动 MCP 服务器群
+
+在任何终端（不需要在 VS Code 的内置终端）运行：
+
+# 在 SROS 根目录下运行
+python run_servers.py all
+
+
+
+这将在后台启动所有 Server，并监听特定端口（如 8001, 8002 等）。
+
+VS Code 中的 Roo Code 通过 SSE 或 Stdio 连接这些服务（具体取决于 .roo/mcp.json 的配置方式，推荐使用 SSE 以便跨目录调用）。
+
+4.2 初始化新项目
+
+mkdir my-new-paper
+cd my-new-paper
+# 复制环境配置
+cp /path/to/sros/.env.example .env
+# 创建初始稿件
+touch draft.md
+# [可选] 创建材料目录
+mkdir materials
+touch ideas.md
+
+
+
+5. 开发重心：模式定义 (.roomodes)
+
+由于架构已稳定，目前的开发重心转移到 Prompt Engineering。
+
+5.1 SROS-Writer (写作模式)
+
+System Prompt 关键指令:
+
+"你的核心目标是消除 draft.md 中的 [TODO]。在写入任何内容前，必须先查询 .sros/graph.db（包含用户的 ideas.md 和 materials/ 上下文）。如果用户的笔记中已有相关论述，优先基于该内容扩写，并标记需要补充正式引用的地方。引用格式必须严格遵循 Zotero Key。"
+
+5.2 SROS-Researcher (调研模式)
+
+System Prompt 关键指令:
+
+"你是一个严肃的分析员。你的任务不是写作，而是构建图谱。首先阅读 materials/ 下的所有文件，理解用户的初始假设。然后使用 federal_academic_search 寻找最新的综述，验证这些假设，并将其中的正反观点录入 duckdb_memory。"
+
+6. 避坑指南 (V2.1.5 Updated)
+
+Snake_case 强制: 在引用 Python 模块或目录时，务必检查是否符合 snake_case（如 manuscript_manager），V2.1.5 已全面标准化，旧的 kebab-case (如 manuscript-mcp) 已被废弃。
+
+依赖懒加载: 如果发现某个 Server 启动慢，是因为 V2.1.5 采用了懒加载。不要因为没有立即响应就认为 Server 挂了，等待首次调用的 "Ready" 信号。
+
+端口冲突: run_servers.py 默认使用 8000+ 端口。确保这些端口未被占用。
+
+不要在 workspace 根目录写作: 再次强调，请为每篇论文建立单独文件夹。如果在 workspace/ 根目录下同时写三篇论文，Agent 会因为检索到错误的上下文而产生严重的幻觉。
+
+7. 贡献与测试
+
+运行全量测试:
+
+pytest tests/
+
+
+
+添加新工具:
+在 mcp_servers/ 下创建新目录，并确保在 run_servers.py 中注册该服务。

@@ -49,6 +49,26 @@ class DuckDBMemoryMCPHandler:
                 return self._handle_get_research_gaps(params)
             elif method == "update_research_gap":
                 return self._handle_update_research_gap(params)
+            elif method == "get_papers_by_year":
+                return self._handle_get_papers_by_year(params)
+            elif method == "get_citations_by_paper":
+                return self._handle_get_citations_by_paper(params)
+            elif method == "get_relationships_by_paper":
+                return self._handle_get_relationships_by_paper(params)
+            elif method == "search_papers":
+                return self._handle_search_papers(params)
+            elif method == "get_paper_statistics":
+                return self._handle_get_paper_statistics(params)
+            elif method == "batch_create_papers":
+                return self._handle_batch_create_papers(params)
+            elif method == "delete_paper":
+                return self._handle_delete_paper(params)
+            elif method == "get_related_papers":
+                return self._handle_get_related_papers(params)
+            elif method == "export_data":
+                return self._handle_export_data(params)
+            elif method == "import_data":
+                return self._handle_import_data(params)
             else:
                 return {
                     "error": {
@@ -68,6 +88,11 @@ class DuckDBMemoryMCPHandler:
         """Handle initialize request."""
         return {
             "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {
+                    "name": "DuckDB Memory MCP Server",
+                    "version": "1.0.0"
+                },
                 "capabilities": {
                     "paperManagement": True,
                     "citationTracking": True,
@@ -80,301 +105,424 @@ class DuckDBMemoryMCPHandler:
     def _handle_create_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle create_paper request."""
         try:
-            paper_id = self.server.create_paper(
-                title=params.get("title"),
-                authors=params.get("authors"),
-                year=params.get("year"),
-                venue=params.get("venue"),
-                doi=params.get("doi"),
-                abstract=params.get("abstract"),
-                citation_key=params.get("citation_key")
-            )
+            paper_data = params.get("paper", {})
+            paper_id = self.server.create_paper(paper_data)
             return {"result": {"id": paper_id}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Invalid params: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to create paper: {str(e)}"
                 }
             }
     
     def _handle_get_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_paper request."""
-        paper_id = params.get("id")
-        doi = params.get("doi")
-        citation_key = params.get("citation_key")
-        
-        paper = None
-        if paper_id:
-            paper = self.server.get_paper_by_id(paper_id)
-        elif doi:
-            paper = self.server.get_paper_by_doi(doi)
-        elif citation_key:
-            paper = self.server.get_paper_by_citation_key(citation_key)
-        
-        if paper:
-            return {"result": paper}
-        else:
+        try:
+            paper_id = params.get("id")
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: id"
+                    }
+                }
+            
+            paper = self.server.get_paper(paper_id)
+            if paper:
+                return {"result": paper}
+            else:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": f"Paper not found: {paper_id}"
+                    }
+                }
+        except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": "Paper not found"
+                    "code": -32603,
+                    "message": f"Failed to get paper: {str(e)}"
                 }
             }
     
     def _handle_update_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle update_paper request."""
-        paper_id = params.get("id")
-        if not paper_id:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": "Missing paper ID"
-                }
-            }
-        
         try:
-            # Remove ID from update data
-            update_data = {k: v for k, v in params.items() if k != "id"}
-            success = self.server.update_paper(paper_id, **update_data)
+            paper_id = params.get("id")
+            paper_data = params.get("paper", {})
+            
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: id"
+                    }
+                }
+            
+            success = self.server.update_paper(paper_id, paper_data)
             return {"result": {"success": success}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Invalid params: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to update paper: {str(e)}"
                 }
             }
     
     def _handle_create_citation(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle create_citation request."""
         try:
-            citing_paper_id = params["citing_paper_id"]
-            cited_paper_id = params["cited_paper_id"]
-            citation_context = params.get("citation_context")
+            citing_paper_id = params.get("citing_paper_id")
+            cited_paper_id = params.get("cited_paper_id")
+            citation_data = params.get("citation", {})
             
-            citation_id = self.server.create_citation(
-                citing_paper_id, cited_paper_id, citation_context
-            )
-            return {"result": {"id": citation_id}}
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
+            if not citing_paper_id or not cited_paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameters: citing_paper_id and cited_paper_id"
+                    }
                 }
-            }
+            
+            citation_id = self.server.create_citation(citing_paper_id, cited_paper_id, citation_data)
+            return {"result": {"id": citation_id}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Invalid params: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to create citation: {str(e)}"
                 }
             }
     
     def _handle_get_citations(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_citations request."""
-        paper_id = params.get("paper_id")
-        citing = params.get("citing", True)
-        
-        if not paper_id:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": "Missing paper ID"
-                }
-            }
-        
         try:
-            citations = self.server.get_citations_for_paper(paper_id, citing)
+            paper_id = params.get("paper_id")
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: paper_id"
+                    }
+                }
+            
+            citations = self.server.get_citations(paper_id)
             return {"result": citations}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error retrieving citations: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get citations: {str(e)}"
                 }
             }
     
     def _handle_create_relationship(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle create_relationship request."""
         try:
-            subject_paper_id = params["subject_paper_id"]
-            object_paper_id = params["object_paper_id"]
-            relationship_type = params["relationship_type"]
-            confidence_score = params.get("confidence_score")
-            evidence = params.get("evidence")
+            paper1_id = params.get("paper1_id")
+            paper2_id = params.get("paper2_id")
+            relationship_type = params.get("relationship_type")
+            relationship_data = params.get("relationship", {})
             
-            relationship_id = self.server.create_relationship(
-                subject_paper_id, object_paper_id, relationship_type, 
-                confidence_score, evidence
-            )
-            return {"result": {"id": relationship_id}}
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
+            if not paper1_id or not paper2_id or not relationship_type:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameters: paper1_id, paper2_id, and relationship_type"
+                    }
                 }
-            }
+            
+            relationship_id = self.server.create_relationship(paper1_id, paper2_id, relationship_type, relationship_data)
+            return {"result": {"id": relationship_id}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Invalid params: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to create relationship: {str(e)}"
                 }
             }
     
     def _handle_get_relationships(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_relationships request."""
-        paper_id = params.get("paper_id")
-        subject = params.get("subject", True)
-        relationship_type = params.get("relationship_type")
-        
         try:
-            if relationship_type:
-                relationships = self.server.get_relationships_by_type(relationship_type)
-            elif paper_id:
-                relationships = self.server.get_relationships_for_paper(paper_id, subject)
-            else:
+            paper_id = params.get("paper_id")
+            if not paper_id:
                 return {
                     "error": {
                         "code": -32602,
-                        "message": "Either paper_id or relationship_type must be specified"
+                        "message": "Missing required parameter: paper_id"
                     }
                 }
             
+            relationships = self.server.get_relationships(paper_id)
             return {"result": relationships}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error retrieving relationships: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get relationships: {str(e)}"
                 }
             }
     
     def _handle_create_research_gap(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle create_research_gap request."""
         try:
-            manuscript_section = params["manuscript_section"]
-            gap_description = params["gap_description"]
-            priority = params.get("priority", 1)
-            status = params.get("status", "open")
-            
-            gap_id = self.server.create_research_gap(
-                manuscript_section, gap_description, priority, status
-            )
+            gap_data = params.get("gap", {})
+            gap_id = self.server.create_research_gap(gap_data)
             return {"result": {"id": gap_id}}
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
-                }
-            }
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Invalid params: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to create research gap: {str(e)}"
                 }
             }
     
     def _handle_get_research_gaps(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_research_gaps request."""
-        gap_id = params.get("id")
-        open_gaps = params.get("open_only", False)
-        
         try:
-            if gap_id:
-                gap = self.server.get_research_gap_by_id(gap_id)
-                if gap:
-                    return {"result": gap}
-                else:
-                    return {
-                        "error": {
-                            "code": -32602,
-                            "message": "Research gap not found"
-                        }
-                    }
-            elif open_gaps:
-                gaps = self.server.get_open_research_gaps()
-                return {"result": gaps}
-            else:
-                # TODO: Implement get all research gaps
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "Not implemented"
-                    }
-                }
+            gaps = self.server.get_research_gaps()
+            return {"result": gaps}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error retrieving research gaps: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get research gaps: {str(e)}"
                 }
             }
     
     def _handle_update_research_gap(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle update_research_gap request."""
-        gap_id = params.get("id")
-        status = params.get("status")
-        priority = params.get("priority")
-        
-        if not gap_id:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": "Missing research gap ID"
-                }
-            }
-        
         try:
-            success = False
-            if status:
-                success = self.server.update_research_gap_status(gap_id, status)
-            elif priority is not None:
-                success = self.server.update_research_gap_priority(gap_id, priority)
+            gap_id = params.get("id")
+            gap_data = params.get("gap", {})
             
+            if not gap_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: id"
+                    }
+                }
+            
+            success = self.server.update_research_gap(gap_id, gap_data)
             return {"result": {"success": success}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error updating research gap: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to update research gap: {str(e)}"
                 }
             }
     
-    def close(self):
-        """Close the server connection."""
-        self.server.close()
-
-# Global handler instance
-_handler = None
+    def _handle_get_papers_by_year(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_papers_by_year request."""
+        try:
+            year = params.get("year")
+            if year is None:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: year"
+                    }
+                }
+            
+            papers = self.server.get_papers_by_year(year)
+            return {"result": papers}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get papers by year: {str(e)}"
+                }
+            }
+    
+    def _handle_get_citations_by_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_citations_by_paper request."""
+        try:
+            paper_id = params.get("paper_id")
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: paper_id"
+                    }
+                }
+            
+            citations = self.server.get_citations_by_paper(paper_id)
+            return {"result": citations}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get citations by paper: {str(e)}"
+                }
+            }
+    
+    def _handle_get_relationships_by_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_relationships_by_paper request."""
+        try:
+            paper_id = params.get("paper_id")
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: paper_id"
+                    }
+                }
+            
+            relationships = self.server.get_relationships_by_paper(paper_id)
+            return {"result": relationships}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get relationships by paper: {str(e)}"
+                }
+            }
+    
+    def _handle_search_papers(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle search_papers request."""
+        try:
+            query = params.get("query", "")
+            limit = params.get("limit", 10)
+            
+            if not query:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: query"
+                    }
+                }
+            
+            results = self.server.search_papers(query, limit)
+            return {"result": results}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to search papers: {str(e)}"
+                }
+            }
+    
+    def _handle_get_paper_statistics(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_paper_statistics request."""
+        try:
+            stats = self.server.get_paper_statistics()
+            return {"result": stats}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get paper statistics: {str(e)}"
+                }
+            }
+    
+    def _handle_batch_create_papers(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle batch_create_papers request."""
+        try:
+            papers = params.get("papers", [])
+            if not papers:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: papers"
+                    }
+                }
+            
+            results = self.server.batch_create_papers(papers)
+            return {"result": results}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to batch create papers: {str(e)}"
+                }
+            }
+    
+    def _handle_delete_paper(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle delete_paper request."""
+        try:
+            paper_id = params.get("id")
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: id"
+                    }
+                }
+            
+            success = self.server.delete_paper(paper_id)
+            return {"result": {"success": success}}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to delete paper: {str(e)}"
+                }
+            }
+    
+    def _handle_get_related_papers(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_related_papers request."""
+        try:
+            paper_id = params.get("paper_id")
+            limit = params.get("limit", 10)
+            
+            if not paper_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: paper_id"
+                    }
+                }
+            
+            related_papers = self.server.get_related_papers(paper_id, limit)
+            return {"result": related_papers}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get related papers: {str(e)}"
+                }
+            }
+    
+    def _handle_export_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle export_data request."""
+        try:
+            format_type = params.get("format", "json")
+            data = self.server.export_data(format_type)
+            return {"result": {"data": data}}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to export data: {str(e)}"
+                }
+            }
+    
+    def _handle_import_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle import_data request."""
+        try:
+            data = params.get("data", {})
+            format_type = params.get("format", "json")
+            success = self.server.import_data(data, format_type)
+            return {"result": {"success": success}}
+        except Exception as e:
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to import data: {str(e)}"
+                }
+            }
 
 def get_handler() -> DuckDBMemoryMCPHandler:
-    """Get or create the global MCP handler instance."""
-    global _handler
-    if _handler is None:
-        _handler = DuckDBMemoryMCPHandler()
-    return _handler
+    """Get singleton instance of the handler."""
+    if not hasattr(get_handler, '_instance'):
+        get_handler._instance = DuckDBMemoryMCPHandler()
+    return get_handler._instance
 
 def handle_mcp_request(method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handle an MCP request.
-    
-    Args:
-        method: MCP method name
-        params: Method parameters
-        
-    Returns:
-        Response dictionary
-    """
+    """Handle MCP request using singleton handler."""
     handler = get_handler()
     return handler.handle_request(method, params)
-
-if __name__ == "__main__":
-    # Example usage
-    handler = get_handler()
-    print("DuckDB Memory MCP Handler initialized successfully!")

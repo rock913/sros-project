@@ -37,3 +37,9 @@ class ZoteroExpertConfig:
         if self.api_key:
             headers['Zotero-API-Key'] = self.api_key
         return headers
+
+def get_zotero_config():
+    """Get singleton instance of Zotero configuration."""
+    if not hasattr(get_zotero_config, '_instance'):
+        get_zotero_config._instance = ZoteroExpertConfig()
+    return get_zotero_config._instance

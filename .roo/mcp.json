@@ -1,0 +1,56 @@
+{
+	"mcpServers": {
+		"manuscript-manager": {
+			"name": "Manuscript Manager",
+			"command": "python3",
+			"args": [
+				"-m",
+				"mcp_servers.manuscript_manager.main"
+			],
+			"type": "stdio",
+			"description": "Manuscript structure management and editing server"
+		},
+		"duckdb-memory": {
+			"name": "DuckDB Memory",
+			"command": "python3",
+			"args": [
+				"-m",
+				"mcp_servers.duckdb_memory.main"
+			],
+			"type": "stdio",
+			"description": "Paper storage and retrieval server using DuckDB"
+		},
+		"sros-logic": {
+			"name": "SROS Logic",
+			"command": "python3",
+			"args": [
+				"-m",
+				"mcp_servers.mcp_sros_logic.main"
+			],
+			"type": "stdio",
+			"description": "Custom SROS logic and workflow management server"
+		},
+		"zotero-expert": {
+			"name": "Zotero Expert",
+			"command": "python3",
+			"args": [
+				"-m",
+				"mcp_servers.zotero_expert.main"
+			],
+			"type": "stdio",
+			"description": "Zotero library management and citation expert server",
+			"disabled": false,
+			"alwaysAllow": []
+		},
+		"federal-academic-search": {
+			"name": "Federal Academic Search",
+			"command": "python3",
+			"args": [
+				"-m",
+				"mcp_servers.federal_academic_search.main_stdio"
+			],
+			"type": "stdio",
+			"description": "Academic paper search and retrieval server"
+		}
+	}
+}

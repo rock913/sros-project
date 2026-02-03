@@ -58,6 +58,11 @@ class ManuscriptManagerMCPHandler:
         """Handle initialize request."""
         return {
             "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {
+                    "name": "Manuscript Manager MCP Server",
+                    "version": "1.0.0"
+                },
                 "capabilities": {
                     "structureRetrieval": True,
                     "gapDetection": True,
@@ -75,8 +80,8 @@ class ManuscriptManagerMCPHandler:
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error retrieving structure: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get structure: {str(e)}"
                 }
             }
     
@@ -88,119 +93,90 @@ class ManuscriptManagerMCPHandler:
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error detecting gaps: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to detect gaps: {str(e)}"
                 }
             }
     
     def _handle_edit_section(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle edit_section request."""
         try:
-            section_path = params["section_path"]
-            content = params["content"]
+            section_path = params.get("section_path")
+            content = params.get("content")
             mode = params.get("mode", "append")
+            
+            if not section_path or content is None:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameters: section_path and content"
+                    }
+                }
             
             success = self.server.edit_section(section_path, content, mode)
             return {"result": {"success": success}}
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
-                }
-            }
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error editing section: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to edit section: {str(e)}"
                 }
             }
     
     def _handle_insert_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle insert_content request."""
         try:
-            section_path = params["section_path"]
-            content = params["content"]
+            section_path = params.get("section_path")
+            content = params.get("content")
             citation_keys = params.get("citation_keys", [])
+            
+            if not section_path or content is None:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameters: section_path and content"
+                    }
+                }
             
             success = self.server.insert_content(section_path, content, citation_keys)
             return {"result": {"success": success}}
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
-                }
-            }
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error inserting content: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to insert content: {str(e)}"
                 }
             }
     
     def _handle_get_section_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_section_content request."""
         try:
-            section_path = params["section_path"]
-            content = self.server.get_section_content(section_path)
-            
-            if content is not None:
-                return {"result": {"content": content}}
-            else:
+            section_path = params.get("section_path")
+            if not section_path:
                 return {
                     "error": {
                         "code": -32602,
-                        "message": "Section not found"
+                        "message": "Missing required parameter: section_path"
                     }
                 }
-        except KeyError as e:
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Missing required parameter: {str(e)}"
-                }
-            }
+            
+            content = self.server.get_section_content(section_path)
+            return {"result": {"content": content}}
         except Exception as e:
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error retrieving section content: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get section content: {str(e)}"
                 }
             }
-    
-    def close(self):
-        """Close the server connection."""
-        # No cleanup needed for this server
-        pass
-
-# Global handler instance
-_handler = None
 
 def get_handler() -> ManuscriptManagerMCPHandler:
-    """Get or create the global MCP handler instance."""
-    global _handler
-    if _handler is None:
-        _handler = ManuscriptManagerMCPHandler()
-    return _handler
+    """Get singleton instance of the handler."""
+    if not hasattr(get_handler, '_instance'):
+        get_handler._instance = ManuscriptManagerMCPHandler()
+    return get_handler._instance
 
 def handle_mcp_request(method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handle an MCP request.
-    
-    Args:
-        method: MCP method name
-        params: Method parameters
-        
-    Returns:
-        Response dictionary
-    """
+    """Handle MCP request using singleton handler."""
     handler = get_handler()
     return handler.handle_request(method, params)
-
-if __name__ == "__main__":
-    # Example usage
-    handler = get_handler()
-    print("Manuscript Manager MCP Handler initialized successfully!")

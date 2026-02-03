@@ -2,20 +2,13 @@
 MCP Handler for Zotero Expert Server
 Implements the Model Context Protocol interface for the Zotero Expert server.
 """
-import json
-import logging
-from typing import Dict, Any, List
-import sys
-import os
 
-# Handle relative imports properly
-try:
-    from .server import ZoteroExpertServer
-    from .config import ZoteroExpertConfig
-except (ImportError, ValueError):
-    # Fallback for direct script execution
-    from server import ZoteroExpertServer
-    from config import ZoteroExpertConfig
+import json
+from typing import Dict, Any, List
+import logging
+
+from .server import ZoteroExpertServer
+from .config import get_zotero_config
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +17,13 @@ class ZoteroExpertMCPHandler:
     
     def __init__(self):
         """Initialize the MCP handler."""
-        self.config = ZoteroExpertConfig()
-        self.server = ZoteroExpertServer()
-        
+        try:
+            config = get_zotero_config()
+            self.server = ZoteroExpertServer(config)
+        except Exception as e:
+            logger.error(f"Failed to initialize Zotero server: {e}")
+            self.server = None
+    
     def handle_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle MCP requests.
@@ -91,6 +88,11 @@ class ZoteroExpertMCPHandler:
         """Handle initialize request."""
         return {
             "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {
+                    "name": "Zotero Expert MCP Server",
+                    "version": "1.0.0"
+                },
                 "capabilities": {
                     "libraryAccess": True,
                     "itemSearch": True,
@@ -100,321 +102,438 @@ class ZoteroExpertMCPHandler:
                 }
             }
         }
-        
+    
     def _handle_get_library_items(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_library_items request."""
         try:
-            limit = params.get("limit", 100)
-            start = params.get("start", 0)
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
             
-            result = self.server.get_library_items(limit, start)
-            return {"result": result}
+            limit = params.get("limit", 50)
+            start = params.get("start", 0)
+            item_type = params.get("item_type")
+            
+            items = self.server.get_library_items(limit=limit, start=start, item_type=item_type)
+            return {"result": items}
         except Exception as e:
-            logger.error(f"Error getting library items: {str(e)}")
+            logger.error(f"Error in get_library_items: {str(e)}")
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error getting library items: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get library items: {str(e)}"
                 }
             }
-            
+    
     def _handle_get_item(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_item request."""
         try:
-            item_key = params.get("item_key", "")
-            if not item_key:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_id = params.get("item_id")
+            if not item_id:
                 return {
                     "error": {
                         "code": -32602,
-                        "message": "item_key parameter is required"
+                        "message": "Missing required parameter: item_id"
                     }
                 }
-                
-            result = self.server.get_item(item_key)
-            return {"result": result}
+            
+            item = self.server.get_item(item_id)
+            return {"result": item}
         except Exception as e:
-            logger.error(f"Error getting item: {str(e)}")
+            logger.error(f"Error in get_item: {str(e)}")
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error getting item: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get item: {str(e)}"
                 }
             }
-            
+    
     def _handle_search_items(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle search_items request."""
         try:
-            query = params.get("query", "")
-            limit = params.get("limit", 50)
-            
-            result = self.server.search_items(query, limit)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error searching items: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error searching items: {str(e)}"
-                }
-            }
-            
-    def _handle_get_collections(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle get_collections request."""
-        try:
-            result = self.server.get_collections()
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error getting collections: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error getting collections: {str(e)}"
-                }
-            }
-            
-    def _handle_get_item_children(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle get_item_children request."""
-        try:
-            item_key = params.get("item_key", "")
-            if not item_key:
+            if not self.server:
                 return {
                     "error": {
-                        "code": -32602,
-                        "message": "item_key parameter is required"
+                        "code": -32603,
+                        "message": "Server not initialized"
                     }
                 }
-                
-            result = self.server.get_item_children(item_key)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error getting item children: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error getting item children: {str(e)}"
-                }
-            }
             
-    def _handle_create_note(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle create_note request."""
-        try:
-            parent_item_key = params.get("parent_item_key", "")
-            note_content = params.get("note_content", "")
-            
-            if not parent_item_key or not note_content:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "parent_item_key and note_content parameters are required"
-                    }
-                }
-                
-            result = self.server.create_note(parent_item_key, note_content)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error creating note: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error creating note: {str(e)}"
-                }
-            }
-            
-    def _handle_update_item(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle update_item request."""
-        try:
-            item_key = params.get("item_key", "")
-            item_data = params.get("item_data", {})
-            
-            if not item_key or not item_data:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "item_key and item_data parameters are required"
-                    }
-                }
-                
-            result = self.server.update_item(item_key, item_data)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error updating item: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error updating item: {str(e)}"
-                }
-            }
-            
-    def _handle_get_bibliography(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle get_bibliography request."""
-        try:
-            item_keys = params.get("item_keys", [])
-            style = params.get("style", "apa")
-            
-            if not item_keys:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "item_keys parameter is required"
-                    }
-                }
-                
-            result = self.server.get_bibliography(item_keys, style)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error generating bibliography: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error generating bibliography: {str(e)}"
-                }
-            }
-    
-    def _handle_validate_citation_keys(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle validate_citation_keys request."""
-        try:
-            items = params.get("items", [])
-            
-            result = self.server.validate_citation_keys(items)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error validating citation keys: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error validating citation keys: {str(e)}"
-                }
-            }
-    
-    def _handle_sync_ai_notes(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle sync_ai_notes request."""
-        try:
-            item_key = params.get("item_key", "")
-            ai_notes = params.get("ai_notes", [])
-            
-            if not item_key:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "item_key parameter is required"
-                    }
-                }
-                
-            result = self.server.sync_ai_notes(item_key, ai_notes)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error syncing AI notes: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error syncing AI notes: {str(e)}"
-                }
-            }
-    
-    def _handle_generate_smart_bibliography(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle generate_smart_bibliography request."""
-        try:
-            item_keys = params.get("item_keys", [])
-            style = params.get("style", "apa")
-            format_options = params.get("format_options", {})
-            
-            if not item_keys:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "item_keys parameter is required"
-                    }
-                }
-                
-            result = self.server.generate_smart_bibliography(item_keys, style, format_options)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error generating smart bibliography: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error generating smart bibliography: {str(e)}"
-                }
-            }
-    
-    def _handle_get_item_metadata(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle get_item_metadata request."""
-        try:
-            item_key = params.get("item_key", "")
-            
-            if not item_key:
-                return {
-                    "error": {
-                        "code": -32602,
-                        "message": "item_key parameter is required"
-                    }
-                }
-                
-            result = self.server.get_item_metadata(item_key)
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Error getting item metadata: {str(e)}")
-            return {
-                "error": {
-                    "code": -32602,
-                    "message": f"Error getting item metadata: {str(e)}"
-                }
-            }
-    
-    def _handle_search_advanced(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle search_advanced request."""
-        try:
-            query = params.get("query", "")
-            item_type = params.get("item_type")
-            collection_key = params.get("collection_key")
+            query = params.get("query")
             limit = params.get("limit", 50)
             
             if not query:
                 return {
                     "error": {
                         "code": -32602,
-                        "message": "query parameter is required"
+                        "message": "Missing required parameter: query"
                     }
                 }
-                
-            result = self.server.search_advanced(query, item_type, collection_key, limit)
-            return {"result": result}
+            
+            items = self.server.search_items(query, limit=limit)
+            return {"result": items}
         except Exception as e:
-            logger.error(f"Error in advanced search: {str(e)}")
+            logger.error(f"Error in search_items: {str(e)}")
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error in advanced search: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to search items: {str(e)}"
+                }
+            }
+    
+    def _handle_get_collections(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_collections request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            collections = self.server.get_collections()
+            return {"result": collections}
+        except Exception as e:
+            logger.error(f"Error in get_collections: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get collections: {str(e)}"
+                }
+            }
+    
+    def _handle_get_item_children(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_item_children request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_id = params.get("item_id")
+            if not item_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: item_id"
+                    }
+                }
+            
+            children = self.server.get_item_children(item_id)
+            return {"result": children}
+        except Exception as e:
+            logger.error(f"Error in get_item_children: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get item children: {str(e)}"
+                }
+            }
+    
+    def _handle_create_note(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle create_note request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            parent_item_id = params.get("parent_item_id")
+            note_content = params.get("content")
+            
+            if not parent_item_id or not note_content:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameters: parent_item_id and content"
+                    }
+                }
+            
+            note_id = self.server.create_note(parent_item_id, note_content)
+            return {"result": {"note_id": note_id}}
+        except Exception as e:
+            logger.error(f"Error in create_note: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to create note: {str(e)}"
+                }
+            }
+    
+    def _handle_update_item(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle update_item request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_id = params.get("item_id")
+            item_data = params.get("data", {})
+            
+            if not item_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: item_id"
+                    }
+                }
+            
+            success = self.server.update_item(item_id, item_data)
+            return {"result": {"success": success}}
+        except Exception as e:
+            logger.error(f"Error in update_item: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to update item: {str(e)}"
+                }
+            }
+    
+    def _handle_get_bibliography(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_bibliography request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_ids = params.get("item_ids", [])
+            style = params.get("style", "apa")
+            
+            bibliography = self.server.get_bibliography(item_ids, style=style)
+            return {"result": bibliography}
+        except Exception as e:
+            logger.error(f"Error in get_bibliography: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get bibliography: {str(e)}"
+                }
+            }
+    
+    def _handle_validate_citation_keys(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle validate_citation_keys request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            citation_keys = params.get("citation_keys", [])
+            
+            validation_result = self.server.validate_citation_keys(citation_keys)
+            return {"result": validation_result}
+        except Exception as e:
+            logger.error(f"Error in validate_citation_keys: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to validate citation keys: {str(e)}"
+                }
+            }
+    
+    def _handle_sync_ai_notes(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle sync_ai_notes request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_id = params.get("item_id")
+            ai_notes = params.get("ai_notes", [])
+            
+            if not item_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: item_id"
+                    }
+                }
+            
+            result = self.server.sync_ai_notes(item_id, ai_notes)
+            return {"result": result}
+        except Exception as e:
+            logger.error(f"Error in sync_ai_notes: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to sync AI notes: {str(e)}"
+                }
+            }
+    
+    def _handle_generate_smart_bibliography(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle generate_smart_bibliography request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            topic = params.get("topic", "")
+            limit = params.get("limit", 20)
+            
+            bibliography = self.server.generate_smart_bibliography(topic, limit=limit)
+            return {"result": bibliography}
+        except Exception as e:
+            logger.error(f"Error in generate_smart_bibliography: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to generate smart bibliography: {str(e)}"
+                }
+            }
+    
+    def _handle_get_item_metadata(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle get_item_metadata request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            item_id = params.get("item_id")
+            if not item_id:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: item_id"
+                    }
+                }
+            
+            metadata = self.server.get_item_metadata(item_id)
+            return {"result": metadata}
+        except Exception as e:
+            logger.error(f"Error in get_item_metadata: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to get item metadata: {str(e)}"
+                }
+            }
+    
+    def _handle_search_advanced(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle search_advanced request."""
+        try:
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            query_params = params.get("query_params", {})
+            
+            results = self.server.search_advanced(query_params)
+            return {"result": results}
+        except Exception as e:
+            logger.error(f"Error in search_advanced: {str(e)}")
+            return {
+                "error": {
+                    "code": -32603,
+                    "message": f"Failed to perform advanced search: {str(e)}"
                 }
             }
     
     def _handle_read_local_library(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle read_local_library request."""
         try:
-            limit = params.get("limit", 100)
-            start = params.get("start", 0)
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
             
-            result = self.server.read_local_library(limit, start)
-            return {"result": result}
+            library_path = params.get("library_path")
+            if not library_path:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: library_path"
+                    }
+                }
+            
+            library_data = self.server.read_local_library(library_path)
+            return {"result": library_data}
         except Exception as e:
-            logger.error(f"Error reading local library: {str(e)}")
+            logger.error(f"Error in read_local_library: {str(e)}")
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error reading local library: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to read local library: {str(e)}"
                 }
             }
     
     def _handle_get_library_statistics(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle get_library_statistics request."""
         try:
-            result = self.server.get_library_statistics()
-            return {"result": result}
+            if not self.server:
+                return {
+                    "error": {
+                        "code": -32603,
+                        "message": "Server not initialized"
+                    }
+                }
+            
+            stats = self.server.get_library_statistics()
+            return {"result": stats}
         except Exception as e:
-            logger.error(f"Error getting library statistics: {str(e)}")
+            logger.error(f"Error in get_library_statistics: {str(e)}")
             return {
                 "error": {
-                    "code": -32602,
-                    "message": f"Error getting library statistics: {str(e)}"
+                    "code": -32603,
+                    "message": f"Failed to get library statistics: {str(e)}"
                 }
             }
+
+def get_handler() -> ZoteroExpertMCPHandler:
+    """Get singleton instance of the handler."""
+    if not hasattr(get_handler, '_instance'):
+        get_handler._instance = ZoteroExpertMCPHandler()
+    return get_handler._instance
+
+def handle_mcp_request(method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle MCP request using singleton handler."""
+    handler = get_handler()
+    return handler.handle_request(method, params)
