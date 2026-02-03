@@ -36,8 +36,13 @@ pip install -r requirements.txt
 ```
 
 ## Configuration
-The server can be configured using environment variables:
-- `SROS_MANUSCRIPT_PATH`: Path to the manuscript file (default: `draft.md`)
+
+The system now supports `.env` file configuration. Copy the root `.env.example` file to `.env` and fill in your actual values, or set environment variables directly.
+
+### Manuscript configuration
+```bash
+SROS_MANUSCRIPT_PATH=draft.md
+```
 
 ## Development
 Run tests:

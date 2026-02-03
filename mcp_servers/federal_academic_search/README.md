@@ -63,24 +63,36 @@ pip install -r requirements.txt
 
 ## Configuration
 
-The server requires the following environment variables:
+The system now supports `.env` file configuration. Copy the root `.env.example` file to `.env` and fill in your actual values, or set environment variables directly.
 
+### OpenAlex configuration
 ```bash
-# OpenAlex configuration
 OPENALEX_BASE_URL=https://api.openalex.org
 OPENALEX_EMAIL=your-email@example.com
 OPENALEX_TIMEOUT=30
+OPENALEX_RATE_LIMIT_DELAY=1.0
+OPENALEX_MAX_RETRIES=3
+```
 
-# Unpaywall configuration
+### Unpaywall configuration
+```bash
 UNPAYWALL_BASE_URL=https://api.unpaywall.org/v2
 UNPAYWALL_EMAIL=your-email@example.com
 UNPAYWALL_TIMEOUT=30
+UNPAYWALL_RATE_LIMIT_DELAY=1.0
+UNPAYWALL_MAX_RETRIES=3
+```
 
-# Semantic Scholar configuration
+### Semantic Scholar configuration
+```bash
 SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
 SEMANTIC_SCHOLAR_TIMEOUT=30
+SEMANTIC_SCHOLAR_RATE_LIMIT_DELAY=1.0
+SEMANTIC_SCHOLAR_MAX_RETRIES=3
+```
 
-# Cache configuration
+### Cache configuration
+```bash
 ACADEMIC_SEARCH_CACHE_ENABLED=true
 ACADEMIC_SEARCH_CACHE_DB_PATH=.cache/academic_search.db
 ACADEMIC_SEARCH_CACHE_TTL=3600

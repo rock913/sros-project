@@ -5,6 +5,14 @@ Configuration for Manuscript Manager MCP Server
 import os
 from pathlib import Path
 
+# Load environment variables from .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not available, continue with system environment variables only
+    pass
+
 # Default manuscript path
 DEFAULT_MANUSCRIPT_PATH = os.getenv('SROS_MANUSCRIPT_PATH', 'draft.md')
 

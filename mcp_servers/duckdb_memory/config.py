@@ -5,6 +5,14 @@ Configuration for DuckDB Memory MCP Server
 import os
 from pathlib import Path
 
+# Load environment variables from .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not available, continue with system environment variables only
+    pass
+
 # Default database path
 DEFAULT_DB_PATH = os.getenv('SROS_DUCKDB_PATH', '.sros/graph.db')
 

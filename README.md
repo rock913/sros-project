@@ -92,7 +92,15 @@ pip install -r requirements.txt
 pip install duckdb  # For local knowledge graph storage
 ```
 
-3. **Set Up Environment Variables** (Optional)
+3. **Set Up Environment Variables**
+The system now supports `.env` file configuration. Copy the `.env.example` file to `.env` and fill in your actual values:
+
+```bash
+cp .env.example .env
+# Edit .env file with your actual configuration
+```
+
+Alternatively, you can set environment variables directly:
 ```bash
 # For Semantic Scholar API access
 export SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
@@ -301,7 +309,15 @@ pip install -r requirements.txt
 pip install duckdb  # 用于本地知识图谱存储
 ```
 
-3. **设置环境变量**（可选）
+3. **设置环境变量**
+系统现在支持 `.env` 文件配置。复制 `.env.example` 文件为 `.env` 并填入实际值：
+
+```bash
+cp .env.example .env
+# 编辑 .env 文件填入实际配置
+```
+
+或者，您可以直接设置环境变量：
 ```bash
 # 用于 Semantic Scholar API 访问
 export SEMANTIC_SCHOLAR_API_KEY=你的_api_key

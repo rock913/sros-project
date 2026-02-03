@@ -42,10 +42,15 @@ pip install -r requirements.txt
 ```
 
 ## Configuration
-The server can be configured using environment variables:
-- `SROS_DUCKDB_PATH`: Path to the DuckDB database file (default: `.sros/graph.db`)
-- `SROS_LOG_LEVEL`: Logging level (default: `INFO`)
-- `SROS_DUCKDB_LOG_FILE`: Log file path (default: `.sros/logs/duckdb.log`)
+
+The system now supports `.env` file configuration. Copy the root `.env.example` file to `.env` and fill in your actual values, or set environment variables directly.
+
+### DuckDB configuration
+```bash
+SROS_DUCKDB_PATH=.sros/graph.db
+SROS_LOG_LEVEL=INFO
+SROS_DUCKDB_LOG_FILE=.sros/logs/duckdb.log
+```
 
 ## Development
 Run tests:

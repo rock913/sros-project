@@ -20,6 +20,19 @@ This enhanced server connects to local Zotero installations to provide seamless 
 ## Usage
 The server maintains citation integrity and provides access to the user's existing research library.
 
+## Configuration
+
+The system now supports `.env` file configuration. Copy the root `.env.example` file to `.env` and fill in your actual values, or set environment variables directly.
+
+### Zotero configuration
+```bash
+ZOTERO_LIBRARY_ID=your_zotero_library_id
+ZOTERO_LIBRARY_TYPE=user
+ZOTERO_API_KEY=your_zotero_api_key
+ZOTERO_BASE_URL=https://api.zotero.org
+ZOTERO_TIMEOUT=30
+```
+
 ## Development Status
 This server is under development.
 

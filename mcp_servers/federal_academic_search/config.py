@@ -4,6 +4,13 @@ Configuration for Federal Academic Search MCP Server
 import os
 from typing import Optional
 
+# Load environment variables from .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not available, continue with system environment variables only
+    pass
 
 class FederalAcademicSearchConfig:
     """Configuration class for Federal Academic Search API integration."""
