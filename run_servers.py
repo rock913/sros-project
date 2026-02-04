@@ -9,6 +9,16 @@ import sys
 import os
 import logging
 from pathlib import Path
+import socket
+
+def check_port(port, host='127.0.0.1'):
+    """Check if a port is available."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
 
 # Add the mcp_servers directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent / "mcp_servers"))
@@ -30,8 +40,15 @@ def setup_logging():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-def run_federal_academic_search_server(port=8001):
+def run_federal_academic_search_server(port=8001, auto_port=False):
     """Run the Federal Academic Search MCP server."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from federal_academic_search.main import main as federal_academic_search_main
         print(f"Starting Federal Academic Search server on port {port}...")
@@ -43,8 +60,15 @@ def run_federal_academic_search_server(port=8001):
     except Exception as e:
         print(f"Error running Federal Academic Search server: {e}")
 
-def run_semantic_scholar_server(port=8002):
+def run_semantic_scholar_server(port=8002, auto_port=False):
     """Run the Federal Academic Search MCP server (replaces legacy Semantic Scholar server)."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from federal_academic_search.main import main as federal_academic_search_main
         print(f"Starting Federal Academic Search server on port {port}...")
@@ -56,8 +80,15 @@ def run_semantic_scholar_server(port=8002):
     except Exception as e:
         print(f"Error running Federal Academic Search server: {e}")
 
-def run_zotero_expert_server(port=8003):
+def run_zotero_expert_server(port=8003, auto_port=False):
     """Run the Zotero Expert MCP server."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from zotero_expert.main import main as zotero_expert_main
         print(f"Starting Zotero Expert server on port {port}...")
@@ -68,8 +99,15 @@ def run_zotero_expert_server(port=8003):
     except Exception as e:
         print(f"Error running Zotero Expert server: {e}")
 
-def run_manuscript_manager_server(port=8004):
+def run_manuscript_manager_server(port=8004, auto_port=False):
     """Run the Manuscript Manager MCP server."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from manuscript_manager.main import main as manuscript_manager_main
         print(f"Starting Manuscript Manager server on port {port}...")
@@ -87,8 +125,15 @@ def run_manuscript_manager_server(port=8004):
     except Exception as e:
         print(f"Error running Manuscript Manager server: {e}")
 
-def run_duckdb_memory_server(port=8005):
+def run_duckdb_memory_server(port=8005, auto_port=False):
     """Run the DuckDB Memory MCP server."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from duckdb_memory.main import main as duckdb_memory_main
         print(f"Starting DuckDB Memory server on port {port}...")
@@ -107,8 +152,15 @@ def run_duckdb_memory_server(port=8005):
     except Exception as e:
         print(f"Error running DuckDB Memory server: {e}")
 
-def run_sros_logic_server(port=8006):
+def run_sros_logic_server(port=8006, auto_port=False):
     """Run the SROS Logic MCP server."""
+    original_port = port
+    if auto_port:
+        while not check_port(port):
+            port += 1
+        if port != original_port:
+            print(f"Port {original_port} unavailable. Using port {port} instead.")
+
     try:
         from mcp_sros_logic.main import main as sros_logic_main
         print(f"Starting SROS Logic server on port {port}...")
@@ -125,8 +177,7 @@ def run_sros_logic_server(port=8006):
         print("Please install required dependencies: pip install -r mcp_servers/mcp_sros_logic/requirements.txt")
     except Exception as e:
         print(f"Error running SROS Logic server: {e}")
-
-def run_all_servers():
+def run_all_servers(auto_port=False):
     """Run all MCP servers simultaneously."""
     print("Starting all SROS MCP servers...")
     
@@ -142,10 +193,10 @@ def run_all_servers():
     
     for name, runner, port in servers:
         try:
-            print(f"Starting {name} server on port {port}...")
-            runner(port)
+            runner(port, auto_port=auto_port)
         except Exception as e:
             print(f"Failed to start {name} server: {e}")
+
 
 def main():
     """Main entry point."""
@@ -159,32 +210,37 @@ def main():
         help="Which server to run (legacy-semantic-scholar now runs the federal academic search backend)"
     )
     parser.add_argument(
-        "--port", 
-        type=int, 
+        "--port",
+        type=int,
         default=8000,
         help="Port to run the server on (default: 8000)"
     )
-    
+    parser.add_argument(
+        "--auto-port",
+        action="store_true",
+        help="Automatically find available port if default is occupied"
+    )
+
     args = parser.parse_args()
     
     if not args.server:
         parser.print_help()
         return
-    
     if args.server == "federal-academic-search":
-        run_federal_academic_search_server(args.port)
+        run_federal_academic_search_server(args.port, auto_port=args.auto_port)
     elif args.server == "legacy-semantic-scholar":
-        run_semantic_scholar_server(args.port)
+        run_semantic_scholar_server(args.port, auto_port=args.auto_port)
     elif args.server == "zotero-expert":
-        run_zotero_expert_server(args.port)
+        run_zotero_expert_server(args.port, auto_port=args.auto_port)
     elif args.server == "manuscript-manager":
-        run_manuscript_manager_server(args.port)
+        run_manuscript_manager_server(args.port, auto_port=args.auto_port)
     elif args.server == "duckdb-memory":
-        run_duckdb_memory_server(args.port)
+        run_duckdb_memory_server(args.port, auto_port=args.auto_port)
     elif args.server == "sros-logic":
-        run_sros_logic_server(args.port)
+        run_sros_logic_server(args.port, auto_port=args.auto_port)
     elif args.server == "all":
-        run_all_servers()
+        run_all_servers(auto_port=args.auto_port)
+
 
 if __name__ == "__main__":
     main()

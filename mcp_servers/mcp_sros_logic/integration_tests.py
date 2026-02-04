@@ -27,8 +27,8 @@ with patch.dict('sys.modules', {
     'mcp_servers.duckdb_memory': MagicMock(),
     'mcp_servers.duckdb_memory.server': MagicMock(),
 }):
-    from server import SROSLogicServer
-    from mcp_handler import SROSMCPHandler
+    from mcp_servers.mcp_sros_logic.server import SROSLogicServer
+    from mcp_servers.mcp_sros_logic.mcp_handler import SROSLogicMCPHandler
 
 class TestSROSIntegration(unittest.TestCase):
     """Integration tests for SROS Logic Server with other MCP servers."""
@@ -261,7 +261,7 @@ This is a test introduction with some citations [@smith2020].
     def test_mcp_handler_integration(self):
         """Test MCP handler with cross-server communication."""
         # Create handler instance
-        handler = SROSMCPHandler()
+        handler = SROSLogicMCPHandler()
         
         # Test initialize method
         init_result = handler.handle_request("initialize", {})

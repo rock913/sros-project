@@ -52,42 +52,64 @@ class SROSLogicServer:
             self.manuscript_manager = None
             self.duckdb_memory = None
     
-    def init_workspace(self) -> Dict[str, Any]:
+    def init_workspace(self, workspace_path=None) -> Dict[str, Any]:
         """
         Initialize a new SROS workspace with proper directory structure and configuration.
         
+        Args:
+            workspace_path: Optional path to override the default workspace path
+            
         Returns:
             Result dictionary with success status and message
         """
         try:
+            # Use the provided workspace path or fall back to instance variable
+            path_to_use = workspace_path if workspace_path is not None else self.workspace_path
+            
             # Create .sros directory with proper permissions
-            self.sros_dir.mkdir(exist_ok=True, parents=True)
-            (self.sros_dir / "configs").mkdir(exist_ok=True)
-            (self.sros_dir / "cache").mkdir(exist_ok=True)
-            (self.sros_dir / "logs").mkdir(exist_ok=True)
+            sros_dir = Path(path_to_use) / ".sros"
+            sros_dir.mkdir(exist_ok=True, parents=True)
+            (sros_dir / "configs").mkdir(exist_ok=True)
+            (sros_dir / "cache").mkdir(exist_ok=True)
+            (sros_dir / "logs").mkdir(exist_ok=True)
             
             # Initialize DuckDB database properly if duckdb-memory server is available
+            graph_db_path = sros_dir / "graph.db"
             if self.duckdb_memory:
                 # The duckdb-memory server will handle database initialization
                 logging.info("DuckDB memory server initialized")
             else:
                 # Create graph.db placeholder
-                with open(self.graph_db_path, 'w') as f:
+                with open(graph_db_path, 'w') as f:
                     f.write("# DuckDB Graph Database\n# Managed by duckdb-memory MCP server\n")
             
             # Create research_log.jsonl with proper header
-            if not self.research_log_path.exists():
-                with open(self.research_log_path, 'w') as f:
+            research_log_path = sros_dir / "research_log.jsonl"
+            if not research_log_path.exists():
+                with open(research_log_path, 'w') as f:
                     f.write("# SROS Research Activity Log\n")
             
             # Create references directory
-            self.references_dir.mkdir(exist_ok=True, parents=True)
+            references_dir = Path(path_to_use) / "references"
+            references_dir.mkdir(exist_ok=True, parents=True)
+            
+            # Create materials directory for non-structured content
+            materials_dir = Path(path_to_use) / "materials"
+            materials_dir.mkdir(exist_ok=True, parents=True)
+            
+            # Create ideas.md if it doesn't exist
+            ideas_path = Path(path_to_use) / "ideas.md"
+            if not ideas_path.exists():
+                with open(ideas_path, 'w') as f:
+                    f.write("# Initial Research Ideas\n\n- [ ] Add your initial research concepts here\n- [ ] Key hypotheses to validate\n")
             
             # Create default draft.md with comprehensive structure if it doesn't exist
-            draft_path = self.workspace_path / "draft.md"
+            draft_path = Path(path_to_use) / "draft.md"
             if not draft_path.exists():
                 with open(draft_path, 'w') as f:
                     f.write("""# Research Draft
+
+# [TODO: Add brief overview of research topic]
 
 ## Abstract
 
@@ -123,12 +145,12 @@ class SROSLogicServer:
 """)
             
             # Create workspace configuration
-            config_path = self.sros_dir / "workspace.json"
+            config_path = sros_dir / "workspace.json"
             if not config_path.exists():
                 workspace_config = {
                     "version": "1.0",
                     "created_at": str(Path().resolve().stat().st_mtime) if Path().exists() else "N/A",
-                    "workspace_path": str(self.workspace_path),
+                    "workspace_path": str(path_to_use),
                     "components": {
                         "manuscript_manager": True,
                         "duckdb_memory": self.duckdb_memory is not None,
@@ -141,17 +163,19 @@ class SROSLogicServer:
             
             return {
                 "success": True,
-                "message": f"Workspace initialized successfully at {self.workspace_path}",
+                "message": f"Workspace initialized successfully at {path_to_use}",
                 "directories_created": [
-                    str(self.sros_dir),
-                    str(self.sros_dir / "configs"),
-                    str(self.sros_dir / "cache"),
-                    str(self.sros_dir / "logs"),
-                    str(self.references_dir)
+                    str(sros_dir),
+                    str(sros_dir / "configs"),
+                    str(sros_dir / "cache"),
+                    str(sros_dir / "logs"),
+                    str(references_dir),
+                    str(materials_dir),
+                    str(ideas_path)
                 ],
                 "files_created": [
-                    str(self.graph_db_path),
-                    str(self.research_log_path),
+                    str(graph_db_path),
+                    str(research_log_path),
                     str(draft_path),
                     str(config_path)
                 ]
@@ -163,12 +187,14 @@ class SROSLogicServer:
                 "error": f"Failed to initialize workspace: {str(e)}"
             }
     
-    def detect_academic_gaps(self, manuscript_path: str = "draft.md") -> Dict[str, Any]:
+    def detect_academic_gaps(self, manuscript_path: str = "draft.md", topic: str = "", scope: str = "broad") -> Dict[str, Any]:
         """
         Detect academic gaps in the manuscript using comprehensive analysis.
         
         Args:
             manuscript_path: Path to the manuscript file
+            topic: Optional research topic for focused analysis
+            scope: Analysis scope ("broad", "narrow", "specific")
             
         Returns:
             Result dictionary with detected gaps and analysis

@@ -92,9 +92,9 @@ class SROSLogicMCPHandler:
     def _handle_init_workspace(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle init_workspace request."""
         try:
-            config = params.get("config", {})
-            success = self.server.init_workspace(config)
-            return {"result": {"success": success}}
+            workspace_path = params.get("workspace_path", None)
+            success = self.server.init_workspace(workspace_path)
+            return {"result": success}
         except Exception as e:
             return {
                 "error": {
@@ -106,10 +106,11 @@ class SROSLogicMCPHandler:
     def _handle_detect_academic_gaps(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle detect_academic_gaps request."""
         try:
+            manuscript_path = params.get("manuscript_path", "")
             topic = params.get("topic", "")
             scope = params.get("scope", "broad")
             
-            gaps = self.server.detect_academic_gaps(topic, scope)
+            gaps = self.server.detect_academic_gaps(manuscript_path, topic, scope)
             return {"result": gaps}
         except Exception as e:
             return {

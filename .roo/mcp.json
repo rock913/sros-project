@@ -8,7 +8,9 @@
 				"mcp_servers.manuscript_manager.main"
 			],
 			"type": "stdio",
-			"description": "Manuscript structure management and editing server"
+			"description": "Manuscript structure management and editing server",
+			"disabled": true,
+			"alwaysAllow": []
 		},
 		"duckdb-memory": {
 			"name": "DuckDB Memory",
@@ -18,7 +20,9 @@
 				"mcp_servers.duckdb_memory.main"
 			],
 			"type": "stdio",
-			"description": "Paper storage and retrieval server using DuckDB"
+			"description": "Paper storage and retrieval server using DuckDB",
+			"disabled": true,
+			"alwaysAllow": []
 		},
 		"sros-logic": {
 			"name": "SROS Logic",
@@ -28,7 +32,9 @@
 				"mcp_servers.mcp_sros_logic.main"
 			],
 			"type": "stdio",
-			"description": "Custom SROS logic and workflow management server"
+			"description": "Custom SROS logic and workflow management server",
+			"disabled": true,
+			"alwaysAllow": []
 		},
 		"zotero-expert": {
 			"name": "Zotero Expert",
@@ -39,18 +45,8 @@
 			],
 			"type": "stdio",
 			"description": "Zotero library management and citation expert server",
-			"disabled": false,
+			"disabled": true,
 			"alwaysAllow": []
-		},
-		"federal-academic-search": {
-			"name": "Federal Academic Search",
-			"command": "python3",
-			"args": [
-				"-m",
-				"mcp_servers.federal_academic_search.main_stdio"
-			],
-			"type": "stdio",
-			"description": "Academic paper search and retrieval server"
 		}
 	}
 }

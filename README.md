@@ -58,12 +58,13 @@ Each research project uses a local-first approach with all data stored in the pr
 ### Core Workflows: Draft-Driven Discovery - ✅ FUNCTIONAL
 The system operates on a "write-while-researching" model:
 
-1. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure tree
-2. **Detect**: Identify gaps in the manuscript (explicit `[TODO:]` and implicit logic breaks)
-3. **Retrieve**: Call `federal_academic_search` to find evidence for specific gaps
-4. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`
-5. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content in specified sections
-6. **Iterate**: Rescan manuscript to check if gaps are eliminated
+1. **Warm-up / Ingest** (New): Agent scans `ideas.md` and `materials/` to extract key concepts and inject "Soft Knowledge" into local graph before starting.
+2. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure tree
+3. **Detect**: Identify gaps. *Optimization*: Checks "Soft Knowledge" in graph first; if answer exists in `materials/`, uses it instead of external search.
+4. **Retrieve**: Call `federal_academic_search` to find evidence for specific gaps if not found locally
+5. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`
+6. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content in specified sections
+7. **Iterate**: Rescan manuscript to check if gaps are eliminated
 
 ### Development Status - ✅ REVOLUTIONARY IMPROVEMENT
 🚀 **V2.1.5 Implementation COMPLETE - MVP Ready**
@@ -180,9 +181,10 @@ python run_servers.py duckdb-memory --port 8003
 4. Add any preliminary ideas in `ideas.md` and supporting materials in `materials/`
 
 **Step 1: Writing and Gap Detection**
-1. Start writing in your `draft.md` file
-2. Add `[TODO:]` markers for sections you want to research
-3. Roo Code will automatically detect gaps and trigger research workflows
+1. **(Auto-Warmup)**: The system first digests your `ideas.md` and `materials/` into the graph
+2. Start writing in your `draft.md` file
+3. Add `[TODO:]` markers for sections you want to research
+4. Roo Code will automatically detect gaps and trigger research workflows
 
 **Step 2: Research Automation**
 1. The system automatically calls `federal_academic_search` server to find relevant papers
@@ -315,12 +317,13 @@ SROS 实现了**双平面模型**：
 ### 核心工作流：草稿驱动发现 - ✅ 功能正常
 系统采用"边写边研究"的模式：
 
-1. **观察**：Roo Code 调用 `manuscript_manager` 获取当前 Markdown 结构树
-2. **检测**：识别手稿中的空白（明确的 `[TODO:]` 和隐含的逻辑断点）
-3. **检索**：调用 `federal_academic_search` 为特定空白寻找证据
-4. **构建**：将文献关系（CiTO 本体论）存储在本地 `.sros/graph.db` 中
-5. **扩展**：使用 `manuscript_manager` 原子编辑工具在指定章节插入引用内容
-6. **迭代**：重新扫描手稿以检查空白是否消除
+1. **预热 (Warm-up / Ingest)**：(新特性) Agent 自动扫描 `ideas.md` 和 `materials/` 目录，提取关键概念并标记为“软知识”注入本地图谱。
+2. **观察**：Roo Code 调用 `manuscript_manager` 获取当前 Markdown 结构树
+3. **检测**：识别 Gap。*优化*：优先比对“软知识”库，如果 `materials/` 中已有答案，直接引用而不是盲目搜索。
+4. **检索**：针对特定 Gap，如果本地材料不足，则调用 `federal_academic_search`
+5. **构建**：将文献关系（CiTO 本体论）存储在本地 `.sros/graph.db` 中
+6. **扩展**：使用 `manuscript_manager` 原子编辑工具在指定章节插入引用内容
+7. **迭代**：重新扫描手稿以检查空白是否消除
 
 ### 开发状态 - ✅ 革命性改进
 🚀 **V2.1.5 实现完成 - MVP 就绪**
@@ -420,9 +423,10 @@ python run_servers.py duckdb-memory --port 8003
 #### 使用教程
 
 **第 1 步：写作和空白检测**
-1. 在 `draft.md` 文件中开始写作
-2. 添加 `[TODO:]` 标记来标识想要研究的部分
-3. Roo Code 将自动检测空白并触发研究工作流
+1. **(自动预热)**：系统首先消化您的 `ideas.md` 和 `materials/` 到图谱中
+2. 在 `draft.md` 文件中开始写作
+3. 添加 `[TODO:]` 标记来标识想要研究的部分
+4. Roo Code 将自动检测空白并触发研究工作流
 
 **第 2 步：研究自动化**
 1. 系统自动调用 `federal_academic_search` 服务器 查找相关论文
