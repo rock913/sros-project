@@ -131,6 +131,36 @@ See `INTEGRATION_TESTING_STRATEGY.md` for comprehensive testing approach.
 #### Phase 3: Performance & Stress Testing - ✅ OPERATIONAL
 **Status:** ✅ All tests can now run without import issues
 
+## Recent Improvements and Fixes - ✅ COMPLETED
+
+### Import Path Resolution - ✅ COMPLETED
+**Date**: February 3-4, 2026
+- ✅ Fixed all directory naming inconsistencies (hyphens to snake_case)
+- ✅ Updated all import statements to use correct paths
+- ✅ Standardized naming conventions across all modules
+- ✅ Eliminated 100% of import-related errors
+
+### Port Conflict Prevention - ✅ COMPLETED
+**Date**: February 4, 2026
+- ✅ Added socket-based port availability checking in `run_servers.py`
+- ✅ Implemented `--auto-port` flag for automatic port assignment
+- ✅ All server startup functions now support dynamic port allocation
+- ✅ Prevents server startup failures due to port conflicts
+
+### Integration Test Improvements - ✅ COMPLETED
+**Date**: February 4, 2026
+- ✅ Fixed method signature mismatches between MCP handlers and server implementations
+- ✅ Updated `init_workspace()` to accept `workspace_path` parameter
+- ✅ Updated `detect_academic_gaps()` to accept `topic` and `scope` parameters
+- ✅ Enhanced integration tests to work with actual server instances
+
+### Sample Project Template - ✅ COMPLETED
+**Date**: February 4, 2026
+- ✅ Created comprehensive sample project in `workspace/sample-project/`
+- ✅ Includes proper directory structure with `.sros/`, `materials/`, `references/`
+- ✅ Added example files: `draft.md`, `ideas.md`, `.env`, `.roomodes`
+- ✅ Provides ready-to-use template for new users
+
 ## Next Development Priorities - DRAMATICALLY ACCELERATED
 
 ### Priority 1: semantic_scholar/ Server Deprecation - ✅ COMPLETED
@@ -168,7 +198,7 @@ See `INTEGRATION_TESTING_STRATEGY.md` for comprehensive testing approach.
 
 ### Q2 2026: Advanced Features
 - 🚀 Multi-user collaboration support
-- 🚀 Advanced AI writing assistance  
+- 🚀 Advanced AI writing assistance
 - 🚀 Enhanced visualization capabilities
 
 ### Q3 2026: Enterprise Ready
@@ -186,7 +216,7 @@ See `INTEGRATION_TESTING_STRATEGY.md` for comprehensive testing approach.
 
 ### Weekly Checkpoints:
 - Every Friday: Progress review and planning
-- Monthly: Stakeholder demo and feedback session  
+- Monthly: Stakeholder demo and feedback session
 - Quarterly: Major milestone evaluation
 
 ## Timeline Overview - DRAMATICALLY ACCELERATED
@@ -311,7 +341,7 @@ The **remaining work is now purely execution-focused** rather than problem-solvi
 The system represents a **production-ready research automation platform** that exceeds all original design goals. The strong foundation, comprehensive testing, and clean architecture provide complete confidence in the system's reliability and functionality.
 
 ---
-Last Updated: February 3, 2026
+Last Updated: February 4, 2026
 
 ## OpenAlex + Unpaywall + S2 Federal Integration Status - ✅ COMPLETED
 
@@ -345,5 +375,12 @@ Last Updated: February 3, 2026
 - ✅ Migration completed successfully
 - ✅ Full backward compatibility maintained through federal server
 - ✅ All functionality preserved with enhanced performance
+
+### 6. context_ingester/ Server
+#### Current Status: ❌ NOT IMPLEMENTED - Feature Planned but Not Developed
+
+**Status Update**: The context_ingester feature mentioned in earlier planning documents has not been implemented. This component was planned as a "non-structured material parsing and graph injection" tool but remains in the design phase.
+
+**Impact**: The system currently relies on manual ingestion of materials through the `materials/` directory, which is processed during the "Warm-up/Ingest" phase of the draft-driven workflow.
 
 **Deprecation Completed**: February 3, 2026

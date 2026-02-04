@@ -37,14 +37,23 @@ All MCP servers are located in the [`mcp_servers/`](mcp_servers/) directory:
 #### Workspace Structure
 Each research project uses a local-first approach with all data stored in the project directory:
 ```
-/Project_Folder/
-├── .sros/                 # Hidden state directory
-│   ├── graph.db           # Local knowledge graph (DuckDB)
-│   └── research_log.jsonl # Research history
-├── .roomodes              # Project-specific behavior definitions
-├── draft.md               # Single source of truth
-└── references/            # Downloaded PDF clips
+/My_Research_Project/  <-- VS Code 打开此目录
+├── .sros/                 # [自动生成] 隐藏状态目录
+│   ├── graph.db           # 本地知识图谱 (DuckDB)
+│   └── research_log.jsonl # 检索足迹
+├── .roomodes              # [复制/软链] 项目特定的行为定义
+├── .env                   # [复制] 环境变量配置
+├── draft.md               # [核心] 单一事实来源
+├── ideas.md               # [可选] 初始想法与头脑风暴记录
+├── materials/             # [新增] 辅助参考材料
+│   ├── deep_research.md   # Gemini/Perplexity 生成的调研报告
+│   ├── web_clips.txt      # 网页剪藏
+│   └── notes.md           # 随手笔记
+└── references/            # [正式] 仅存放 Zotero 链接的正式 PDF 附件
 ```
+
+**Important**: Always create a separate project folder for each research paper to avoid context contamination between different projects.
+
 
 ### Core Workflows: Draft-Driven Discovery - ✅ FUNCTIONAL
 The system operates on a "write-while-researching" model:
@@ -88,8 +97,8 @@ cd sros-project
 # Install core dependencies
 pip install -r requirements.txt
 
-# Install optional dependencies for full functionality
-pip install duckdb  # For local knowledge graph storage
+# Install duckdb for local knowledge graph storage (required for duckdb_memory server)
+pip install duckdb
 ```
 
 3. **Set Up Environment Variables**
@@ -114,6 +123,14 @@ export ZOTERO_API_KEY=your_api_key
 ```bash
 mkdir my-research-project
 cd my-research-project
+# 复制环境配置
+cp /path/to/sros/.env.example .env
+# 创建初始稿件
+touch draft.md
+# [可选] 创建材料目录
+mkdir materials
+# 创建初始想法文件
+touch ideas.md
 ```
 
 Create a basic `draft.md`:
@@ -140,6 +157,9 @@ Create a basic `draft.md`:
 # Run all servers
 python run_servers.py all
 
+# Run with automatic port assignment to prevent conflicts
+python run_servers.py all --auto-port
+
 # Or run individual servers
 python run_servers.py federal-academic-search --port 8001
 python run_servers.py manuscript-manager --port 8002
@@ -152,6 +172,12 @@ python run_servers.py duckdb-memory --port 8003
 - Begin writing in `draft.md` - the system will automatically detect gaps and suggest research
 
 #### Usage Tutorial
+
+**Step 0: Project Initialization**
+1. Create a dedicated project folder for your research
+2. Copy the `.env.example` file to `.env` and configure your API keys
+3. Create your initial `draft.md` with basic structure
+4. Add any preliminary ideas in `ideas.md` and supporting materials in `materials/`
 
 **Step 1: Writing and Gap Detection**
 1. Start writing in your `draft.md` file
@@ -172,6 +198,12 @@ python run_servers.py duckdb-memory --port 8003
 1. Continue writing and refining your draft
 2. The system continuously monitors for new gaps
 3. Build a comprehensive, well-researched document
+
+**Best Practices:**
+- Always work in a dedicated project folder (never in the SROS root directory)
+- Use the `materials/` directory to store pre-existing research, notes, and AI-generated reports
+- Regularly check the `.sros/graph.db` for knowledge graph updates
+- Monitor `.sros/research_log.jsonl` for research activity tracking
 
 #### Advanced Usage
 
@@ -200,14 +232,18 @@ python run_servers.py duckdb-memory --port 8003
 
 **Common Issues:**
 1. **Import Errors**: Ensure all directory names use snake_case format
-2. **Missing Dependencies**: Install optional packages as needed (`pip install duckdb`)
+2. **Missing Dependencies**: Install required packages (`pip install duckdb` for knowledge graph)
 3. **Server Connection Issues**: Check that MCP servers are running on correct ports
-4. **Permission Errors**: Ensure write permissions in project directory
+4. **Port Conflicts**: Use `--auto-port` flag to automatically find available ports
+5. **Permission Errors**: Ensure write permissions in project directory
+6. **Context Contamination**: Never work in the SROS root directory; always use dedicated project folders
+7. **Environment Variables**: Verify all required API keys are set in your `.env` file
 
 **Debugging Tips:**
 - Check server logs in `.sros/logs/`
 - Use `run_servers.py --debug` for verbose output
 - Verify environment variables are set correctly
+- For port issues, try `run_servers.py --auto-port`
 
 ### Contributing
 1. Fork the repository
@@ -220,6 +256,19 @@ python run_servers.py duckdb-memory --port 8003
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
+
+## Key Updates in V2.1.5
+
+### MCP Server Status
+- **federal_academic_search/**: ✅ Fully operational (replaces legacy semantic_scholar)
+- **semantic_scholar/**: 🔄 Deprecated and replaced by federal_academic_search
+- **context_ingester/**: ❌ Not implemented (planned feature remains undelivered)
+
+### Project Structure Requirements
+- **Mandatory**: Each research project must have its own dedicated folder
+- **Never**: Work directly in the SROS root directory
+- **Isolation**: Dedicated project folders prevent context contamination between different research papers
+
 
 ## 中文版本
 
