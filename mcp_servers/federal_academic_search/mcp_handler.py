@@ -54,6 +54,8 @@ class FederalAcademicSearchMCPHandler:
                 return self._handle_get_cache_stats(params)
             elif method == "clear_cache":
                 return self._handle_clear_cache(params)
+            elif method == "tools/list":
+                return self._handle_list_tools(params)
             else:
                 return {
                     "error": {
@@ -69,6 +71,51 @@ class FederalAcademicSearchMCPHandler:
                     "message": f"Internal error: {str(e)}"
                 }
             }
+
+    def _handle_list_tools(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle tools/list request."""
+        return {
+            "result": {
+                "tools": [
+                    {
+                        "name": "search_papers",
+                        "description": "Search for academic papers using OpenAlex (primary), Unpaywall (PDFs), and Semantic Scholar (enrichment).",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string", "description": "Search query"},
+                                "limit": {"type": "integer", "description": "Max results (default 10)", "default": 10},
+                                "enrich": {"type": "boolean", "description": "Enrich with S2 data", "default": True}
+                            },
+                            "required": ["query"]
+                        }
+                    },
+                    {
+                        "name": "get_paper_details",
+                        "description": "Get detailed metadata for a specific paper.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "paper_id": {"type": "string", "description": "OpenAlex ID (W...) or DOI"}
+                            },
+                            "required": ["paper_id"]
+                        }
+                    },
+                    {
+                        "name": "download_pdf",
+                        "description": "Try to download PDF for a paper.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "paper_id": {"type": "string", "description": "Paper ID"},
+                                "save_path": {"type": "string", "description": "Directory to save PDF"}
+                            },
+                            "required": ["paper_id"]
+                        }
+                    }
+                ]
+            }
+        }
 
     def _handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle initialize request."""

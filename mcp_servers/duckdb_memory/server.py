@@ -12,12 +12,7 @@ from pathlib import Path
 import logging
 
 # Lazy loading for duckdb dependency
-try:
-    import duckdb
-    HAS_DUCKDB = True
-except ImportError:
-    duckdb = None
-    HAS_DUCKDB = False
+HAS_DUCKDB = None  # Check on demand
 
 # Import the common interface
 from mcp_servers.common.interfaces import MemoryStore
@@ -40,8 +35,15 @@ class DuckDBMemoryServer(MemoryStore):
     @property
     def conn(self):
         """Lazy loading: Only import duckdb when actually needed, not at module level."""
+        global HAS_DUCKDB
+        
         if self._conn is None:
-            if not HAS_DUCKDB:
+            # Import duckdb inside the method
+            try:
+                import duckdb
+                HAS_DUCKDB = True
+            except ImportError:
+                HAS_DUCKDB = False
                 logging.error("DuckDB not installed. Feature unavailable.")
                 raise RuntimeError("DuckDB dependency missing. Please install it with: pip install duckdb")
             

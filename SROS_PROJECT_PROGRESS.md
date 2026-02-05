@@ -2,102 +2,79 @@
 
 ## Executive Summary
 
-🎉 **MAJOR BREAKTHROUGH ACHIEVED**: All critical architecture issues have been resolved through comprehensive refactoring. The system is now **100% functionally complete** with all core MCP servers operational and all tests passing (including graceful handling when optional dependencies are missing).
+🎉 **MAJOR BREAKTHROUGH ACHIEVED (V2.2)**: The SROS V2.2 Gateway Architecture is now fully implemented. This upgrade introduces a "Stack-in-a-Box" deployment model where a single Gateway server (Port 8000) orchestrates all other services, removing connection limits and greatly simplifying setup.
 
 ## What Changed Dramatically
 
-### Before Refactoring (Feb 2, 2026)
-- ❌ **Import Path Conflicts**: Directory names used hyphens but Python expected underscores
-- ❌ **Dependency Hell**: duckdb package couldn't be installed, blocking all tests
-- ❌ **Tight Coupling**: Servers directly imported each other, creating circular dependencies
-- ❌ **Testing Chaos**: Tests crashed catastrophically when dependencies missing
-- ❌ **Integration Blocked**: Cross-server communication impossible due to import issues
+### Latest Architecture Upgrade (Feb 4, 2026) - V2.2 Gateway
+- ✅ **Single Port Entry**: All 5+ MCP servers are now accessed via a single port (8000).
+- ✅ **Unlimited Connections**: Bypassed VS Code's 6-connection limit by multiplexing requests through the Gateway.
+- ✅ **Context Ingester**: New service that pre-reads `materials/` to give agents "Soft Knowledge" before starting tasks.
+- ✅ **Hub-and-Spoke**: Clean separation between the Gateway (Hub) and functional servers (Spokes).
 
-### After Refactoring (Feb 3, 2026)
-- ✅ **Clean Imports**: All directory names standardized to snake_case, eliminating 100% of import errors
-- ✅ **Graceful Dependency Management**: Lazy loading with clear error messages instead of crashes
-- ✅ **Loose Coupling**: Interface-based architecture enables independent server development
-- ✅ **Reliable Testing**: All tests run cleanly in any environment with clear feedback
-- ✅ **Seamless Integration**: Cross-server communication now works perfectly
+### Previous Milestone (Feb 3, 2026) - V2.1.5 Refactoring
+- ✅ **Clean Imports**: All directory names standardized to snake_case.
+- ✅ **Graceful Dependency Management**: Lazy loading prevents crashes.
+- ✅ **Loose Coupling**: Interface-based architecture.
 
-## Current Status - REVOLUTIONARY IMPROVEMENT
+## Current Status - V2.2 GATEWAY EDITION
 
 ### System Architecture Summary
-Based on successful implementation of `doc/SROS_ARCHITECTURE_REFACTORING_COMPLETED.md`:
+Based on successful implementation of `doc/SROS V2.2 架构实施总蓝图.md`:
 
 #### Control Plane (The Brain) - ✅ STABLE
 - **Carrier**: Roo Code / Cline (VS Code Extension)
-- **Responsibilities**: Task planning, CoT reasoning, decision making, human interaction
-- **Logic Storage**: All orchestration logic stored in `.roomodes` and `.clinerules`
+- **Responsibilities**: Connects ONLY to the Gateway.
 
 #### Capability Plane (The Tools) - ✅ OPERATIONAL
-- **Carrier**: Model Context Protocol (MCP) standard servers
-- **Responsibilities**: Execute specific I/O operations (academic search, file structure manipulation, database access)
-- **Principle**: Use mature community servers, only develop core research logic
+- **Gateway**: `sros_gateway` (Port 8000) - The traffic controller.
+- **Sub-servers**: Managed as subprocesses by the Gateway via stdio.
+  - `federal_academic_search`: Research
+  - `manuscript_manager`: Writing
+  - `duckdb_memory`: Graph Storage
+  - `context_ingester`: Context Loading
+  - `zotero_expert`: Citation Management
 
-### Core Workflows: Draft-Driven Discovery - ✅ FUNCTIONAL
+### Core Workflows: Context-Enhanced Research - ✅ FUNCTIONAL
 The system operates on a "write-while-researching" model:
 
-1. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure tree
-2. **Detect**: Identify gaps in the manuscript (explicit `[TODO:]` and implicit logic breaks)
-3. **Retrieve**: Call `federal_academic_search` to find evidence for specific gaps
-4. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`
-5. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content in specified sections
-6. **Iterate**: Rescan manuscript to check if gaps are eliminated
+1. **Ingest**: `context_ingester` reads background materials.
+2. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure.
+3. **Detect**: Identify gaps.
+4. **Retrieve**: Call `federal_academic_search` via Gateway.
+5. **Build**: Store literature relationships in local `.sros/graph.db`.
+6. **Expand**: Use `manuscript_manager` to write content.
+7. **Iterate**: Rescan manuscript.
 
 ## Core MCP Servers Implementation Status - ✅ ALL GREEN
 
-### 1. federal_academic_search/ Server
-#### Current Status: ✅ IMPLEMENTATION COMPLETE - Federal Architecture Ready
+### 1. sros_gateway/ Server (NEW)
+#### Current Status: ✅ IMPLEMENTATION COMPLETE
+- **Role**: Central traffic hub.
+- **Features**: SSE endpoint (8000), Subprocess management, auto-routing.
 
-**Achievement**: Successfully implemented next-generation federal academic search architecture combining OpenAlex, Unpaywall, and Semantic Scholar APIs with full backward compatibility.
+### 2. context_ingester/ Server (NEW)
+#### Current Status: ✅ IMPLEMENTATION COMPLETE
+- **Role**: Reads `materials/` folder.
+- **Features**: Parses Deep Research reports, injects into DuckDB.
 
-**Key Features**:
-- **Primary Engine**: OpenAlex for comprehensive academic search
-- **PDF Service**: Unpaywall for reliable open access PDF discovery
-- **Semantic Enhancement**: Semantic Scholar for advanced AI-powered features
-- **Performance**: Parallel processing and intelligent caching
-- **Reliability**: Circuit breaker and graceful degradation mechanisms
+### 3. federal_academic_search/ Server
+#### Current Status: ✅ INTEGRATED WITH GATEWAY
+- **Key Features**: OpenAlex + Unpaywall + Semantic Scholar.
 
-**Architecture**:
-- Federal Provider Pattern: OpenAlex (primary), Unpaywall (PDF), S2 (semantic enhancement)
-- On-demand Enrichment: Prevent blocking core search with S2 timeouts
-- Circuit Breaker: Graceful degradation when S2 rate limits are hit
-- Persistent Caching: SQLite-based cache for zero-delay repeat queries
-- Rate Limiting: Controlled API consumption across all providers
+### 4. manuscript_manager/ Server
+#### Current Status: ✅ INTEGRATED WITH GATEWAY
 
-**Implementation Status**:
-- ✅ Core architecture implementation complete
-- ✅ OpenAlex API integration complete
-- ✅ Unpaywall API integration complete
-- ✅ S2 semantic enhancement layer integration complete
-- ✅ Result transformer and compatibility layer complete
-- ✅ Cache manager implementation complete
-- ✅ MCP handler with backward compatibility complete
-- ✅ Comprehensive testing framework established
+### 5. duckdb_memory/ Server
+#### Current Status: ✅ INTEGRATED WITH GATEWAY
 
-### 2. semantic_scholar/ Server
-#### Current Status: 🔄 DEPRECATED - Replaced by federal_academic_search
+### 6. zotero_expert/ Server
+#### Current Status: ✅ INTEGRATED WITH GATEWAY
 
-**Deprecation Status**: The legacy Semantic Scholar server has been deprecated and replaced by the new federal_academic_search server. The federal_academic_search server maintains full backward compatibility with the existing Semantic Scholar MCP interface.
+## Integration Testing Strategy - ✅ PASSED
+- **End-to-End**: Verified by `test_gateway.py`.
+- **Startup**: Verified by `run_servers.py`.
 
-**Migration Status**: Complete - federal_academic_search server is now the default implementation for academic search functionality.
-
-### 2. zotero_expert/ Server
-#### Current Status: ✅ COMPLETE AND FULLY TESTED
-
-### 3. manuscript_manager/ Server
-#### Current Status: ✅ COMPLETE AND FULLY TESTED
-
-### 4. duckdb_memory/ Server
-#### Current Status: ✅ LAZY LOADING IMPLEMENTED, GRACEFUL DEGRADATION WORKING
-
-**Key Achievement**: Tests now fail gracefully with clear "Please install duckdb" message instead of crashing when dependency is missing.
-
-### 5. mcp_sros_logic/ Server
-#### Current Status: ✅ CORE LOGIC COMPLETE, INTEGRATION READY
-
-## Integration Testing Strategy - ✅ UNBLOCKED
 
 See `INTEGRATION_TESTING_STRATEGY.md` for comprehensive testing approach.
 

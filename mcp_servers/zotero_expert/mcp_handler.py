@@ -18,8 +18,8 @@ class ZoteroExpertMCPHandler:
     def __init__(self):
         """Initialize the MCP handler."""
         try:
-            config = get_zotero_config()
-            self.server = ZoteroExpertServer(config)
+            # Server initializes its own config internally
+            self.server = ZoteroExpertServer()
         except Exception as e:
             logger.error(f"Failed to initialize Zotero server: {e}")
             self.server = None

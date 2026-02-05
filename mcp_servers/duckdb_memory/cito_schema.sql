@@ -1,20 +1,26 @@
 -- CiTO (Citation Typing Ontology) Schema for DuckDB
 
+-- Sequences for IDs
+CREATE SEQUENCE IF NOT EXISTS seq_papers_id;
+CREATE SEQUENCE IF NOT EXISTS seq_citations_id;
+CREATE SEQUENCE IF NOT EXISTS seq_relationships_id;
+CREATE SEQUENCE IF NOT EXISTS seq_research_gaps_id;
+
 -- Papers table
 CREATE TABLE IF NOT EXISTS papers (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('seq_papers_id'),
     title TEXT NOT NULL,
     authors TEXT,
     year INTEGER,
     venue TEXT,
-    doi TEXT UNIQUE,
+    doi TEXT,
     abstract TEXT,
-    citation_key TEXT UNIQUE
+    citation_key TEXT
 );
 
 -- Citations table (paper A cites paper B)
 CREATE TABLE IF NOT EXISTS citations (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('seq_citations_id'),
     citing_paper_id INTEGER REFERENCES papers(id),
     cited_paper_id INTEGER REFERENCES papers(id),
     citation_context TEXT,
@@ -23,7 +29,7 @@ CREATE TABLE IF NOT EXISTS citations (
 
 -- Relationships table (CiTO relationships between papers)
 CREATE TABLE IF NOT EXISTS relationships (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('seq_relationships_id'),
     subject_paper_id INTEGER REFERENCES papers(id),
     object_paper_id INTEGER REFERENCES papers(id),
     relationship_type TEXT NOT NULL, -- e.g., 'critiques', 'extends', 'usesMethodFrom'
@@ -34,7 +40,7 @@ CREATE TABLE IF NOT EXISTS relationships (
 
 -- Research gaps table
 CREATE TABLE IF NOT EXISTS research_gaps (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('seq_research_gaps_id'),
     manuscript_section TEXT,
     gap_description TEXT,
     priority INTEGER,
@@ -48,6 +54,3 @@ CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
 CREATE INDEX IF NOT EXISTS idx_papers_citation_key ON papers(citation_key);
 CREATE INDEX IF NOT EXISTS idx_citations_citing ON citations(citing_paper_id);
 CREATE INDEX IF NOT EXISTS idx_citations_cited ON citations(cited_paper_id);
-CREATE INDEX IF NOT EXISTS idx_relationships_subject ON relationships(subject_paper_id);
-CREATE INDEX IF NOT EXISTS idx_relationships_object ON relationships(object_paper_id);
-CREATE INDEX IF NOT EXISTS idx_relationships_type ON relationships(relationship_type);

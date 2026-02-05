@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "memory": {
+      "command": "python3.11",
+      "args": ["-m", "mcp_servers.duckdb_memory.main"],
+      "env": { "PYTHONUNBUFFERED": "1" },
+      "namespace_prefix": "mem_"
+    },
+    "manuscript": {
+      "command": "python3.11",
+      "args": ["-m", "mcp_servers.manuscript_manager.main"],
+      "env": { "PYTHONUNBUFFERED": "1" },
+      "namespace_prefix": "ms_"
+    },
+    "federal": {
+      "command": "python3.11",
+      "args": ["-m", "mcp_servers.federal_academic_search.main"],
+      "env": { "PYTHONUNBUFFERED": "1" },
+      "namespace_prefix": "federal_"
+    }
+  }
+}

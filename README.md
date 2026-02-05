@@ -1,4 +1,4 @@
-# Scientific Research Operating System (SROS) V2.1.5 / 科研操作系统 (SROS) V2.1.5
+# Scientific Research Operating System (SROS) V2.2 / 科研操作系统 (SROS) V2.2
 
 [English Version](#english-version) | [中文版本](#中文版本)
 
@@ -7,100 +7,126 @@
 ## English Version
 
 ### Overview
-The Scientific Research Operating System (SROS) is a revolutionary platform that transforms the research workflow by combining the power of Model Context Protocol (MCP) servers with intelligent AI agents. This system follows a dual-plane architecture where Roo Code serves as the control plane (brain) and MCP servers provide the capability plane (tools).
+The Scientific Research Operating System (SROS) is a revolutionary platform that transforms the research workflow by combining the power of Model Context Protocol (MCP) servers with intelligent AI agents.
 
-🎉 **BREAKTHROUGH ACHIEVEMENT**: All critical architecture issues have been resolved through comprehensive refactoring. The system is now **100% functionally complete** with all core MCP servers operational and all tests passing.
+🎉 **RELEASE V2.2 (Gateway Edition)**: Major architectural upgrade implementing the "Hub-and-Spoke" model with a unified Gateway, solving connection limits and introducing Context-Aware Research.
 
 ### Core Philosophy
 - **Draft-centered**: Writing drives research rather than separate search phases
-- **MCP-powered**: Leveraging standardized protocol for tool integration
-- **Roo Code-brained**: Intelligent orchestration and decision-making
+- **Gateway-unified**: Single access point for all tools, enabling infinite scalability
+- **Context-aware**: "paid-onboarding" for agents via pre-ingested materials
 - **Local-first**: All data stored locally with Git compatibility
 
 ### Architecture
-SROS implements a **Dual-Plane Model**:
-- **Control Plane**: Roo Code/Cline (VS Code Extension) for task planning, CoT reasoning, and decision-making
-- **Capability Plane**: MCP-compliant servers for specific I/O operations
+SROS V2.2 implements a **Hub-and-Spoke Model**:
+- **Gateway (Hub)**: A single SSE server (Port 8000) managing all sub-services via stdio.
+- **Sub-servers (Spokes)**: Specialized MCP servers running as managed subprocesses.
+- **Client**: Roo Code connects only to the Gateway.
 
 ### Key Components
 
 #### MCP Servers - ✅ ALL OPERATIONAL
 All MCP servers are located in the [`mcp_servers/`](mcp_servers/) directory:
 
-1. **federal_academic_search/** - Next-generation academic search with OpenAlex + Unpaywall + Semantic Scholar federal architecture ✅
-2. **semantic_scholar/** - Legacy academic search server (DEPRECATED - replaced by federal_academic_search) 🔄
-3. **zotero_expert/** - Local citation management ✅
-4. **manuscript_manager/** - Core manuscript operations ✅
-5. **duckdb_memory/** - Local knowledge graph storage ✅
-6. **mcp_sros_logic/** - Custom SROS logic and workflow management ✅
+1. **sros_gateway/** (NEW) - United Gateway managing routing and sub-processes (Port 8000).
+2. **context_ingester/** (NEW) - Ingests soft knowledge from `materials/` into the graph.
+3. **federal_academic_search/** - Next-generation academic search federal architecture.
+4. **manuscript_manager/** - Core manuscript operations.
+5. **duckdb_memory/** - Local knowledge graph storage.
+6. **zotero_expert/** - Local citation management.
 
 #### Workspace Structure
 Each research project uses a local-first approach with all data stored in the project directory:
+SROS V2.2 adopts a multi-project workspace structure. All research work should happen inside the `workspace/` directory to keep the root clean.
+
 ```
-/My_Research_Project/  <-- VS Code 打开此目录
-├── .sros/                 # [自动生成] 隐藏状态目录
-│   ├── graph.db           # 本地知识图谱 (DuckDB)
-│   └── research_log.jsonl # 检索足迹
-├── .roomodes              # [复制/软链] 项目特定的行为定义
-├── .env                   # [复制] 环境变量配置
-├── draft.md               # [核心] 单一事实来源
-├── ideas.md               # [可选] 初始想法与头脑风暴记录
-├── materials/             # [新增] 辅助参考材料
-│   ├── deep_research.md   # Gemini/Perplexity 生成的调研报告
-│   ├── web_clips.txt      # 网页剪藏
-│   └── notes.md           # 随手笔记
-└── references/            # [正式] 仅存放 Zotero 链接的正式 PDF 附件
+/gemini-fullstack-langgraph-quickstart/  <-- Root (Open in VS Code)
+├── .roo/                  # Global Configuration
+│   ├── mcp.json           # Gateway definition
+│   └── .roomodes          # Agent Personas (Researcher/Writer)
+├── mcp_servers/           # Tool Implementations
+└── workspace/             # Your Work Area
+    ├── sros-paper-v1/     # Project A
+    │   ├── .sros/         # [Auto] Local Graph & Logs
+    │   ├── draft.md       # Manuscript
+    │   └── materials/     # Context
+    └── research-playground/ # Project B
+        └── ...
 ```
 
-**Important**: Always create a separate project folder for each research paper to avoid context contamination between different projects.
+#### How to Use
+1. **Open the Root Folder** in VS Code to load the MCP servers and Modes.
+2. **Navigate to `workspace/`** and create a new folder for your paper/project.
+3. **Select a Mode** (SROS Researcher or Writer) and begin working on `draft.md` in your sub-folder.
 
 
-### Core Workflows: Draft-Driven Discovery - ✅ FUNCTIONAL
-The system operates on a "write-while-researching" model:
+### Core Workflows: Context-Enhanced Research - ✅ FUNCTIONAL
+The system operates on a "write-while-researching" model with Context Enhancement:
 
-1. **Warm-up / Ingest** (New): Agent scans `ideas.md` and `materials/` to extract key concepts and inject "Soft Knowledge" into local graph before starting.
-2. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure tree
+1. **Warm-up / Ingest** (New): `context_ingester` scans `ideas.md` and `materials/` to inject "Soft Knowledge" into the graph.
+2. **Observe**: Roo Code calls `manuscript_manager` to get current Markdown structure.
 3. **Detect**: Identify gaps. *Optimization*: Checks "Soft Knowledge" in graph first; if answer exists in `materials/`, uses it instead of external search.
-4. **Retrieve**: Call `federal_academic_search` to find evidence for specific gaps if not found locally
-5. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`
-6. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content in specified sections
-7. **Iterate**: Rescan manuscript to check if gaps are eliminated
+4. **Retrieve**: Call `federal_academic_search` via Gateway to find evidence for specific gaps.
+5. **Build**: Store literature relationships (CiTO ontology) in local `.sros/graph.db`.
+6. **Expand**: Use `manuscript_manager` atomic editing tools to insert cited content.
+7. **Iterate**: Rescan manuscript to check if gaps are eliminated.
 
-### Development Status - ✅ REVOLUTIONARY IMPROVEMENT
-🚀 **V2.1.5 Implementation COMPLETE - MVP Ready**
+### Development Status - ✅ RELEASED
+🚀 **V2.2 Gateway Implementation COMPLETE**
 
-The SROS V2.1.5 system architecture has been successfully established with **5/5 core MCP servers fully implemented and operational**. All integration testing is now unblocked, and the system is ready for immediate MVP deployment.
+The SROS V2.2 system architecture has been successfully established with the Gateway + 5 core sub-servers.
 
 #### Key Achievements:
-- ✅ **Zero Import Path Conflicts**: All directory names standardized to snake_case
-- ✅ **Graceful Dependency Management**: Lazy loading with clear error messages
-- ✅ **Loose Coupling**: Interface-based architecture for independent development
-- ✅ **Reliable Testing**: All tests run cleanly in any environment
-- ✅ **Seamless Integration**: Cross-server communication now works perfectly
+- ✅ **Single Port Architecture**: Only port 8000 needed.
+- ✅ **Unlimited Tools**: Gateway multiplexes requests, bypassing VS Code connection limits.
+- ✅ **Context Awareness**: New Ingester service enables "warm start" for research.
+- ✅ **Simplified Operation**: One command to start everything.
 
-### Getting Started - ✅ READY FOR MVP
+### Getting Started - ✅ READY FOR USE
 
 #### Prerequisites
 - Python 3.7+
 - VS Code with Roo Code/Cline extension
 - Git (for version control)
 
-#### Installation Steps
+#### MCP Server Configuration - Gateway Mode (V2.2)
 
-1. **Clone the Repository**
-```bash
-git clone <repository-url>
-cd sros-project
+The SROS system now operates in Gateway mode.
+
+##### Gateway Configuration
+The `.roo/mcp.json` should be configured to connect to the Gateway:
+
+```json
+{
+  "mcpServers": {
+    "sros-gateway": {
+      "name": "SROS Gateway",
+      "url": "http://localhost:8000/sse",
+      "type": "sse",
+      "description": "Unified Gateway for all SROS services (Search, Manuscript, Memory, etc.)",
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}
 ```
 
-2. **Install Dependencies**
-```bash
-# Install core dependencies
-pip install -r requirements.txt
+##### Starting the Gateway
+Use `run_servers.py` to start the Gateway (which automatically manages all sub-servers):
 
-# Install duckdb for local knowledge graph storage (required for duckdb_memory server)
-pip install duckdb
+```bash
+# Start Gateway (Port 8000) - Manages all sub-servers internally
+python run_servers.py gateway
 ```
+
+##### Testing
+Verify the Gateway and sub-servers are working:
+
+```bash
+# Run Gateway end-to-end tests
+python test_gateway.py
+```
+
 
 3. **Set Up Environment Variables**
 The system now supports `.env` file configuration. Copy the `.env.example` file to `.env` and fill in your actual values:
@@ -155,7 +181,7 @@ Create a basic `draft.md`:
 
 5. **Run MCP Servers**
 ```bash
-# Run all servers
+# Run all servers (now supports SSE mode)
 python run_servers.py all
 
 # Run with automatic port assignment to prevent conflicts
@@ -163,9 +189,13 @@ python run_servers.py all --auto-port
 
 # Or run individual servers
 python run_servers.py federal-academic-search --port 8001
-python run_servers.py manuscript-manager --port 8002
-python run_servers.py duckdb-memory --port 8003
+python run_servers.py manuscript-manager --port 8004
+python run_servers.py duckdb-memory --port 8005
+python run_servers.py sros-logic --port 8006
+python run_servers.py zotero-expert --port 8003
 ```
+
+**Note**: With SSE mode, servers will be accessible via HTTP endpoints at the configured ports. The `.roo/mcp.json` file should be updated to use the SSE configuration with URLs pointing to these endpoints.
 
 6. **Start Research Workflow**
 - Open VS Code in your research project directory
@@ -224,28 +254,17 @@ python run_servers.py duckdb-memory --port 8003
 - Synchronize findings across team members
 
 ### Documentation
-- [SROS_ARCHITECTURE_REFACTORING_COMPLETED.md](doc/SROS_ARCHITECTURE_REFACTORING_COMPLETED.md) - Complete refactoring implementation
-- [SROS_PROJECT_PROGRESS.md](SROS_PROJECT_PROGRESS.md) - Current progress and timeline
-- [doc/SROS_DEVELOPMENT_GUIDELINES.md](doc/SROS_DEVELOPMENT_GUIDELINES.md) - Development guidelines and standards
-- [doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md](doc/SROS_V2.1_PURE_ROO_MCP_PLAN.md) - Original architecture plan
-- [doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md](doc/SROS_FEDERAL_ACADEMIC_SEARCH_UPGRADE_PLAN.md) - Complete development plan for federal academic search
+- [SROS_PROJECT_PROGRESS.md](SROS_PROJECT_PROGRESS.md) - Current status and history.
+- [doc/SROS_V2.2_DEPLOYMENT_GUIDE.md](doc/SROS_V2.2_DEPLOYMENT_GUIDE.md) - Comprehensive deployment guide.
+- [doc/SROS_DEVELOPMENT_GUIDELINES.md](doc/SROS_DEVELOPMENT_GUIDELINES.md) - Contributing guidelines.
+- [doc/SROS V2.2 架构实施总蓝图.md](doc/SROS%20V2.2%20架构实施总蓝图.md) - Architecture blueprint.
 
 ### Troubleshooting
 
 **Common Issues:**
-1. **Import Errors**: Ensure all directory names use snake_case format
-2. **Missing Dependencies**: Install required packages (`pip install duckdb` for knowledge graph)
-3. **Server Connection Issues**: Check that MCP servers are running on correct ports
-4. **Port Conflicts**: Use `--auto-port` flag to automatically find available ports
-5. **Permission Errors**: Ensure write permissions in project directory
-6. **Context Contamination**: Never work in the SROS root directory; always use dedicated project folders
-7. **Environment Variables**: Verify all required API keys are set in your `.env` file
-
-**Debugging Tips:**
-- Check server logs in `.sros/logs/`
-- Use `run_servers.py --debug` for verbose output
-- Verify environment variables are set correctly
-- For port issues, try `run_servers.py --auto-port`
+1. **Gateway not starting**: Check if port 8000 is occupied.
+2. **Missing Dependencies**: `pip install duckdb` is required for Memory.
+3. **Sub-process fails**: Run `python run_servers.py gateway` in a terminal to see stderr output from sub-servers.
 
 ### Contributing
 1. Fork the repository
@@ -259,152 +278,114 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## Key Updates in V2.1.5
+## Key Updates in V2.2
 
 ### MCP Server Status
-- **federal_academic_search/**: ✅ Fully operational (replaces legacy semantic_scholar)
-- **semantic_scholar/**: 🔄 Deprecated and replaced by federal_academic_search
-- **context_ingester/**: ❌ Not implemented (planned feature remains undelivered)
+- **sros_gateway/**: ✅ New Hub.
+- **context_ingester/**: ✅ New Service.
+- **federal_academic_search/**: ✅ Integrated.
+- **manuscript_manager/**: ✅ Integrated.
 
-### Project Structure Requirements
-- **Mandatory**: Each research project must have its own dedicated folder
-- **Never**: Work directly in the SROS root directory
-- **Isolation**: Dedicated project folders prevent context contamination between different research papers
+### 项目结构要求
+- **根目录配置**: `.roomodes` 已迁移至 `.roo/.roomodes` 以保持根目录整洁。
+- **工作区 (Workspace)**: 建议在 `workspace/` 目录下创建子文件夹来管理不同的研究项目。
+- **MCP配置**: `.roo/mcp.json` 仅指向端口 8000 的网关。
 
 
 ## 中文版本
 
 ### 概述
-科研操作系统 (SROS) 是一个革命性的平台，通过结合模型上下文协议 (MCP) 服务器和智能 AI 代理的力量来改变研究工作流程。该系统采用双平面架构，其中 Roo Code 作为控制平面（大脑），MCP 服务器提供能力平面（工具）。
+科研操作系统 (SROS) 是一个革命性的平台，通过结合模型上下文协议 (MCP) 服务器和智能 AI 代理的力量来改变研究工作流程。
 
-🎉 **重大突破**：通过全面重构解决了所有关键架构问题。系统现在**100% 功能完整**，所有核心 MCP 服务器都在运行，所有测试都通过。
+🎉 **V2.2 版本 (网关版)**：重大架构升级，实现了“Hub-and-Spoke”模型与统一网关，解决了连接数限制并引入了上下文感知研究。
 
 ### 核心理念
-- **以草稿为中心**：写作驱动研究，而非分离的搜索阶段
-- **MCP 驱动**：利用标准化协议进行工具集成
-- **Roo Code 大脑**：智能编排和决策
-- **本地优先**：所有数据本地存储，兼容 Git
+- **以草稿为中心**：写作驱动研究
+- **统一网关**：单点接入，无限扩展
+- **上下文感知**：预读材料，带薪进组
+- **本地优先**：数据本地存储
 
 ### 架构
-SROS 实现了**双平面模型**：
-- **控制平面**：Roo Code/Cline（VS Code 扩展）用于任务规划、CoT 推理和决策
-- **能力平面**：符合 MCP 标准的服务器用于特定 I/O 操作
+SROS V2.2 实现 **Hub-and-Spoke 模型**：
+- **网关 (Hub)**：单一 SSE 服务器 (端口 8000)，管理所有子服务。
+- **子服务 (Spokes)**：作为子进程运行，通过 stdio 通信。
 
 ### 关键组件
 
 #### MCP 服务器 - ✅ 全部运行中
 所有 MCP 服务器位于 [`mcp_servers/`](mcp_servers/) 目录中：
 
-1. **federal_academic_search/** - 新一代学术搜索，采用OpenAlex + Unpaywall + Semantic Scholar联邦架构 ✅
-2. **semantic_scholar/** - 旧版学术搜索服务器 (已弃用 - 由federal_academic_search替代) 🔄
-3. **zotero_expert/** - 本地引用管理 ✅
-4. **manuscript_manager/** - 核心手稿操作 ✅
-5. **duckdb_memory/** - 本地知识图谱存储 ✅
-6. **mcp_sros_logic/** - 自定义 SROS 逻辑和工作流管理 ✅
+1. **sros_gateway/** (新增) - 统一网关 (Port 8000)。
+2. **context_ingester/** (新增) - 上下文摄取服务。
+3. **federal_academic_search/** - 联邦学术搜索。
+4. **manuscript_manager/** - 核心手稿操作。
+5. **duckdb_memory/** - 本地知识图谱存储。
+6. **zotero_expert/** - 本地引用管理。
+
 
 #### 工作区结构
 每个研究项目都采用本地优先的方法，所有数据都存储在项目目录中：
 ```
-/项目文件夹/
-├── .sros/                 # 隐藏状态目录
+/My_Research_Project/
+├── .sros/                 # [自动生成] 隐藏状态目录
 │   ├── graph.db           # 本地知识图谱 (DuckDB)
-│   └── research_log.jsonl # 研究历史
-├── .roomodes              # 项目特定的行为定义
-├── draft.md               # 单一真实来源
-└── references/            # 下载的 PDF 片段
+│   └── research_log.jsonl # 检索足迹
+├── .roomodes              # [复制] 项目特定的行为定义
+├── draft.md               # [核心] 单一事实来源
+├── materials/             # [新增] Context Ingester 扫描区
+│   ├── deep_research.md   
+│   └── web_clips.txt      
+└── references/            # PDF 附件
 ```
 
-### 核心工作流：草稿驱动发现 - ✅ 功能正常
-系统采用"边写边研究"的模式：
+### 核心工作流：上下文增强 - ✅ 功能正常
+1. **预热**: `context_ingester` 扫描 `materials/` 注入软知识。
+2. **观察**: 获取 `draft.md` 结构。
+3. **检测**: 识别 Gap (优先查本地软知识)。
+4. **检索**: 通过网关调用 `federal_academic_search`。
+5. **构建**: 知识图谱存入 `.sros/graph.db`。
+6. **扩展**: 写入手稿。
 
-1. **预热 (Warm-up / Ingest)**：(新特性) Agent 自动扫描 `ideas.md` 和 `materials/` 目录，提取关键概念并标记为“软知识”注入本地图谱。
-2. **观察**：Roo Code 调用 `manuscript_manager` 获取当前 Markdown 结构树
-3. **检测**：识别 Gap。*优化*：优先比对“软知识”库，如果 `materials/` 中已有答案，直接引用而不是盲目搜索。
-4. **检索**：针对特定 Gap，如果本地材料不足，则调用 `federal_academic_search`
-5. **构建**：将文献关系（CiTO 本体论）存储在本地 `.sros/graph.db` 中
-6. **扩展**：使用 `manuscript_manager` 原子编辑工具在指定章节插入引用内容
-7. **迭代**：重新扫描手稿以检查空白是否消除
+### 开发状态 - ✅ 发布
+🚀 **V2.2 网关版实现完成**
 
-### 开发状态 - ✅ 革命性改进
-🚀 **V2.1.5 实现完成 - MVP 就绪**
+SROS V2.2 系统架构已确立，网关与所有子服务运行正常。
 
-SROS V2.1.5 系统架构已成功建立，**5/5 个核心 MCP 服务器完全实现并运行**。所有集成测试现已解除阻塞，系统已准备好立即部署 MVP。
-
-#### 主要成就：
-- ✅ **零导入路径冲突**：所有目录名称标准化为 snake_case
-- ✅ **优雅的依赖管理**：延迟加载和清晰的错误消息
-- ✅ **松耦合**：基于接口的架构，便于独立开发
-- ✅ **可靠测试**：所有测试在任何环境中都能干净运行
-- ✅ **无缝集成**：跨服务器通信现在完美运行
-
-### 快速开始 - ✅ MVP 就绪
+### 快速开始 - ✅ 就绪
 
 #### 前提条件
 - Python 3.7+
-- 安装了 Roo Code/Cline 扩展的 VS Code
-- Git（用于版本控制）
+- VS Code + Roo Code
+- Git
 
-#### 安装步骤
+#### MCP 服务器配置 - 网关模式 (V2.2)
 
-1. **克隆仓库**
+必须将 `.roo/mcp.json` 配置为指向网关：
+
+```json
+{
+  "mcpServers": {
+    "sros-gateway": {
+      "name": "SROS Gateway",
+      "url": "http://localhost:8000/sse",
+      "type": "sse",
+      "description": "SROS 统一网关",
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}
+```
+
+#### 启动网关
 ```bash
-git clone <仓库地址>
-cd sros-project
+# 启动网关 (Port 8000) - 自动管理所有子服务
+python run_servers.py gateway
 ```
 
-2. **安装依赖**
+#### 测试
 ```bash
-# 安装核心依赖
-pip install -r requirements.txt
-
-# 安装可选依赖以获得完整功能
-pip install duckdb  # 用于本地知识图谱存储
-```
-
-3. **设置环境变量**
-系统现在支持 `.env` 文件配置。复制 `.env.example` 文件为 `.env` 并填入实际值：
-
-```bash
-cp .env.example .env
-# 编辑 .env 文件填入实际配置
-```
-
-或者，您可以直接设置环境变量：
-```bash
-# 用于 Semantic Scholar API 访问
-export SEMANTIC_SCHOLAR_API_KEY=你的_api_key
-
-# 用于 Zotero 集成
-export ZOTERO_LIBRARY_ID=你的库_id
-export ZOTERO_API_KEY=你的_api_key
-```
-
-4. **初始化研究工作区**
-```bash
-mkdir 我的研究项目
-cd 我的研究项目
-```
-
-创建基本的 `draft.md`：
-```markdown
-# 我的研究论文
-
-## 摘要
-
-## 引言
-
-## 相关工作
-
-## 方法论
-
-## 结果
-
-## 结论
-
-## 参考文献
-```
-
-5. **运行 MCP 服务器**
+python test_gateway.py
 ```bash
 # 运行所有服务器
 python run_servers.py all

@@ -1,51 +1,11 @@
 {
 	"mcpServers": {
-		"manuscript-manager": {
-			"name": "Manuscript Manager",
-			"command": "python3",
-			"args": [
-				"-m",
-				"mcp_servers.manuscript_manager.main"
-			],
-			"type": "stdio",
-			"description": "Manuscript structure management and editing server",
-			"disabled": true,
-			"alwaysAllow": []
-		},
-		"duckdb-memory": {
-			"name": "DuckDB Memory",
-			"command": "python3",
-			"args": [
-				"-m",
-				"mcp_servers.duckdb_memory.main"
-			],
-			"type": "stdio",
-			"description": "Paper storage and retrieval server using DuckDB",
-			"disabled": true,
-			"alwaysAllow": []
-		},
-		"sros-logic": {
-			"name": "SROS Logic",
-			"command": "python3",
-			"args": [
-				"-m",
-				"mcp_servers.mcp_sros_logic.main"
-			],
-			"type": "stdio",
-			"description": "Custom SROS logic and workflow management server",
-			"disabled": true,
-			"alwaysAllow": []
-		},
-		"zotero-expert": {
-			"name": "Zotero Expert",
-			"command": "python3",
-			"args": [
-				"-m",
-				"mcp_servers.zotero_expert.main"
-			],
-			"type": "stdio",
-			"description": "Zotero library management and citation expert server",
-			"disabled": true,
+		"sros-gateway": {
+			"name": "SROS Gateway",
+			"url": "http://localhost:8000/sse",
+			"type": "sse",
+			"description": "SROS V2.2 Gateway - Unified MCP Server Aggregator",
+			"disabled": false,
 			"alwaysAllow": []
 		}
 	}

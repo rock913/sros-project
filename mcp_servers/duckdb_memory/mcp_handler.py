@@ -28,7 +28,27 @@ class DuckDBMemoryMCPHandler:
         """
         try:
             if method == "initialize":
-                return self._handle_initialize(params)
+                # Ensure we return valid initialize response
+                return {
+                    "protocolVersion": "2024-11-05", # Updated
+                    "capabilities": {
+                        "tools": {"listChanged": True},
+                        "resources": {}
+                    },
+                    "serverInfo": {
+                        "name": "DuckDB Memory",
+                        "version": "1.0.0"
+                    }
+                }
+            elif method == "notifications/initialized":
+                return None
+            elif method == "tools/list":
+                return {
+                    "tools": [
+                        {"name": "duckdb_create_paper", "description": "Create a new paper entry", "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "abstract": {"type": "string"}, "year": {"type": "integer"}}}},
+                        {"name": "duckdb_search_papers", "description": "Search papers", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}}},
+                    ]
+                }
             elif method == "create_paper":
                 return self._handle_create_paper(params)
             elif method == "get_paper":
