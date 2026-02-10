@@ -270,6 +270,31 @@ systemPrompt: |
 - 检查子服务状态: 确认各子服务能单独启动
 - 网络连接测试: `curl -X POST http://localhost:8000/sse`
 
+### 10.3 稳定性修复说明（V2.2.1）
+**问题**：Gateway 冷启动时并行拉起多个 Python 子进程会导致 CPU/I/O 峰值，触发客户端超时（Cold Start Storm）。
+
+**解决**：
+1. 引入健康检查 `/health`，仅在所有子服务准备就绪后标记为 ready。
+2. 启动预热（preheat）：Gateway 启动时初始化所有子服务。
+3. `run_servers.py` 启动后轮询健康检查，直到就绪再返回成功。
+
+**使用方式**：
+```bash
+# 启动并等待健康检查通过
+python run_servers.py gateway
+
+# 跳过健康检查（调试用途）
+python run_servers.py gateway --no-health-check
+```
+
+**排查建议**：
+- 如果健康检查超时，检查 `config.json` 子服务配置与依赖是否完整。
+- 如启动耗时过长，可临时提高 `wait_for_gateway_health()` 的超时时间。
+
+**补充说明**：
+- 健康检查会返回 `unhealthy_servers` 以定位未就绪的子服务。
+- HTTP Keep-Alive 超时建议设置为 300 秒以避免长耗时请求被断开。
+
 ## 11. 性能优化
 
 ### 11.1 Gateway 性能

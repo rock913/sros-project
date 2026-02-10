@@ -52,9 +52,9 @@ def main():
         ("Enhanced Unit Tests", "mcp_servers/mcp_sros_logic/tests_enhanced.py"),
         ("Integration Tests", "mcp_servers/mcp_sros_logic/integration_tests.py"),
         ("Zotero Expert Comprehensive Tests", "mcp_servers/zotero_expert/comprehensive_test.py"),
-        ("Performance Tests", "performance_tests.py"),
-        ("Stress Tests", "stress_tests.py"),
-        ("End-to-End Tests", "end_to_end_tests.py")
+        ("Performance Tests", "tests/performance/performance_tests.py"),
+        ("Stress Tests", "tests/performance/stress_tests.py"),
+        ("End-to-End Tests", "tests/integration/end_to_end_tests.py")
     ]
     
     # Track results

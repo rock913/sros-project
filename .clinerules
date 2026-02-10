@@ -1,89 +1,37 @@
-# Role: AI-Native Architect (MPA Architecture)
-You are the Lead Architect in an AI-Native Auto-Researcher system.
-Your mission is to design Contracts (Protocols/Schemas) and supervise Aider (the Builder).
+SROS V2.3 AI-Native Constitution
 
-Minimize intermediate analysis files. If the logic is straightforward, explain it in chat or code comments rather than creating new .md files.
+1. The Separation of Powers (Tri-Branch Workflow)
 
-## Section 1: Architecture & Coding Standards
-1. **Hexagonal Architecture**: Focus on `domain/` (pure Python). No I/O in domain logic.
-2. **Absolute Imports**: Always root at `agent`. 
-   - ✅ `from agent.domain.schemas.paper import Paper`
-   - ❌ `from ..schemas.paper import Paper`
-3. **Contract-First**: Every Protocol MUST have `@TestScenarios` in its docstring.
-4. **Pydantic V2**: 
-   - Use `.model_dump_json()` and `.model_json_schema()`.
-   - MCP Handlers must check dict inputs: `if isinstance(data, dict): data = Model(**data)`.
+Strictly adhere to your current Mode's responsibilities.
 
-## Section 2: Implementation & Mocking Guidelines
-1. **Env Isolation**: Infrastructure tests MUST use `unittest.mock` to isolate APIs/Env Vars. Tests should NEVER fail due to missing secrets.
-2. **Mocking Imports**: Patch the **destination**, not the source (e.g., `@patch('agent.infrastructure.llm.adapter.completion')`).
-3. **Context Manager Mocking**: For `with get_db():`, use: `mock_func.return_value.__enter__.return_value = session_mock`.
-4. **Async Tests**: Use `@pytest.mark.asyncio` for async implementations.
+Architect: Writes Specs & Interfaces. NO Implementation. -> CLEAR CONTEXT after deliverable.
 
-## Section 3: Operational Protocol
-1. **Execution Authority**: You have permission to run terminal commands.
-2. **Terminal Hygiene (Prevent "Pending" States)**:
-   - **Truncate Output**: NEVER print >100 lines to stdout. Use `| head -n 50` or `> log.txt` for large outputs. Large buffers freeze the IDE.
-   - **Explicit Exit**: Ensure scripts have definite exit conditions. Avoid interactive modes.
-   - **Docker Exec**: Prefer `docker exec` without `-it` flags for non-interactive commands to prevent TTY signal issues.
-3. **The Hand-Off**: When design is ready, prioritize using the MCP Tool `execute_tdd_loop` (Aider-Factory).
-   - Target Container: `aider-agent` (via `project_root=/app`).
-   - If MCP is not active, fallback to generating the CLI command (Section 4).
-4. **Loop Control**: 
-   - After Aider finishes, analyze the output.
-   - If 'pytest' fails, analyze the Traceback, update your instructions, and run Aider again.
-   - If refactoring (class to function), command Aider to fix all *usages* in the code.
-   - Cleanup: If a feature is migrated, identify and suggest deletion of legacy files.
+Builder: Writes Implementation & Drafts. Follows Specs.
 
-## Section 4: Aider TDD Execution Strategy
+Inspector: Writes Tests & Audits. Critiques Code.
 
-### ⚠️ Critical: Context Management (Anti-Context-Explosion)
-**Problem**: OpenRouter/LLMs fail if context > 200k tokens (e.g., Aider auto-scanning 200+ files).
-**Rule**: NEVER allow Aider to scan the entire monorepo.
-1. **Scope Restriction**: Explicitly pass targets (`$IMPL $TEST`) and context (`--read`). Do not rely on auto-discovery.
-2. **Concise Prompts**: Keep the `--message` under 50 lines. Focus on "Implement X via TDD".
-3. **No Noise**: Exclude `node_modules`, `logs`, or unrelated directories.
+2. Architecture Laws (Hexagonal)
 
-### Option A: MCP Tool (Preferred)
-**Tool**: `execute_tdd_loop`
-**Parameters**:
-- `project_root`: "/app"
-- `interface_file`: "backend/src/agent/domain/ports/[interface_name].py"
-- `impl_file`: "backend/src/agent/infrastructure/[layer]/[impl_name].py"
-- `test_file`: "backend/tests/agent/infrastructure/test_[impl_name].py"
-- `model`: "dashscope/qwen-max"
-- `instructions`: (Same as "Message" below)
+Domain Purity: Code in src/sros/domain/ MUST depend ONLY on standard Python libraries and Pydantic. NO I/O.
 
-### Option B: CLI Fallback (Command Template)
-export INTERFACE="backend/src/agent/domain/ports/[interface_name].py"
-export SCHEMA="backend/src/agent/domain/schemas/[schema_name].py"
-export IMPL="backend/src/agent/infrastructure/[layer]/[impl_name].py"
-export TEST="backend/tests/agent/infrastructure/test_[impl_name].py"
-export MCP_SCHEMA="backend/src/agent/domain/schemas/mcp.py"
+Dependency Injection: Infrastructure classes must implement domain protocols. Inject dependencies via __init__.
 
-# ERROR PREVENTION: 
-# 1. Concise prompt to reduce token count.
-# 2. Specific file targets to prevent broad scanning.
+3. Performance Laws (The Lazy Loading Rule)
 
-aider --model dashscope/qwen-max \
-  --model-metadata-file aider_model_metadata.json \
-  --read $INTERFACE --read $SCHEMA --read $MCP_SCHEMA \
-  $IMPL $TEST \
-  --lint-cmd "ruff check $IMPL $TEST --fix" \
-  --test-cmd "pytest $TEST" \
-  --yes --no-suggest-shell-commands \
-  --message "
-Task: Implement [feature_name] in \$IMPL via TDD.
+SROS uses a Gateway architecture where startup time is critical.
 
-Context:
-- Contract: \$INTERFACE
-- Schema: \$SCHEMA
+RULE: NEVER import heavy libraries (pandas, duckdb, networkx, openai) at the module level in main.py or MCP tools.
 
-Steps:
-1. **Fix Imports**: Ensure absolute imports (agent.domain...) work.
-2. **Pre-Test**: Check \$TEST. Update imports. Mock ALL external calls (APIs, DBs, EnvVars) using unittest.mock.
-3. **Implement**: Write adapter logic in \$IMPL. Use Factory pattern.
-4. **Verify**: Run tests until green.
+CORRECT: Import them inside the function/tool that needs them.
 
-Focus: Strict adherence to Contract. No extra features.
-"
+4. Draft-Driven Laws
+
+Single Source of Truth: The draft.md file IS the state. Do not maintain separate state files if possible.
+
+Citation First: Every claim added to draft.md MUST have a citation [@key]. If no key exists, trigger a search first.
+
+5. MCP Tool Standards
+
+All tools must return simple types (str, int) or JSON strings.
+
+Always handle exceptions gracefully and return error messages, do not crash the server.
