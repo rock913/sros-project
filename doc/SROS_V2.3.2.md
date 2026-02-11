@@ -56,6 +56,7 @@ SROS V2.3.2 架构白皮书：稿件驱动与原生解耦
 /User/Documents/my_paper/
 ├── .roo/
 │   └── mcp.json         # [自动生成] 指向 http://localhost:8000/sse
+├── .roomodes            # [可选/自动生成] Roo Code 自定义模式定义（JSON）
 ├── .sros/
 │   ├── graph.db         # DuckDB（私有知识图谱）
 │   └── gap_log.json     # Gap 检测记录（可选）
@@ -147,7 +148,7 @@ Step 4：增量写入（Incremental Writing）
 
 CLI 负责初始化工作区、启动后台、环境自检与配置生成：
 
-- sros init：生成工作区结构 + 自动写入 .roo/mcp.json（指向 localhost:8000/sse）+ 初始化 .sros/。
+- sros init：生成工作区结构 + 自动写入 .roo/mcp.json（指向 localhost:8000/sse）+ 初始化 .sros/；并可复制/生成项目级 .roomodes（JSON）。
 - sros start：启动 Gateway（对齐现 run_servers.py 的能力，但运行在安装包中）。
 - sros doctor / sros status：依赖自检、端口占用检查、DuckDB 文件健康检查。
 
@@ -185,3 +186,87 @@ sros start
 - 标准化打包：将当前仓库逐步调整为 src/ 布局，补齐 pyproject.toml。
 - CLI 开发：优先实现 sros init 与 sros start（随后补 doctor/status）。
 - 发布策略：可发布到 PyPI，或先支持 pip install git+<repo_url> 进行内测分发。
+
+7. SROS 开发准确率提升指南（V2.3.5）
+
+目的：解决 Agent 开发结果不准确、需要反复手动矫正的问题；通过“Reference-Augmented Generation（参考增强生成）”把开发过程从“猜测生成”升级为“参考复刻 + 可验证迭代”。
+
+7.1 核心原则
+
+- Don't Guess, Copy（不要猜，去抄）：优先复用/模仿仓库中已验证可运行的实现模式（例如 duckdb_memory、manuscript_manager），而不是凭空发明。
+- 先证据、后修改：任何修复都以可复现的失败（测试/脚本）为依据，避免“拍脑袋 patch”。
+- Spec 是契约：Architect 输出的 Spec 必须可直接驱动 TDD，且明确边界与数据结构。
+
+7.2 修正后的工作流（三阶段）
+
+Phase 1：Architecture（Architect Mode）
+
+- 指令模板：设计某能力的接口与数据结构，并明确“参考对象”（例如：设计 Context Ingester 的接口。参考 manuscript_manager 的设计模式）。
+- 质量门槛：如果 Spec 缺少伪代码（Pseudo-Code）或只是口号式描述（例如“解析 PDF”“提取标题”），必须驳回重写。
+- 输出要求：必须产出 docs/specs/*.md 作为交接产物（包含 Protocols + Pydantic Schemas + 复杂逻辑伪代码）。
+
+Phase 2：Context Loading（Builder Mode）
+
+原则：切换到 Builder 后，不要立刻写代码；先把 Spec 与“可抄的参考实现”加载进上下文。
+
+Context 注入清单（示例）：
+
+- @docs/specs/feature.md（需求/契约）
+- @mcp_servers/duckdb_memory/main.py（代码模板：FastMCP/Lazy Loading/stdio 结构）
+- @mcp_servers/duckdb_memory/server.py（逻辑模板：类结构、错误处理风格）
+
+执行要求：
+
+- 严格模仿参考代码结构（初始化方式、装饰器写法、错误处理模式、Lazy Loading 位置），优先“形似再神似”。
+- 全量类型标注；对每个 MCP tool 做 try/except，错误信息可诊断（包含关键参数与下一步建议）。
+
+Phase 3：The “Gemini Check”（可选但推荐）
+
+触发条件：Phase 2 的实现运行报错，且两次修复仍未稳定通过（或 Roo Code 的修复质量不达标）。
+
+操作：将“报错信息 + 相关代码片段 + 期望行为（来自 Spec）”提交给外部强推理模型进行原因分析与修复建议（例如 Gemini 1.5 Pro / 其他高推理模型）。
+
+回填策略：把修复后的代码与解释回填到当前仓库，并立刻运行测试/脚本验证，确保修复可复现、可持续。
+
+7.3 伪代码门槛（示例：把口号变成算法步骤）
+
+以下是“好伪代码”的最低标准：明确库、步骤、错误分支与产物结构。
+
+```python
+def ingest_pdf(file_path: str) -> IngestResult:
+	# 1) validate
+	assert file_path.endswith(".pdf")
+	if not exists(file_path):
+		return IngestResult(error="file_not_found")
+
+	# 2) extract text (pypdf)
+	reader = pypdf.PdfReader(file_path)
+	pages_text = []
+	for page in reader.pages:
+		pages_text.append(page.extract_text() or "")
+	text = "\n".join(pages_text)
+
+	# 3) normalize
+	text = normalize_whitespace(text)
+
+	# 4) heuristic structure
+	# - find headings: regex like r"^(\d+(\.\d+)*)\s+.+$" per line
+	# - split into sections
+	outline = build_outline_from_headings(text)
+
+	# 5) output
+	return IngestResult(text=text, outline=outline)
+```
+
+8. Roadmap Update（对齐 V2.3.5）
+
+8.1 Dynamic Skill Loader
+
+目标：允许 Builder 动态生成并挂载简单脚本/技能（借鉴 OpenClaw 的“动态加载”思路），用于快速试验与回归验证，但必须受控（可追踪、可移除、默认关闭）。
+
+8.2 Simulation Interface
+
+目标：增加 mcp-simulator 接口（借鉴 DeepModeling）。提供最小可复现的“模拟器”能力，用于：
+
+- 快速复现工具链调用（不用起全套服务）。
+- 在 Inspector 阶段稳定复现 bug（作为回归测试前置）。
