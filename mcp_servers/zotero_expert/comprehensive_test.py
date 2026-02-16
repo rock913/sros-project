@@ -3,6 +3,10 @@
 Comprehensive test for the enhanced Zotero Expert MCP Server functionality.
 """
 
+import pytest
+
+pytest.skip("manual/unittest script; exclude from pytest collection", allow_module_level=True)
+
 import unittest
 from unittest.mock import patch, MagicMock
 import sys

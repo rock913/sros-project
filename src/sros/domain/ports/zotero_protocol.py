@@ -1,16 +1,8 @@
 from __future__ import annotations
 
 from typing import Protocol, List, Dict, Any
-from pydantic import BaseModel
+from ..schemas import Citation
 
-class Citation(BaseModel):
-    citekey: str
-    title: str
-    authors: List[str]
-    year: int
-    journal: str
-    url: str
-    bibtex: str
 
 class ZoteroProtocol(Protocol):
     def add_citation(self, citation: Citation) -> bool:

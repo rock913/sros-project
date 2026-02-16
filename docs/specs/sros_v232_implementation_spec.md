@@ -214,7 +214,7 @@ sros init <project_name>
 - 在当前目录创建 `<project_name>` 文件夹
 - 生成完整的用户工作区结构
 - 自动生成 `.roo/mcp.json` 指向 `http://localhost:8000/sse`
-- 初始化 `.sros/` 目录和空的 `graph.db`
+- 初始化 `.sros/` 目录和可用的 DuckDB `graph.db`（必须是可连接的 DB 文件，不能是空文本）
 - 可选生成项目级 `.roomodes` 配置
 
 **验证**：
@@ -237,6 +237,40 @@ sros start
 - 验证所有 MCP 服务启动成功
 - 确认 SSE 连接可用
 
+## 4. MVP 定义（Done Definition）
+
+本仓库的 MVP 目标是“Roo 可以连上 Gateway 并成功调用至少 1 个工具”，同时 CLI 能初始化/启动最小工作流。
+
+MVP 必须满足（可自动化验证）：
+- 安装后可用：`pip install -e .` 后 `sros --help` 正常
+- `sros init <workspace>` 生成：`.roo/mcp.json`、`.sros/graph.db`（DuckDB 可连接）、`draft.md`、`ideas.md`
+- `sros start -w <workspace> -p <port>` 启动后：
+    - `GET /health` 返回 200
+    - `GET /sse` 返回 `text/event-stream`
+    - `POST /sse` 支持 JSON-RPC：`initialize`、`tools/list`、`tools/call`
+    - `tools/list` 至少包含 `manuscript.find_gaps`
+    - `tools/call` 能成功调用 `manuscript.find_gaps` 并返回结构化结果
+
+显式非目标（不阻塞 MVP）：
+- `tools/list` 的 `inputSchema` 精确到每个参数（本仓库已作为可用性增强实现，不再是待办）
+- draft IO 严格绑定 `SROS_WORKSPACE_DIR` + 路径安全（本仓库已实现，不再是待办）
+- 完整 scholar 联邦搜索、zotero 全功能、复杂 patch/insertion 语义（仍属于 Future Work，不阻塞 MVP）
+
+### 当前仓库状态（基于自动化测试）
+
+- MVP 链路已可自动化验证通过：`GET /health` / `GET /sse` / `POST /sse`（initialize/tools/list/tools/call）
+- Playbook B（DuckDB 可连接）与 Playbook C（workspace 绑定 + 路径安全）已落地并有测试覆盖
+- 当前测试套件全绿：`python -m pytest -q`
+
+结论：与 [docs/specs/sros_roo_playbooks.md](docs/specs/sros_roo_playbooks.md) 对齐的 Playbook A/B/C 以及文内列出的 Post-MVP 增强在本仓库均已实现；当前无阻塞性待完成项。
+
+## 5. Post-MVP（为什么还要做“下一步计划”）
+
+即便 MVP 已通过，仍建议继续做下一步计划的原因是：
+- Roo 可用性：`inputSchema` 不精确会导致 Roo 自动构造参数失败、反复试错；这会显著降低“看起来能用”的真实体验。
+- 稳定性：workspace 语义不严格（draft IO 不绑定 `SROS_WORKSPACE_DIR`）会造成“在错目录写文件”的数据事故。
+- 可维护性：将契约（schemas/ports）与适配层（gateway/servers）的边界再固化，有利于后续升级而不破坏 Roo。
+
 ### 3.3 sros doctor
 ```bash
 sros doctor
@@ -258,7 +292,12 @@ sros doctor
 - 报告 Gateway 服务运行状态（端口占用/健康检查）
 - 输出最近的 Gap 检测结果摘要（若存在 gap_log.json）
 
-## 4. MVP 验收标准
+## 6. 扩展验收清单（Future Work，不阻塞 MVP）
+
+> 说明：下列条目是“扩展验收/未来增强”的候选清单。
+> 本仓库的 MVP Done Definition 以第 4 节为准；本节条目即使未全部完成，也不应被视为 MVP 未达成。
+
+建议用法：把本节当作 Roadmap/Backlog；只有当你决定推进某条能力时，才需要把对应条目补齐实现与自动化测试。
 
 ### 4.1 功能验收
 - [ ] **CLI 安装验证**：`pip install sros` 成功安装，`sros --help` 显示帮助信息

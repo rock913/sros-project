@@ -1,22 +1,10 @@
-"""SROS - Scientific Research Assistant"""
+"""SROS - Scientific Research Operating System"""
 
 __version__ = "2.3.2"
+__author__ = "SROS Team"
+__description__ = "AI-native research assistant for academic writing"
 
-# 导出主要的入口点
-from sros.cli import app as cli_app
+# Expose main components
+from .cli import app
 
-# 为方便起见，也导出一些核心组件
-from sros.gateway.main import SROSGateway
-from sros.domain.ports.manuscript_protocol import ManuscriptProtocol
-from sros.domain.ports.scholar_protocol import ScholarProtocol
-from sros.domain.ports.memory_protocol import MemoryProtocol
-from sros.domain.ports.zotero_protocol import ZoteroProtocol
-
-__all__ = [
-    "cli_app",
-    "SROSGateway",
-    "ManuscriptProtocol",
-    "ScholarProtocol", 
-    "MemoryProtocol",
-    "ZoteroProtocol"
-]
+__all__ = ['app', '__version__', '__description__']

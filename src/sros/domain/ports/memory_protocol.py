@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 from typing import Protocol, List, Dict, Any
-from pydantic import BaseModel
+from ..schemas import KnowledgeEdge
 
-class KnowledgeEdge(BaseModel):
-    source: str
-    target: str
-    relationship: str  # "CITES", "REFERENCES", "RELATED_TO", "CONTRADICTS"
-    confidence: float
 
 class MemoryProtocol(Protocol):
     def store_knowledge(self, nodes: List[Dict[str, Any]], edges: List[KnowledgeEdge]) -> bool:

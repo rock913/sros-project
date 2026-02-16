@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
-from sros.domain.ports.scholar_protocol import ScholarProtocol, ResearchPerspective, SearchQuery
+from sros.domain.ports import ScholarProtocol
+from sros.domain.schemas import ResearchPerspective, SearchQuery
 
 class ScholarHandler(ScholarProtocol):
     """学者服务实现"""

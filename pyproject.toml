@@ -1,42 +1,80 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "sros"
 version = "2.3.2"
-authors = [
-    {name = "SROS Team", email = "team@sros.org"},
-]
-description = "Scientific Research Assistant OS"
+description = "Scientific Research Operating System - AI-native research assistant for academic writing"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+authors = [
+    {name = "SROS Team", email = "sros@example.com"}
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+requires-python = ">=3.8"
 dependencies = [
-    "typer>=0.9.0",
-    "fastapi>=0.100.0",
-    "uvicorn>=0.23.0",
+    "mcp>=1.0.0",
+    "starlette",
+    "fastapi",
+    "uvicorn",
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "duckdb>=0.10.0",
+    "pandas>=2.0.0",
     "pydantic>=2.0.0",
-    "python-multipart>=0.0.6",
+    "pydantic[email]",
+    "requests",
+    "pyyaml"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio",
+    "black",
+    "flake8",
+    "mypy",
+    "pre-commit"
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio",
+    "pytest-cov"
 ]
 
 [project.scripts]
 sros = "sros.cli:app"
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
+[project.urls]
+Homepage = "https://github.com/sros/sros"
+Repository = "https://github.com/sros/sros"
+Documentation = "https://github.com/sros/sros/blob/main/README.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sros"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE"
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "integration: integration tests (start subprocess servers, may be slower)",
+]

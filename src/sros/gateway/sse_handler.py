@@ -9,13 +9,13 @@ class SSEHandler:
     
     def __init__(self, config: GatewayConfig):
         self.config = config
-        self.health_data = {
+        self.health_data: Dict[str, Any] = {
             "status": "healthy",
             "timestamp": None,
             "services": {}
         }
     
-    def update_health(self, service_name: str, status: str):
+    def update_health(self, service_name: str, status: str) -> None:
         """更新服务健康状态"""
         self.health_data["services"][service_name] = status
         # Use wall-clock time to avoid event-loop availability issues.

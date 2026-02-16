@@ -1,44 +1,129 @@
 from typing import List, Dict, Any
-from sros.domain.ports.zotero_protocol import ZoteroProtocol, Citation
+import duckdb
+import json
+import os
+from pathlib import Path
+from sros.domain.ports import ZoteroProtocol
+from sros.domain.schemas import Citation
 
 class ZoteroHandler(ZoteroProtocol):
-    """Zotero 服务实现"""
+    """Zotero 服务实现 - 使用 DuckDB 持久化存储"""
+    
+    def __init__(self):
+        # 使用工作区中的 graph.db 文件
+        workspace_dir = os.getenv("SROS_WORKSPACE_DIR", ".")
+        db_path = Path(workspace_dir) / ".sros" / "graph.db"
+        
+        # 确保目录存在
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        self.conn = duckdb.connect(str(db_path))
+        self._initialize_schema()
+    
+    def _initialize_schema(self):
+        """初始化引用表结构"""
+        # 创建引用表
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS citations (
+                citekey VARCHAR PRIMARY KEY,
+                title VARCHAR,
+                authors JSON,
+                year INTEGER,
+                journal VARCHAR,
+                url VARCHAR,
+                bibtex TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # 创建索引
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_year ON citations(year)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_journal ON citations(journal)")
     
     def add_citation(self, citation: Citation) -> bool:
         """
         添加引用到数据库
         """
-        # 模拟添加引用
-        return True
+        try:
+            self.conn.execute("""
+                INSERT OR REPLACE INTO citations
+                (citekey, title, authors, year, journal, url, bibtex, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, [
+                citation.citekey,
+                citation.title,
+                json.dumps(citation.authors, ensure_ascii=False),
+                citation.year,
+                citation.journal,
+                citation.url,
+                citation.bibtex
+            ])
+            return True
+        except Exception as e:
+            print(f"Error adding citation: {str(e)}")
+            return False
     
     def get_citation(self, citekey: str) -> Citation:
         """
         根据 citekey 获取引用信息
         """
-        # 模拟返回引用
-        return Citation(
-            citekey=citekey,
-            title="示例论文标题",
-            authors=["作者1", "作者2"],
-            year=2023,
-            journal="期刊名称",
-            url="http://example.com",
-            bibtex="@article{example, ...}"
-        )
+        try:
+            result = self.conn.execute("""
+                SELECT citekey, title, authors, year, journal, url, bibtex
+                FROM citations
+                WHERE citekey = ?
+            """, [citekey]).fetchone()
+            
+            if result:
+                return Citation(
+                    citekey=result[0],
+                    title=result[1],
+                    authors=json.loads(result[2]),
+                    year=result[3],
+                    journal=result[4],
+                    url=result[5],
+                    bibtex=result[6]
+                )
+            else:
+                # 返回默认值或抛出异常
+                raise ValueError(f"Citation with key '{citekey}' not found")
+        except Exception as e:
+            print(f"Error getting citation: {str(e)}")
+            raise
     
     def search_citations(self, query: str) -> List[Citation]:
         """
         搜索引用
         """
-        # 模拟搜索引用
-        return [
-            Citation(
-                citekey="example2023",
-                title="搜索结果论文",
-                authors=["搜索作者"],
-                year=2023,
-                journal="搜索期刊",
-                url="http://example.com/search",
-                bibtex="@article{search, ...}"
-            )
-        ]
+        try:
+            results = self.conn.execute("""
+                SELECT citekey, title, authors, year, journal, url, bibtex
+                FROM citations
+                WHERE LOWER(title) LIKE LOWER(?)
+                   OR LOWER(journal) LIKE LOWER(?)
+                   OR citekey LIKE ?
+                ORDER BY year DESC
+            """, [f'%{query}%', f'%{query}%', f'%{query}%']).fetchall()
+            
+            citations = []
+            for row in results:
+                citations.append(Citation(
+                    citekey=row[0],
+                    title=row[1],
+                    authors=json.loads(row[2]),
+                    year=row[3],
+                    journal=row[4],
+                    url=row[5],
+                    bibtex=row[6]
+                ))
+            
+            return citations
+        except Exception as e:
+            print(f"Error searching citations: {str(e)}")
+            return []
+    
+    def __del__(self):
+        """清理资源"""
+        if hasattr(self, 'conn'):
+            self.conn.close()
