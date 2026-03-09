@@ -283,6 +283,7 @@ def ingest_pdf(file_path: str) -> IngestResult:
 - 解耦工作区：`sros init <project>` 生成 `.roo/mcp.json`、`.sros/graph.db`、`draft.md`、`ideas.md`、`materials/`、`references/`。
 - Gateway SSE Hub：`GET /sse` (event-stream) + `POST /sse` (JSON-RPC) + Roo 兼容 `POST /messages`；支持 `initialize/tools.list/tools.call`。
 - Manuscript MVP：`manuscript.find_gaps(file_path)` 能基于 `[TODO: ...]` 与简单启发式返回结构化 gap；并严格绑定 workspace 相对路径（禁止绝对路径与 `..`）。
+- Scholar 工具暴露（MVP）：Gateway 已暴露 `scholar.brainstorm_perspectives`、`scholar.find_critiques`、`scholar.federated_search`，并通过集成测试验证可调用。
 
 证据（可复现）
 
@@ -296,7 +297,7 @@ def ingest_pdf(file_path: str) -> IngestResult:
 
 未完成（⬜）
 
-- Federated Search 的产品化迁移：将现有 `mcp_servers/federal_academic_search` 的可运行能力迁入安装包路径并暴露为 Gateway tool。
+- Federated Search 的产品化迁移：将现有 `mcp_servers/federal_academic_search` 的可运行能力迁入安装包路径并作为 `scholar.federated_search` 的真实后端（目前 Gateway 暴露已完成，但数据源/质量仍为 MVP）。
 - 更强的稿件增量写入语义：`insert_section(target, ...)` 需要从“追加”升级为“可定位插入”。
 
 9.2 里程碑规划（1-2 周可执行）
@@ -312,6 +313,7 @@ Milestone 1（本周）：契约一致性与可诊断性（Contract Consistency)
 Milestone 2（下周）：Scholar 联邦搜索产品化（Federated Search)
 
 - 目标：将联邦检索能力迁入 `site-packages/sros/servers/scholar`，并在 Gateway 暴露 `scholar.federated_search`/`scholar.find_critiques`。
+- 当前进展：Gateway 暴露与集成测试已完成；下一步是接入稳定数据源与完善返回结构。
 - 验收：提供最小可用的数据源（如 OpenAlex/Semantic Scholar）与可重复的集成测试（可 mock 外部网络）。
 
 Milestone 3（两周内）：Growing Doc Loop 闭环（写作→检索→引用→写回）
