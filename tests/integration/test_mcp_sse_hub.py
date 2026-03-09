@@ -91,9 +91,24 @@ def test_mcp_sse_hub_functionality():
             has_data_events = any(line.startswith("data:") for line in lines)
             assert has_data_events, f"Expected SSE data events, got: {lines}"
 
+            # Test 1b: GET /sse?once=1 returns quickly (one-shot mode)
+            response = requests.get(f"http://localhost:{port}/sse?once=1", timeout=5)
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers.get("content-type", "").lower()
+            assert "data:" in response.text
+
             # Test 2: POST /sse initialize returns valid JSON-RPC response
             initialize_payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
             response = requests.post(f"http://localhost:{port}/sse", json=initialize_payload, timeout=5)
+            assert response.status_code == 200
+            result = response.json()
+            assert result["jsonrpc"] == "2.0"
+            assert result["id"] == 1
+            assert "result" in result
+            assert "capabilities" in result["result"]
+
+            # Test 2b: POST /messages initialize also works (Roo Code / MCP reference SSE transport)
+            response = requests.post(f"http://localhost:{port}/messages", json=initialize_payload, timeout=5)
             assert response.status_code == 200
             result = response.json()
             assert result["jsonrpc"] == "2.0"
@@ -114,6 +129,45 @@ def test_mcp_sse_hub_functionality():
             tools = result["result"]["tools"]
             tool_names = [tool["name"] for tool in tools]
             assert "manuscript.find_gaps" in tool_names, f"Expected manuscript.find_gaps in tools, got: {tool_names}"
+
+            # Test 3b: scholar.brainstorm_perspectives is callable with query
+            if "scholar.brainstorm_perspectives" in tool_names:
+                call_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 20,
+                    "method": "tools/call",
+                    "params": {"name": "scholar.brainstorm_perspectives", "arguments": {"query": "transformer attention"}},
+                }
+                response = requests.post(f"http://localhost:{port}/sse", json=call_payload, timeout=5)
+                assert response.status_code == 200
+                result = response.json()
+                assert "result" in result
+                assert "content" in result["result"]
+
+            # Test 3c: memory.store_knowledge can store nodes/edges
+            if "memory.store_knowledge" in tool_names:
+                call_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 21,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "memory.store_knowledge",
+                        "arguments": {
+                            "nodes": [
+                                {"id": "n1", "type": "note", "title": "Attention", "content": {"text": "Attention is..."}},
+                                {"id": "n2", "type": "paper", "title": "Vaswani et al. 2017", "content": {"doi": "10.0/0"}},
+                            ],
+                            "edges": [
+                                {"source": "n1", "target": "n2", "relationship": "RELATED_TO", "confidence": 0.8}
+                            ],
+                        },
+                    },
+                }
+                response = requests.post(f"http://localhost:{port}/sse", json=call_payload, timeout=5)
+                assert response.status_code == 200
+                result = response.json()
+                assert "result" in result
+                assert "content" in result["result"]
 
             # Test 4: POST /sse tools/call manuscript.find_gaps returns structured content
             # Create test file in workspace

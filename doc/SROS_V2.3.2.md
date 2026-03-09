@@ -270,3 +270,51 @@ def ingest_pdf(file_path: str) -> IngestResult:
 
 - 快速复现工具链调用（不用起全套服务）。
 - 在 Inspector 阶段稳定复现 bug（作为回归测试前置）。
+
+9. 当前实现进度与里程碑（Progress vs V2.3.2）
+
+更新时间：2026-03-09
+
+9.1 当前进度（以自动化测试为证据）
+
+已达成（✅）
+
+- 产品化基本形态：`pyproject.toml` + `src/` 包结构 + `sros` CLI 入口点。
+- 解耦工作区：`sros init <project>` 生成 `.roo/mcp.json`、`.sros/graph.db`、`draft.md`、`ideas.md`、`materials/`、`references/`。
+- Gateway SSE Hub：`GET /sse` (event-stream) + `POST /sse` (JSON-RPC) + Roo 兼容 `POST /messages`；支持 `initialize/tools.list/tools.call`。
+- Manuscript MVP：`manuscript.find_gaps(file_path)` 能基于 `[TODO: ...]` 与简单启发式返回结构化 gap；并严格绑定 workspace 相对路径（禁止绝对路径与 `..`）。
+
+证据（可复现）
+
+- 集成测试：`python -m pytest -q`（tests 下已覆盖 SSE + JSON-RPC + tools/list + tools/call 最小链路）。
+- 一次性 SSE（便于探测）：`GET /sse?once=1` 返回 `text/event-stream` 且响应会结束（避免脚本超时）。
+
+部分完成（🟡）
+
+- Scholar/Memory/Zotero 的“真实业务能力”：当前实现以 MVP/示例为主（非完整联邦搜索/非完整 CiTO 证据链）。
+- Growing Doc Loop 的后半段：引用映射（DraftSection → CITES → Paper）、gap_log.json 等仍待产品化落地。
+
+未完成（⬜）
+
+- Federated Search 的产品化迁移：将现有 `mcp_servers/federal_academic_search` 的可运行能力迁入安装包路径并暴露为 Gateway tool。
+- 更强的稿件增量写入语义：`insert_section(target, ...)` 需要从“追加”升级为“可定位插入”。
+
+9.2 里程碑规划（1-2 周可执行）
+
+Milestone 1（本周）：契约一致性与可诊断性（Contract Consistency)
+
+- 目标：让 `tools/list` 的 `inputSchema` 与实际 handler 签名/数据结构一致；让 Roo 能基于 schema 自主构造正确请求。
+- 验收：
+	- `tools/list` 中 `scholar.brainstorm_perspectives` 要求 `query`；`memory.store_knowledge` 要求 `nodes/edges`；`zotero.add_citation` 要求 citekey/title/authors/year/journal/url/bibtex。
+	- 通过集成测试验证 `tools/call` 真实可调用上述工具。
+	- `scripts/final_verification.py` 全绿（含 `/sse?once=1` 探测）。
+
+Milestone 2（下周）：Scholar 联邦搜索产品化（Federated Search)
+
+- 目标：将联邦检索能力迁入 `site-packages/sros/servers/scholar`，并在 Gateway 暴露 `scholar.federated_search`/`scholar.find_critiques`。
+- 验收：提供最小可用的数据源（如 OpenAlex/Semantic Scholar）与可重复的集成测试（可 mock 外部网络）。
+
+Milestone 3（两周内）：Growing Doc Loop 闭环（写作→检索→引用→写回）
+
+- 目标：在 `.sros/graph.db` 建立最小引用映射结构；`manuscript.insert_section` 支持定位写入；可选写出 `gap_log.json`。
+- 验收：从 draft.md 中的 TODO 出发，能走通“gap→检索→写回并带引用标记”的自动化回归测试。

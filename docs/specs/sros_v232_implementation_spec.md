@@ -42,7 +42,7 @@
 /User/Documents/my_paper/
 ├── .roo/
 │   └── mcp.json              # [自动生成] 指向 http://localhost:8000/sse
-├── .roomodes                 # [可选/自动生成] Roo Code 自定义模式定义（JSON）
+├── .roomodes                 # [可选/自动生成] Roo Code 自定义模式定义（YAML）
 ├── .sros/
 │   ├── graph.db              # DuckDB（私有知识图谱）
 │   └── gap_log.json          # Gap 检测记录（可选）
@@ -339,5 +339,5 @@ sros doctor
 （可选的最小迁移定义，若实现 migrate）：
 
 - 输入：`sros migrate <old_project_path> [--name <new_project_name>]`
-- 输出：在当前目录生成新 workspace；复制/链接 draft.md；生成 .roo/mcp.json；初始化 .sros/graph.db；可选生成 .roomodes(JSON)
+- 输出：在当前目录生成新 workspace；复制/链接 draft.md；生成 .roo/mcp.json；初始化 .sros/graph.db；可选生成 .roomodes(YAML)
 - 验收：迁移后可直接执行 `sros start` 并在 VS Code 打开新目录写作
