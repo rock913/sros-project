@@ -196,6 +196,16 @@ cython_debug/
 .sros/
 .test_cache/
 
+# SROS user workspaces (must be decoupled from source repo)
+workspace/
+
+# Local one-off fix scripts (do not commit)
+backup_and_fix_test.py
+complete_test_fix.py
+fix_test.py
+temp_fixed_test.py
+temp_test_fix.py
+
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

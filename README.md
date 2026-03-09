@@ -24,6 +24,11 @@ cd my-research-paper
 sros start -w . -p 8000
 ```
 
+If port 8000 is occupied, use:
+```bash
+sros start -w . --auto-port
+```
+
 ### Begin Writing
 Open the project directory in VS Code with Roo Code extension — the MCP connection is auto-configured via `.roo/mcp.json`.
 
@@ -82,6 +87,10 @@ The gateway supports MCP JSON-RPC over HTTP POST on the same `/sse` endpoint:
 - `initialize`
 - `tools/list`
 - `tools/call`
+
+Roo Code compatible mode:
+- `GET /sse` for the event-stream
+- `POST /messages` for JSON-RPC (also accepts `POST /sse` for backward compatibility)
 
 ### `sros doctor`
 Comprehensive system health check covering:

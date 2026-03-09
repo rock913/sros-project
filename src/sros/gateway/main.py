@@ -16,6 +16,7 @@ import uvicorn
 
 from sros.gateway.config import GatewayConfig
 from sros.domain.ports import ManuscriptProtocol, ScholarProtocol, MemoryProtocol, ZoteroProtocol
+from sros.domain.schemas import KnowledgeEdge, Citation, SearchQuery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -83,6 +84,8 @@ class SROSGateway:
                 "manuscript.insert_section": self.manuscript.insert_section,
                 "manuscript.patch_draft": self.manuscript.patch_draft,
                 "scholar.brainstorm_perspectives": self.scholar.brainstorm_perspectives,
+                "scholar.find_critiques": self.scholar.find_critiques,
+                "scholar.federated_search": self.scholar.federated_search,
                 "memory.store_knowledge": self.memory.store_knowledge,
                 "memory.query_knowledge": self.memory.query_knowledge,
             }
@@ -196,10 +199,44 @@ class SROSGateway:
                 "description": "Generate different academic perspectives on a topic",
                 "inputSchema": {
                     "type": "object",
-                    "properties": {},
-                    "required": [],
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Research topic or question to generate perspectives for",
+                        }
+                    },
+                    "required": ["query"],
                     "additionalProperties": False
                 }
+            },
+            "scholar.find_critiques": {
+                "name": "scholar.find_critiques",
+                "description": "Find critiques / counter-arguments for a paper (CiTO-inspired)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "paper_id": {
+                            "type": "string",
+                            "description": "Paper identifier (DOI, internal id, etc)",
+                        }
+                    },
+                    "required": ["paper_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "scholar.federated_search": {
+                "name": "scholar.federated_search",
+                "description": "Federated search across academic sources",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "max_results": {"type": "integer", "description": "Maximum results to return", "default": 10},
+                        "filters": {"type": "object", "description": "Optional filters", "default": {}},
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
             },
             "memory.store_knowledge": {
                 "name": "memory.store_knowledge",
@@ -207,14 +244,28 @@ class SROSGateway:
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "content": {"type": "string", "description": "Knowledge content to store"},
-                        "tags": {
+                        "nodes": {
                             "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Tags for categorization"
-                        }
+                            "description": "Knowledge nodes to store (free-form objects; must include at least an id)",
+                            "items": {"type": "object"},
+                        },
+                        "edges": {
+                            "type": "array",
+                            "description": "Knowledge edges to store",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "source": {"type": "string"},
+                                    "target": {"type": "string"},
+                                    "relationship": {"type": "string"},
+                                    "confidence": {"type": "number"},
+                                },
+                                "required": ["source", "target", "relationship", "confidence"],
+                                "additionalProperties": False,
+                            },
+                        },
                     },
-                    "required": ["content"],
+                    "required": ["nodes", "edges"],
                     "additionalProperties": False
                 }
             },
@@ -241,12 +292,19 @@ class SROSGateway:
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "citation_data": {
-                                "type": "object",
-                                "description": "Citation data to add"
-                            }
+                            "citekey": {"type": "string", "description": "Unique citation key"},
+                            "title": {"type": "string", "description": "Paper title"},
+                            "authors": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Author names",
+                            },
+                            "year": {"type": "integer", "description": "Publication year"},
+                            "journal": {"type": "string", "description": "Journal or venue"},
+                            "url": {"type": "string", "description": "Canonical URL"},
+                            "bibtex": {"type": "string", "description": "BibTeX entry"},
                         },
-                        "required": ["citation_data"],
+                        "required": ["citekey", "title", "authors", "year", "journal", "url", "bibtex"],
                         "additionalProperties": False
                     }
                 },
@@ -314,11 +372,27 @@ class SROSGateway:
             async def sse_stream(request: Request):
                 """SSE 流端点 - 用于 MCP 通信"""
                 async def event_generator():
+                    once = str(request.query_params.get("once", "")).lower() in {"1", "true", "yes"}
+
+                    # Endpoint discovery first (helps Roo Code / MCP clients route POSTs correctly)
+                    endpoint_info = {
+                        "type": "endpoint_discovery",
+                        "event": "endpoint_discovery",
+                        "endpoints": {
+                            "sse": self.config.sse_endpoint,
+                            "messages": "/messages",
+                            "health": "/health",
+                        },
+                        "capabilities": ["json-rpc", "sse", "streaming"],
+                        "version": "2.0",
+                    }
+                    yield f"data: {json.dumps(endpoint_info)}\n\n"
+
                     # Send initial connection event
-                    yield f"data: {json.dumps({'event': 'connected', 'timestamp': time.time()})}\n\n"
-                    
-                    # Send endpoint discovery
-                    yield f"data: {json.dumps({'event': 'endpoint_discovery', 'endpoints': ['/sse']})}\n\n"
+                    yield f"data: {json.dumps({'type': 'connected', 'event': 'connected', 'timestamp': time.time()})}\n\n"
+
+                    if once:
+                        return
                     
                     # Send heartbeat periodically
                     while True:
@@ -328,7 +402,7 @@ class SROSGateway:
                                 break
                             
                             # Send heartbeat
-                            yield f"data: {json.dumps({'event': 'heartbeat', 'timestamp': time.time()})}\n\n"
+                            yield f"data: {json.dumps({'type': 'heartbeat', 'event': 'heartbeat', 'timestamp': time.time()})}\n\n"
                             
                             # Sleep for 30 seconds between heartbeats
                             await asyncio.sleep(30)
@@ -336,7 +410,16 @@ class SROSGateway:
                             logger.error(f"SSE stream error: {e}")
                             break
                 
-                return StreamingResponse(event_generator(), media_type="text/event-stream")
+                return StreamingResponse(
+                    event_generator(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                )
+
 
             @self.app.post(self.config.sse_endpoint)
             async def handle_jsonrpc(request: Request):
@@ -355,6 +438,15 @@ class SROSGateway:
                         },
                         "id": None
                     }
+
+            @self.app.post("/messages")
+            async def handle_messages(request: Request):
+                """Handle MCP JSON-RPC messages.
+
+                Roo Code (and the reference MCP SSE transport) commonly POST JSON-RPC messages
+                to /messages while using /sse for the event-stream.
+                """
+                return await handle_jsonrpc(request)
         except Exception as e:
             raise RuntimeError(f"Failed to setup routes: {str(e)}") from e
     
@@ -483,16 +575,93 @@ class SROSGateway:
                                 },
                                 "id": request_id
                             }
-                    elif tool_name == "memory.store_knowledge":
-                        if "content" not in arguments:
+                    elif tool_name == "scholar.brainstorm_perspectives":
+                        if "query" not in arguments:
                             return {
                                 "jsonrpc": "2.0",
                                 "error": {
                                     "code": -32602,
-                                    "message": f"Missing required argument 'content' for tool '{tool_name}'. Example params: {{'content': 'knowledge content', 'tags': ['tag1', 'tag2']}}"
+                                    "message": f"Missing required argument 'query' for tool '{tool_name}'. Example params: {{'query': 'your research topic'}}"
                                 },
                                 "id": request_id
                             }
+
+                    elif tool_name == "scholar.find_critiques":
+                        if "paper_id" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'paper_id' for tool '{tool_name}'. Example params: {{'paper_id': '10.1000/xyz123'}}",
+                                },
+                                "id": request_id,
+                            }
+
+                    elif tool_name == "scholar.federated_search":
+                        if "query" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'query' for tool '{tool_name}'. Example params: {{'query': 'transformer attention', 'max_results': 10, 'filters': {{}}}}",
+                                },
+                                "id": request_id,
+                            }
+                        # Coerce request dict into SearchQuery model expected by handler.
+                        search_query = SearchQuery(
+                            query=str(arguments["query"]),
+                            max_results=int(arguments.get("max_results", 10)),
+                            filters=dict(arguments.get("filters", {})),
+                        )
+                        arguments = {"query": search_query}
+
+                    elif tool_name == "memory.store_knowledge":
+                        missing = [k for k in ("nodes", "edges") if k not in arguments]
+                        if missing:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required arguments for tool '{tool_name}': {missing}. Example params: nodes=[{{'id':'n1','type':'note','title':'...'}}], edges=[{{'source':'n1','target':'n2','relationship':'RELATED_TO','confidence':0.8}}]"
+                                },
+                                "id": request_id
+                            }
+
+                        # Coerce edges into KnowledgeEdge models if passed as dicts.
+                        if isinstance(arguments.get("edges"), list):
+                            coerced_edges: List[KnowledgeEdge] = []
+                            for edge in arguments["edges"]:
+                                if isinstance(edge, KnowledgeEdge):
+                                    coerced_edges.append(edge)
+                                elif isinstance(edge, dict):
+                                    coerced_edges.append(KnowledgeEdge(**edge))
+                                else:
+                                    raise TypeError("edges must be a list of objects")
+                            arguments["edges"] = coerced_edges
+
+                    elif tool_name == "zotero.add_citation":
+                        required_args = ["citekey", "title", "authors", "year", "journal", "url", "bibtex"]
+                        missing_args = [arg for arg in required_args if arg not in arguments]
+                        if missing_args:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required arguments for tool '{tool_name}': {missing_args}." 
+                                },
+                                "id": request_id,
+                            }
+                        citation = Citation(
+                            citekey=str(arguments["citekey"]),
+                            title=str(arguments["title"]),
+                            authors=list(arguments["authors"]),
+                            year=int(arguments["year"]),
+                            journal=str(arguments["journal"]),
+                            url=str(arguments["url"]),
+                            bibtex=str(arguments["bibtex"]),
+                        )
+                        # Handler expects a Citation model.
+                        arguments = {"citation": citation}
                     elif tool_name == "memory.query_knowledge":
                         if "query" not in arguments:
                             return {
