@@ -1,9 +1,19 @@
-from typing import List, Dict, Any
+import os
+from typing import List, Dict, Any, Optional
 from sros.domain.ports import ScholarProtocol
 from sros.domain.schemas import ResearchPerspective, SearchQuery
 
+from .federated import OpenAlexBackend
+
 class ScholarHandler(ScholarProtocol):
     """学者服务实现"""
+
+    def __init__(self) -> None:
+        # Default is deterministic/mock to keep tests and offline usage stable.
+        backend = (os.getenv("SROS_SCHOLAR_BACKEND") or "mock").strip().lower()
+        self._openalex: Optional[OpenAlexBackend] = None
+        if backend == "openalex":
+            self._openalex = OpenAlexBackend()
     
     def brainstorm_perspectives(self, query: str) -> List[ResearchPerspective]:
         """
@@ -55,23 +65,28 @@ class ScholarHandler(ScholarProtocol):
         """
         联邦搜索多个学术数据库
         """
-        # 模拟搜索结果
-        results = [
+        if self._openalex is not None:
+            # Real backend (network) when explicitly enabled.
+            return self._openalex.search(query)
+
+        # Default: deterministic mock results
+        return [
             {
                 "title": "相关研究论文1",
                 "authors": ["李四", "王五"],
                 "year": 2023,
                 "journal": "期刊名称",
                 "abstract": "论文摘要内容",
-                "url": "http://example.com/paper1"
+                "url": "http://example.com/paper1",
+                "source": "mock",
             },
             {
-                "title": "相关研究论文2", 
+                "title": "相关研究论文2",
                 "authors": ["赵六"],
                 "year": 2022,
                 "journal": "另一期刊",
                 "abstract": "另一个论文摘要",
-                "url": "http://example.com/paper2"
-            }
+                "url": "http://example.com/paper2",
+                "source": "mock",
+            },
         ]
-        return results
