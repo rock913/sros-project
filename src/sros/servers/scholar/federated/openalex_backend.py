@@ -23,16 +23,30 @@ class OpenAlexBackend:
         base_url: str | None = None,
         mailto: str | None = None,
         session: Optional[requests.Session] = None,
-        timeout_s: float = 15.0,
-        max_retries: int = 2,
-        retry_backoff_s: float = 0.75,
+        timeout_s: float | None = None,
+        max_retries: int | None = None,
+        retry_backoff_s: float | None = None,
     ) -> None:
-        self.base_url = (base_url or os.getenv("SROS_OPENALEX_BASE_URL") or "https://api.openalex.org").rstrip("/")
-        self.mailto = mailto or os.getenv("SROS_OPENALEX_MAILTO") or os.getenv("SROS_OPENALEX_EMAIL")
+        self.base_url = (
+            base_url
+            or os.getenv("SROS_OPENALEX_BASE_URL")
+            or os.getenv("OPENALEX_BASE_URL")
+            or "https://api.openalex.org"
+        ).rstrip("/")
+        self.mailto = (
+            mailto
+            or os.getenv("SROS_OPENALEX_MAILTO")
+            or os.getenv("SROS_OPENALEX_EMAIL")
+            or os.getenv("OPENALEX_EMAIL")
+        )
         self.session = session or requests.Session()
-        self.timeout_s = timeout_s
-        self.max_retries = max_retries
-        self.retry_backoff_s = retry_backoff_s
+        self.timeout_s = timeout_s if timeout_s is not None else _get_env_float("SROS_OPENALEX_TIMEOUT", "OPENALEX_TIMEOUT", default=15.0)
+        self.max_retries = max_retries if max_retries is not None else _get_env_int("SROS_OPENALEX_MAX_RETRIES", "OPENALEX_MAX_RETRIES", default=2)
+        self.retry_backoff_s = (
+            retry_backoff_s
+            if retry_backoff_s is not None
+            else _get_env_float("SROS_OPENALEX_RATE_LIMIT_DELAY", "OPENALEX_RATE_LIMIT_DELAY", default=0.75)
+        )
 
     def search(self, query: SearchQuery) -> List[Dict[str, Any]]:
         url = f"{self.base_url}/works"
@@ -58,7 +72,6 @@ class OpenAlexBackend:
                     time.sleep(self.retry_backoff_s * (2 ** (attempt - 1)))
                 resp = self.session.get(url, params=params, timeout=self.timeout_s)
                 if resp.status_code in (429,) or 500 <= resp.status_code <= 599:
-                    # Retryable
                     last_exc = RuntimeError(f"OpenAlex HTTP {resp.status_code}")
                     continue
                 resp.raise_for_status()
@@ -118,3 +131,27 @@ class OpenAlexBackend:
             "url": primary_url or work.get("id"),
             "source": "openalex",
         }
+
+
+def _get_env_int(*keys: str, default: int) -> int:
+    for key in keys:
+        value = os.getenv(key)
+        if value is None or value == "":
+            continue
+        try:
+            return int(value)
+        except ValueError:
+            continue
+    return default
+
+
+def _get_env_float(*keys: str, default: float) -> float:
+    for key in keys:
+        value = os.getenv(key)
+        if value is None or value == "":
+            continue
+        try:
+            return float(value)
+        except ValueError:
+            continue
+    return default
