@@ -16,7 +16,7 @@ import uvicorn
 
 from sros.gateway.config import GatewayConfig
 from sros.domain.ports import ManuscriptProtocol, ScholarProtocol, MemoryProtocol, ZoteroProtocol
-from sros.domain.schemas import KnowledgeEdge, Citation
+from sros.domain.schemas import KnowledgeEdge, Citation, SearchQuery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -84,6 +84,8 @@ class SROSGateway:
                 "manuscript.insert_section": self.manuscript.insert_section,
                 "manuscript.patch_draft": self.manuscript.patch_draft,
                 "scholar.brainstorm_perspectives": self.scholar.brainstorm_perspectives,
+                "scholar.find_critiques": self.scholar.find_critiques,
+                "scholar.federated_search": self.scholar.federated_search,
                 "memory.store_knowledge": self.memory.store_knowledge,
                 "memory.query_knowledge": self.memory.query_knowledge,
             }
@@ -206,6 +208,35 @@ class SROSGateway:
                     "required": ["query"],
                     "additionalProperties": False
                 }
+            },
+            "scholar.find_critiques": {
+                "name": "scholar.find_critiques",
+                "description": "Find critiques / counter-arguments for a paper (CiTO-inspired)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "paper_id": {
+                            "type": "string",
+                            "description": "Paper identifier (DOI, internal id, etc)",
+                        }
+                    },
+                    "required": ["paper_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "scholar.federated_search": {
+                "name": "scholar.federated_search",
+                "description": "Federated search across academic sources",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "max_results": {"type": "integer", "description": "Maximum results to return", "default": 10},
+                        "filters": {"type": "object", "description": "Optional filters", "default": {}},
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
             },
             "memory.store_knowledge": {
                 "name": "memory.store_knowledge",
@@ -554,6 +585,35 @@ class SROSGateway:
                                 },
                                 "id": request_id
                             }
+
+                    elif tool_name == "scholar.find_critiques":
+                        if "paper_id" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'paper_id' for tool '{tool_name}'. Example params: {{'paper_id': '10.1000/xyz123'}}",
+                                },
+                                "id": request_id,
+                            }
+
+                    elif tool_name == "scholar.federated_search":
+                        if "query" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'query' for tool '{tool_name}'. Example params: {{'query': 'transformer attention', 'max_results': 10, 'filters': {{}}}}",
+                                },
+                                "id": request_id,
+                            }
+                        # Coerce request dict into SearchQuery model expected by handler.
+                        search_query = SearchQuery(
+                            query=str(arguments["query"]),
+                            max_results=int(arguments.get("max_results", 10)),
+                            filters=dict(arguments.get("filters", {})),
+                        )
+                        arguments = {"query": search_query}
 
                     elif tool_name == "memory.store_knowledge":
                         missing = [k for k in ("nodes", "edges") if k not in arguments]

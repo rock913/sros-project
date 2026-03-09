@@ -144,6 +144,37 @@ def test_mcp_sse_hub_functionality():
                 assert "result" in result
                 assert "content" in result["result"]
 
+            # Test 3d: scholar.find_critiques callable
+            if "scholar.find_critiques" in tool_names:
+                call_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 22,
+                    "method": "tools/call",
+                    "params": {"name": "scholar.find_critiques", "arguments": {"paper_id": "10.1000/xyz123"}},
+                }
+                response = requests.post(f"http://localhost:{port}/sse", json=call_payload, timeout=5)
+                assert response.status_code == 200
+                result = response.json()
+                assert "result" in result
+                assert "content" in result["result"]
+
+            # Test 3e: scholar.federated_search callable
+            if "scholar.federated_search" in tool_names:
+                call_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 23,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "scholar.federated_search",
+                        "arguments": {"query": "transformer attention", "max_results": 2, "filters": {}},
+                    },
+                }
+                response = requests.post(f"http://localhost:{port}/sse", json=call_payload, timeout=5)
+                assert response.status_code == 200
+                result = response.json()
+                assert "result" in result
+                assert "content" in result["result"]
+
             # Test 3c: memory.store_knowledge can store nodes/edges
             if "memory.store_knowledge" in tool_names:
                 call_payload = {
