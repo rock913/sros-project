@@ -51,6 +51,42 @@ DEFAULT_ROOMODES_YAML = """customModes:
 """
 
 
+def _load_dotenv(dotenv_path: Path) -> None:
+    """Load a simple .env file into os.environ.
+
+    - No external dependency (python-dotenv).
+    - Does not override already-set environment variables.
+    """
+    try:
+        if not dotenv_path.exists() or not dotenv_path.is_file():
+            return
+
+        for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[len("export "):].lstrip()
+
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                continue
+
+            # Strip optional quotes
+            if len(value) >= 2 and ((value[0] == value[-1] == '"') or (value[0] == value[-1] == "'")):
+                value = value[1:-1]
+
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        # dotenv loading should be best-effort and never block startup
+        return
+
+
 def _update_roo_mcp_json(workspace_path: Path, url: str, server_key: str = "sros-gateway") -> None:
         mcp_path = workspace_path / ".roo" / "mcp.json"
         if not mcp_path.exists():
@@ -195,6 +231,9 @@ def start(
         if not workspace_path.exists():
             console.print(f"[red]Error:[/red] Workspace directory '{workspace_dir}' does not exist")
             raise typer.Exit(code=1)
+
+        # Best-effort: load workspace .env for provider config (OpenAlex/Zotero/etc)
+        _load_dotenv(workspace_path / ".env")
         
         # 检查端口是否被占用
         if is_port_in_use(port):

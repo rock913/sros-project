@@ -315,6 +315,7 @@ Milestone 2（下周）：Scholar 联邦搜索产品化（Federated Search)
 - 目标：将联邦检索能力迁入 `site-packages/sros/servers/scholar`，并在 Gateway 暴露 `scholar.federated_search`/`scholar.find_critiques`。
 - 当前进展：Gateway 暴露与集成测试已完成；下一步是接入稳定数据源与完善返回结构。
 - 验收：提供最小可用的数据源（如 OpenAlex/Semantic Scholar）与可重复的集成测试（可 mock 外部网络）。
+	- 推荐验收方式（不把外网塞进 pytest）：在工作区 `.env` 中配置 `SROS_SCHOLAR_BACKEND=openalex` + `OPENALEX_EMAIL`，启动 `sros start` 后运行 [scripts/verify_openalex_live.py](scripts/verify_openalex_live.py)；产物写入 `logs/openalex_live_verification.json` 作为可追溯证据。
 
 Milestone 3（两周内）：Growing Doc Loop 闭环（写作→检索→引用→写回）
 
