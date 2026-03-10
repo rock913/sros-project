@@ -269,10 +269,13 @@ pip install -e .  # 或 pip install sros
 
 # 2. 初始化工作区
 sros init my-transformer-paper  # 默认生成 Roo 配置
-# 或：同时生成 Claude Code 配置
+
+# 可选：同时生成 Claude Code + Roo 配置
 # sros init my-transformer-paper --target both
-# 或：仅生成 Claude Code 配置
+
+# 可选：仅生成 Claude Code 配置
 # sros init my-transformer-paper --target claude-code
+
 cd my-transformer-paper
 
 # 3. 启动后台服务 (默认暴露 8000 端口)
@@ -297,6 +300,21 @@ sros start -w . -p 8000
 # 不运行 Claude 也能先验证 MCP 是否可用
 sros verify --port 8000
 ```
+
+MVP 开发状态（2026-03-10）：已完成 ✅
+
+已交付能力（仓库内可复现）：
+
+- `sros init --target claude-code|both`：生成 `.clauderc` + `CLAUDE.md`
+- `sros start ...`：在端口/URL 变化时可同步更新 `.clauderc` 的 Gateway SSE URL
+- `sros verify --port 8000`：不运行 Claude 也能验证 MCP SSE 工具链可用，并落盘 `logs/claude_mvp_verification.json`
+- 回归测试：`python -m pytest -q` 全绿（当前 `23 passed`）
+
+仍建议补齐的工作（不阻塞 MVP，但利于产品化）：
+
+1) 真实 Claude Code 端到端验收脚本：在本机 Claude 中确认能发现 MCP server、能实际调用 `manuscript.*` 工具并写回（含常见报错排查）
+2) 远程/端口转发场景的更强指引：建议配置 `--gateway-url`、何时需要 `sros start --auto-port`/更新 URL
+3) 失败可恢复 UX（对应 Milestone B）：anchor 前缀歧义候选列表、heading 失败 Top-N 推荐、并发冲突的下一步建议更标准化
 
 这会生成：
 
