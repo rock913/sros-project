@@ -111,8 +111,9 @@ Milestone C（可选）：生态模板化
 
 ## 4) 验收证据（Artifacts）
 
-- 状态更新（2026-03-10）：`python -m pytest -q` 全绿（覆盖 V2.3.3 anchors + 并发安全），当前为 `20 passed`。
+- 状态更新（2026-03-10）：`python -m pytest -q` 全绿（覆盖 V2.3.3 anchors + 并发安全 + Claude Code MVP CLI/verify），当前为 `23 passed`。
 - `python scripts/verify_production.py ...` 产出 `logs/production_verification.json`。
+- `sros verify --port 8000` 产出 `logs/claude_mvp_verification.json`（验证 initialize/tools/list/tools/call）。
 - （可选）对接脚本/模板可在新 workspace 一键生效。
 
 2. 核心机制技术实现细节 (Technical Implementation)
