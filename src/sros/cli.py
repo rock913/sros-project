@@ -4,6 +4,7 @@ import json
 import asyncio
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -88,27 +89,97 @@ def _load_dotenv(dotenv_path: Path) -> None:
 
 
 def _update_roo_mcp_json(workspace_path: Path, url: str, server_key: str = "sros-gateway") -> None:
-        mcp_path = workspace_path / ".roo" / "mcp.json"
-        if not mcp_path.exists():
-                return
+    mcp_path = workspace_path / ".roo" / "mcp.json"
+    if not mcp_path.exists():
+        return
 
-        try:
-                data = json.loads(mcp_path.read_text(encoding="utf-8"))
-                servers = data.get("mcpServers", {})
-                if isinstance(servers, dict) and server_key in servers and isinstance(servers[server_key], dict):
-                        servers[server_key]["url"] = url
-                elif isinstance(servers, dict) and len(servers) >= 1:
-                        # Fallback: update the first server entry
-                        first_key = next(iter(servers.keys()))
-                        if isinstance(servers[first_key], dict):
-                                servers[first_key]["url"] = url
-                else:
-                        return
+    try:
+        data = json.loads(mcp_path.read_text(encoding="utf-8"))
+        servers = data.get("mcpServers", {})
+        if isinstance(servers, dict) and server_key in servers and isinstance(servers[server_key], dict):
+            servers[server_key]["url"] = url
+        elif isinstance(servers, dict) and len(servers) >= 1:
+            # Fallback: update the first server entry
+            first_key = next(iter(servers.keys()))
+            if isinstance(servers[first_key], dict):
+                servers[first_key]["url"] = url
+        else:
+            return
 
-                mcp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except Exception:
-                # Don't block startup on config update errors
-                return
+        mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        # Don't block startup on config update errors
+        return
+
+
+DEFAULT_CLAUDE_INSTRUCTIONS = """You are a senior academic researcher/writer.
+
+Goal: enrich the manuscript in draft.md by eliminating TODO markers.
+
+Hard rules:
+- Do NOT directly edit draft.md with raw file edits. Use MCP tools only.
+- First call manuscript.get_outline_tree(file_path=\"draft.md\") and locate an anchor for the target heading.
+- Prefer target=\"anchor:<hash>\" for insert_section.
+- Use optimistic concurrency: call manuscript.get_file_sha256(file_path=\"draft.md\") and pass expected_sha256=... into insert_section/patch_draft.
+
+Suggested loop:
+1) manuscript.find_gaps(file_path=\"draft.md\")
+2) manuscript.get_outline_tree(file_path=\"draft.md\")
+3) scholar.federated_search(query=..., max_results=..., filters={...})
+4) manuscript.insert_section(target=\"anchor:<hash>\", content=..., citations=[...], file_path=\"draft.md\", expected_sha256=...)
+5) memory.store_knowledge(...) when useful
+"""
+
+
+def _write_claude_rc(workspace_path: Path, url: str, server_key: str = "sros-gateway") -> None:
+    config = {
+        "custom_instructions": DEFAULT_CLAUDE_INSTRUCTIONS,
+        "mcp_servers": {server_key: {"url": url}},
+    }
+    (workspace_path / ".clauderc").write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _update_claude_rc(workspace_path: Path, url: str, server_key: str = "sros-gateway") -> None:
+    rc_path = workspace_path / ".clauderc"
+    if not rc_path.exists():
+        return
+
+    try:
+        data = json.loads(rc_path.read_text(encoding="utf-8"))
+        servers = data.get("mcp_servers")
+        if not isinstance(servers, dict):
+            servers = {}
+            data["mcp_servers"] = servers
+        entry = servers.get(server_key)
+        if not isinstance(entry, dict):
+            entry = {}
+            servers[server_key] = entry
+        entry["url"] = url
+        rc_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        return
+
+
+def _write_claude_md(workspace_path: Path, url: str) -> None:
+    content = f"""# Claude Code + SROS (MVP)
+
+MCP Gateway SSE URL:
+
+- {url}
+
+Recommended workflow:
+
+1) `manuscript.find_gaps(file_path=\"draft.md\")`
+2) `manuscript.get_outline_tree(file_path=\"draft.md\")` → copy the target heading's `anchor`
+3) `manuscript.get_file_sha256(file_path=\"draft.md\")`
+4) `manuscript.insert_section(target=\"anchor:<hash>\", ..., expected_sha256=<sha>)`
+
+Rules:
+
+- Prefer `target=\"anchor:<hash>\"` (stable).
+- Always pass `expected_sha256` on write operations to avoid clobbering user edits.
+"""
+    (workspace_path / "CLAUDE.md").write_text(content, encoding="utf-8")
 
 def validate_workspace_dir(workspace_dir: str) -> str:
     """验证工作区目录"""
@@ -119,6 +190,11 @@ def validate_workspace_dir(workspace_dir: str) -> str:
 @app.command()
 def init(
     project_name: str = typer.Argument(..., help="项目名称"),
+    target: str = typer.Option(
+        "roo",
+        "--target",
+        help="对接目标：roo | claude-code | both（默认 roo）",
+    ),
     gateway_url: str = typer.Option(
         "http://localhost:8000/sse",
         "--gateway-url",
@@ -137,6 +213,10 @@ def init(
 ):
     """初始化 SROS 项目"""
     try:
+        target_norm = (target or "roo").strip().lower()
+        if target_norm not in {"roo", "claude-code", "both"}:
+            raise typer.BadParameter("--target must be one of: roo, claude-code, both")
+
         # 创建项目目录
         project_path = Path(project_name)
         if project_path.exists():
@@ -147,11 +227,13 @@ def init(
         
         # 创建工作区结构
         workspace_dirs = [
-            project_path / ".roo",
             project_path / ".sros",
             project_path / "materials",
             project_path / "references"
         ]
+
+        if target_norm in {"roo", "both"}:
+            workspace_dirs.append(project_path / ".roo")
         
         for dir_path in workspace_dirs:
             dir_path.mkdir(parents=True, exist_ok=True)
@@ -160,20 +242,27 @@ def init(
         (project_path / "draft.md").write_text("# My Paper\n\n")
         (project_path / "ideas.md").write_text("# Ideas\n\n")
         
-        # 创建 .roo/mcp.json (Roo Code expected schema)
-        mcp_config = {
-            "mcpServers": {
-                server_key: {
-                    "name": "SROS Gateway",
-                    "url": gateway_url,
-                    "type": "sse",
-                    "description": "SROS V2.3.2 Gateway (Local)",
-                    "disabled": False,
-                    "alwaysAllow": []
+        if target_norm in {"roo", "both"}:
+            # 创建 .roo/mcp.json (Roo Code expected schema)
+            mcp_config = {
+                "mcpServers": {
+                    server_key: {
+                        "name": "SROS Gateway",
+                        "url": gateway_url,
+                        "type": "sse",
+                        "description": "SROS V2.3.x Gateway (Local)",
+                        "disabled": False,
+                        "alwaysAllow": [],
+                    }
                 }
             }
-        }
-        (project_path / ".roo" / "mcp.json").write_text(json.dumps(mcp_config, indent=2), encoding="utf-8")
+            (project_path / ".roo" / "mcp.json").write_text(
+                json.dumps(mcp_config, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+
+        if target_norm in {"claude-code", "both"}:
+            _write_claude_rc(project_path, gateway_url, server_key=server_key)
+            _write_claude_md(project_path, gateway_url)
 
         if with_roomodes:
             (project_path / ".roomodes").write_text(DEFAULT_ROOMODES_YAML, encoding="utf-8")
@@ -192,8 +281,14 @@ def init(
         console.print(f"\n[bold]Next steps:[/bold]")
         console.print(f"1. cd {project_name}")
         console.print(f"2. sros start")
-        console.print(f"3. Open this directory in VS Code with Roo Code extension")
-        console.print(f"\nTip: if Roo Code shows 'Retrying...' under Remote-SSH, forward port 8000 and re-run init with --gateway-url")
+        if target_norm in {"roo", "both"}:
+            console.print(f"3. Open this directory in VS Code with Roo Code extension")
+            console.print(
+                f"\nTip: if Roo Code shows 'Retrying...' under Remote-SSH, forward port 8000 and re-run init with --gateway-url"
+            )
+        if target_norm in {"claude-code", "both"}:
+            console.print("3. Run Claude Code in this workspace (see CLAUDE.md)")
+            console.print("4. (Recommended) Run: sros verify --port 8000")
         
     except Exception as e:
         console.print(f"[red]Error:[/red] Failed to initialize project: {str(e)}")
@@ -218,6 +313,11 @@ def start(
         "sros-gateway",
         "--server-key",
         help="更新 .roo/mcp.json 时使用的 mcpServers key",
+    ),
+    update_clauderc: Optional[bool] = typer.Option(
+        None,
+        "--update-clauderc/--no-update-clauderc",
+        help="自动更新工作区 .clauderc 的 Gateway SSE URL（默认：仅在 --auto-port 时启用）",
     ),
 ):
     """启动 SROS 服务"""
@@ -250,6 +350,9 @@ def start(
 
         if update_mcp_json is None:
             update_mcp_json = bool(auto_port)
+
+        if update_clauderc is None:
+            update_clauderc = bool(auto_port)
         
         # 设置环境变量
         os.environ["SROS_WORKSPACE_DIR"] = str(workspace_path.absolute())
@@ -259,6 +362,12 @@ def start(
             gateway_url = f"http://{mcp_host}:{port}/sse"
             _update_roo_mcp_json(workspace_path, gateway_url, server_key=server_key)
             console.print(f"[green]Updated .roo/mcp.json url ->[/green] {gateway_url}")
+
+        if update_clauderc:
+            gateway_url = f"http://{mcp_host}:{port}/sse"
+            _update_claude_rc(workspace_path, gateway_url, server_key=server_key)
+            if (workspace_path / ".clauderc").exists():
+                console.print(f"[green]Updated .clauderc url ->[/green] {gateway_url}")
         
         console.print(f"[blue]Starting SROS gateway on port {port}...[/blue]")
         
@@ -314,6 +423,8 @@ def status():
         workspace_files = {
             "draft.md": (workspace_dir / "draft.md").exists(),
             ".roo/mcp.json": (workspace_dir / ".roo" / "mcp.json").exists(),
+            ".clauderc": (workspace_dir / ".clauderc").exists(),
+            "CLAUDE.md": (workspace_dir / "CLAUDE.md").exists(),
             ".sros/graph.db": (workspace_dir / ".sros" / "graph.db").exists(),
         }
         
@@ -375,6 +486,89 @@ def roomodes(
         console.print(f"[green]✓[/green] Wrote {target_path}")
     except Exception as e:
         console.print(f"[red]Error:[/red] Failed to write .roomodes: {str(e)}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def verify(
+    port: int = typer.Option(8000, "--port", "-p", help="Gateway 端口（默认 8000）"),
+    query: str = typer.Option("neuro ai", "--query", help="用于 scholar.federated_search 的测试 query"),
+    output: str = typer.Option(
+        "logs/claude_mvp_verification.json",
+        "--output",
+        help="输出报告路径（相对当前目录）",
+    ),
+):
+    """MVP 验证：不运行 Claude，也能确认 MCP SSE 网关可用（initialize/tools/list/tools/call）。"""
+    try:
+        from time import perf_counter
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        sse_url = f"http://localhost:{port}/sse"
+
+        async def _run():
+            report = {
+                "started_at": datetime.now().isoformat(),
+                "sse_url": sse_url,
+                "query": query,
+                "checks": [],
+                "ok": False,
+            }
+            async with sse_client(sse_url) as (read, write):
+                async with ClientSession(read, write) as session:
+                    t0 = perf_counter()
+                    await session.initialize()
+                    report["checks"].append({"name": "initialize", "ok": True, "duration_s": perf_counter() - t0})
+
+                    t0 = perf_counter()
+                    tools = await session.list_tools()
+                    report["checks"].append({"name": "tools/list", "ok": True, "duration_s": perf_counter() - t0})
+                    tool_names = [t.name for t in tools.tools]
+
+                    required = [
+                        "manuscript.find_gaps",
+                        "manuscript.get_outline_tree",
+                        "manuscript.insert_section",
+                    ]
+                    missing = [t for t in required if t not in tool_names]
+                    report["checks"].append({"name": "tools/required", "ok": not missing, "missing": missing})
+                    if missing:
+                        report["ok"] = False
+                        report["finished_at"] = datetime.now().isoformat()
+                        return report
+
+                    t0 = perf_counter()
+                    res = await session.call_tool("manuscript.find_gaps", {"file_path": "draft.md"})
+                    report["checks"].append({"name": "tool:manuscript.find_gaps", "ok": True, "duration_s": perf_counter() - t0})
+                    report["sample"] = (res.content[0].text[:200] if res.content else "")
+
+                    # Optional: exercise scholar if present (can be mock/offline)
+                    if "scholar.federated_search" in tool_names:
+                        t0 = perf_counter()
+                        await session.call_tool("scholar.federated_search", {"query": query, "max_results": 1, "filters": {}})
+                        report["checks"].append(
+                            {"name": "tool:scholar.federated_search", "ok": True, "duration_s": perf_counter() - t0}
+                        )
+
+            report["ok"] = all(c.get("ok") for c in report["checks"])
+            report["finished_at"] = datetime.now().isoformat()
+            return report
+
+        report = asyncio.run(_run())
+        out_path = Path(output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        if report.get("ok"):
+            console.print(f"[green]✓[/green] MCP verify ok. Report -> {out_path}")
+        else:
+            console.print(f"[red]✗[/red] MCP verify failed. Report -> {out_path}")
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error:[/red] verify failed: {e}")
         raise typer.Exit(code=1)
 
 if __name__ == "__main__":
