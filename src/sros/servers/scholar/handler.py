@@ -11,9 +11,36 @@ class ScholarHandler(ScholarProtocol):
     def __init__(self) -> None:
         # Default is deterministic/mock to keep tests and offline usage stable.
         backend = (os.getenv("SROS_SCHOLAR_BACKEND") or "mock").strip().lower()
+        self._fallback = (os.getenv("SROS_SCHOLAR_FALLBACK") or "none").strip().lower()
         self._openalex: Optional[OpenAlexBackend] = None
         if backend == "openalex":
             self._openalex = OpenAlexBackend()
+
+    def _mock_results(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": None,
+                "doi": None,
+                "title": "相关研究论文1",
+                "authors": ["李四", "王五"],
+                "year": 2023,
+                "journal": "期刊名称",
+                "abstract": "论文摘要内容",
+                "url": "http://example.com/paper1",
+                "source": "mock",
+            },
+            {
+                "id": None,
+                "doi": None,
+                "title": "相关研究论文2",
+                "authors": ["赵六"],
+                "year": 2022,
+                "journal": "另一期刊",
+                "abstract": "另一个论文摘要",
+                "url": "http://example.com/paper2",
+                "source": "mock",
+            },
+        ]
     
     def brainstorm_perspectives(self, query: str) -> List[ResearchPerspective]:
         """
@@ -67,26 +94,12 @@ class ScholarHandler(ScholarProtocol):
         """
         if self._openalex is not None:
             # Real backend (network) when explicitly enabled.
-            return self._openalex.search(query)
+            try:
+                return self._openalex.search(query)
+            except Exception:
+                if self._fallback == "mock":
+                    return self._mock_results()
+                raise
 
         # Default: deterministic mock results
-        return [
-            {
-                "title": "相关研究论文1",
-                "authors": ["李四", "王五"],
-                "year": 2023,
-                "journal": "期刊名称",
-                "abstract": "论文摘要内容",
-                "url": "http://example.com/paper1",
-                "source": "mock",
-            },
-            {
-                "title": "相关研究论文2",
-                "authors": ["赵六"],
-                "year": 2022,
-                "journal": "另一期刊",
-                "abstract": "另一个论文摘要",
-                "url": "http://example.com/paper2",
-                "source": "mock",
-            },
-        ]
+        return self._mock_results()

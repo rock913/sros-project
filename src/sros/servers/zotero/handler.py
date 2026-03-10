@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List
 import duckdb
 import json
 import os
@@ -36,10 +36,56 @@ class ZoteroHandler(ZoteroProtocol):
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        self._migrate_citations_schema()
         
         # 创建索引
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_year ON citations(year)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_journal ON citations(journal)")
+        try:
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_year ON citations(year)")
+        except Exception:
+            # Migration should have added the column; don't block startup if index creation fails.
+            pass
+
+        try:
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_citations_journal ON citations(journal)")
+        except Exception:
+            pass
+
+    def _migrate_citations_schema(self) -> None:
+        """Best-effort schema migration for older graph.db files.
+
+        Older workspaces may have a `citations` table missing newer columns
+        (e.g. `year`). DuckDB will throw a Binder Error when we query/index
+        missing columns.
+        """
+        try:
+            rows = self.conn.execute("PRAGMA table_info('citations')").fetchall()
+        except Exception:
+            # If PRAGMA fails, there's nothing safe we can do.
+            return
+
+        existing_cols = {str(r[1]) for r in (rows or []) if len(r) > 1}
+
+        # Minimum columns required by our queries and inserts.
+        required_additions = [
+            ("title", "VARCHAR"),
+            ("authors", "JSON"),
+            ("year", "INTEGER"),
+            ("journal", "VARCHAR"),
+            ("url", "VARCHAR"),
+            ("bibtex", "TEXT"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+
+        for col_name, col_type in required_additions:
+            if col_name in existing_cols:
+                continue
+            try:
+                self.conn.execute(f"ALTER TABLE citations ADD COLUMN {col_name} {col_type}")
+            except Exception:
+                # Keep migration best-effort; if the column can't be added we leave Zotero optional.
+                continue
     
     def add_citation(self, citation: Citation) -> bool:
         """

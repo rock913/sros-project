@@ -1,7 +1,7 @@
 import asyncio
 import json
 import sys
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from mcp.server import Server
 from mcp.types import CallToolResult, TextContent
 from sros.domain.ports import ManuscriptProtocol
@@ -67,13 +67,25 @@ def create_manuscript_server():
             )
 
     @server.tool("insert_section")
-    async def insert_section_tool(context, *, target: str, content: str, citations: List[str]) -> CallToolResult:
+    async def insert_section_tool(
+        context,
+        *,
+        target: str,
+        content: str,
+        citations: List[str],
+        file_path: str = "draft.md",
+        expected_sha256: Optional[str] = None,
+    ) -> CallToolResult:
         """带引用的增量写入"""
         try:
             service = get_manuscript_service()
-            success = service.insert_section(target, content, citations)
-            
-            result = {"success": success, "target": target, "content_length": len(content)}
+            result = service.insert_section(
+                target=target,
+                content=content,
+                citations=citations,
+                file_path=file_path,
+                expected_sha256=expected_sha256,
+            )
             
             return CallToolResult(
                 content=[TextContent(
@@ -90,13 +102,17 @@ def create_manuscript_server():
             )
 
     @server.tool("patch_draft")
-    async def patch_draft_tool(context, *, patches: List[Dict[str, Any]]) -> CallToolResult:
+    async def patch_draft_tool(
+        context,
+        *,
+        patches: List[Dict[str, Any]],
+        file_path: str = "draft.md",
+        expected_sha256: Optional[str] = None,
+    ) -> CallToolResult:
         """批量更新稿件内容"""
         try:
             service = get_manuscript_service()
-            success = service.patch_draft(patches)
-            
-            result = {"success": success, "patches_count": len(patches)}
+            result = service.patch_draft(patches=patches, file_path=file_path, expected_sha256=expected_sha256)
             
             return CallToolResult(
                 content=[TextContent(

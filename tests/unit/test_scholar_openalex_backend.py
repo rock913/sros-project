@@ -30,8 +30,10 @@ def test_openalex_backend_transforms_results(monkeypatch: pytest.MonkeyPatch):
                 "display_name": "A Test Paper",
                 "publication_year": 2024,
                 "abstract_inverted_index": {"hello": [0], "world": [1]},
-                "host_venue": {"display_name": "Test Journal"},
-                "primary_location": {"landing_page_url": "https://example.org/paper"},
+                "primary_location": {
+                    "landing_page_url": "https://example.org/paper",
+                    "source": {"display_name": "Test Journal"},
+                },
                 "authorships": [
                     {"author": {"display_name": "Alice"}},
                     {"author": {"display_name": "Bob"}},

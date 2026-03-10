@@ -82,11 +82,18 @@ def test_sse_communication():
                 assert "text/event-stream" in response.headers.get("content-type", "")
 
                 # Read at least one SSE line to confirm format
+                seen_data = False
                 for line in response.iter_lines(decode_unicode=True):
                     if not line:
                         continue
-                    assert line.startswith("data:"), f"Expected SSE data line, got: {line}"
-                    break
+                    if line.startswith("event:"):
+                        continue
+                    if line.startswith("data:"):
+                        seen_data = True
+                        break
+                    pytest.fail(f"Unexpected SSE line: {line}")
+
+                assert seen_data, "Expected at least one SSE data line"
             finally:
                 response.close()
 

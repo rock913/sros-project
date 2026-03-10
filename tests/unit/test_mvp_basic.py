@@ -1,7 +1,5 @@
 """MVP 基本功能测试"""
 
-import tempfile
-import os
 from pathlib import Path
 import pytest
 from sros.cli import app
@@ -19,9 +17,10 @@ def test_cli_help():
     assert result.exit_code == 0
     assert "Usage:" in result.output
 
-def test_gateway_import():
+def test_gateway_import(monkeypatch, tmp_path):
     """测试网关可以被导入"""
     # 这应该不会引发异常
+    monkeypatch.setenv("SROS_WORKSPACE_DIR", str(tmp_path))
     gateway = SROSGateway()
     assert gateway is not None
 
@@ -56,9 +55,10 @@ def test_find_gaps_exists():
     assert hasattr(handler, 'find_gaps')
     assert callable(getattr(handler, 'find_gaps'))
 
-def test_sse_endpoint_available():
+def test_sse_endpoint_available(monkeypatch, tmp_path):
     """测试 SSE 端点可用"""
     # 简单测试网关路由是否正确设置
+    monkeypatch.setenv("SROS_WORKSPACE_DIR", str(tmp_path))
     gateway = SROSGateway()
     assert gateway.app is not None
     # 检查是否有健康检查端点

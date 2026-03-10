@@ -35,7 +35,15 @@ Open the project directory in VS Code with Roo Code extension — the MCP connec
 ### Verify Locally
 
 - Health: `curl -s http://localhost:8000/health`
-- SSE stream (should print `data:` lines): `curl -N http://localhost:8000/sse`
+- SSE stream (MCP transport; should start with an `event: endpoint` frame): `curl -N http://localhost:8000/sse`
+
+Production verification (end-to-end MCP initialize → tools/list → tools/call):
+
+```bash
+python scripts/verify_production.py --port 8000 --query "transformer attention"
+```
+
+This writes a machine-readable report to `logs/production_verification.json`.
 
 For the authoritative execution contract and acceptance tests, see:
 - `docs/specs/sros_roo_playbooks.md`
@@ -90,7 +98,8 @@ The gateway supports MCP JSON-RPC over HTTP POST on the same `/sse` endpoint:
 
 Roo Code compatible mode:
 - `GET /sse` for the event-stream
-- `POST /messages` for JSON-RPC (also accepts `POST /sse` for backward compatibility)
+- `POST /messages` for JSON-RPC (reference MCP SSE transport posts to the endpoint returned by the initial `event: endpoint` frame)
+- Also accepts `POST /sse` for backward compatibility
 
 ### `sros doctor`
 Comprehensive system health check covering:
@@ -109,6 +118,13 @@ Quick project status overview showing workspace files and service status.
 - `get_outline_tree(file_path)` - Generate document structure
 - `insert_section(target, content, citations, file_path)` - Add content with citations
 - `patch_draft(patches, file_path)` - Batch content updates
+
+`insert_section.target` (deterministic minimal contract):
+
+- `"append"` / `"end"` / `""`: append to end of file
+- `"heading:<Title>"`: insert right after the first matching markdown heading line
+- `"heading-<line_no>"`: insert after a specific heading line number (matches ids from `get_outline_tree`, e.g. `heading-12`)
+- `"line:<n>"` or `"Line <n>"`: insert after line *n*
 
 Important: `file_path` is **workspace-relative** (e.g. `draft.md`, `notes/draft.md`).
 Absolute paths and path traversal (like `../x`) are rejected for safety.
@@ -129,15 +145,31 @@ curl -s http://localhost:8000/sse \
 	-d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"manuscript.find_gaps","arguments":{"file_path":"draft.md"}}}'
 ```
 
+Query citation map (section ids are created by `insert_section` when citations are provided):
+
+- Convention: `draft_section:<file_path>#heading-<line_no>` (example: `draft_section:draft.md#heading-12`)
+
+```bash
+curl -s http://localhost:8000/sse \
+	-H 'Content-Type: application/json' \
+	-d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memory.get_citation_map","arguments":{"section_id":"draft_section:draft.md#heading-12"}}}'
+```
+
 ### Scholar Tools (`mcp-scholar`)
 - `brainstorm_perspectives(query)` - Multi-perspective research generation
 - `find_critiques(paper_id)` - Critical analysis and counter-arguments
 - `federated_search(query, max_results, filters)` - Cross-database search
 
+Scholar backends:
+
+- Default (offline + deterministic): `SROS_SCHOLAR_BACKEND=mock`
+- Real OpenAlex backend (network): `SROS_SCHOLAR_BACKEND=openalex` and set `OPENALEX_EMAIL`
+- Optional fallback when OpenAlex errors: `SROS_SCHOLAR_FALLBACK=mock`
+
 ### Memory Tools (`mcp-memory`)
 - `store_knowledge(nodes, edges)` - Persist research relationships
 - `query_knowledge(query, limit)` - Search knowledge graph
-- `get_citation_map(section_id)` - Visualize citation networks
+- `get_citation_map(section_id)` - Query citation edges for a draft section
 
 ### Zotero Tools (`mcp-zotero`)
 - `add_citation(citekey, title, authors, year, journal, url, bibtex)` - Add reference

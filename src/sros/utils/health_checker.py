@@ -1,9 +1,6 @@
 """健康检查工具"""
 
-import asyncio
 import time
-import sys
-import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -21,6 +18,23 @@ class HealthChecker:
     def generate_report(self) -> Dict[str, Any]:
         """生成完整的健康报告"""
         report = {}
+
+        workspace_dir = Path(
+            (Path(str(Path.cwd())).resolve())
+        )
+        try:
+            import os
+
+            env_workspace = os.getenv("SROS_WORKSPACE_DIR")
+            if env_workspace:
+                workspace_dir = Path(env_workspace).expanduser().resolve()
+        except Exception:
+            pass
+
+        report["workspace"] = {
+            "status": "healthy",
+            "details": str(workspace_dir),
+        }
         
         # Python 环境检查
         try:
@@ -65,13 +79,30 @@ class HealthChecker:
                 "details": str(e)
             }
         
-        # 数据库完整性检查
+        # 数据库完整性/可用性检查
         try:
-            workspace_db = Path.cwd() / ".sros" / "graph.db"
+            workspace_db = workspace_dir / ".sros" / "graph.db"
             if workspace_db.exists():
+                db_details = f"Database exists at {workspace_db}"
+                db_status = "healthy"
+                try:
+                    import duckdb
+
+                    # Read-only connect to avoid acquiring an exclusive lock.
+                    conn = duckdb.connect(str(workspace_db), read_only=True)
+                    conn.execute("SELECT 1").fetchone()
+                    conn.close()
+                except Exception as db_exc:
+                    msg = str(db_exc)
+                    db_status = "warning"
+                    if "Conflicting lock" in msg or "Could not set lock" in msg:
+                        db_details = f"Database exists but appears locked by another process. {msg}"
+                    else:
+                        db_details = f"Database exists but could not be opened read-only. {msg}"
+
                 report["database_integrity"] = {
-                    "status": "healthy",
-                    "details": f"Database exists at {workspace_db}"
+                    "status": db_status,
+                    "details": db_details,
                 }
             else:
                 report["database_integrity"] = {
@@ -83,24 +114,79 @@ class HealthChecker:
                 "status": "unhealthy",
                 "details": str(e)
             }
-        
-        # MCP 服务连通性检查
+
+        # Scholar/OpenAlex 配置检查（不触发网络）
         try:
-            # 检查是否有正在运行的服务
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('localhost', 8000))
-            sock.close()
-            
-            if result == 0:
+            import os
+
+            backend = (os.getenv("SROS_SCHOLAR_BACKEND") or "mock").strip().lower()
+            mailto = (
+                os.getenv("SROS_OPENALEX_MAILTO")
+                or os.getenv("SROS_OPENALEX_EMAIL")
+                or os.getenv("OPENALEX_EMAIL")
+            )
+
+            if backend == "openalex":
+                if mailto:
+                    report["scholar_backend"] = {
+                        "status": "healthy",
+                        "details": f"SROS_SCHOLAR_BACKEND=openalex (mailto configured)",
+                    }
+                else:
+                    report["scholar_backend"] = {
+                        "status": "warning",
+                        "details": "SROS_SCHOLAR_BACKEND=openalex but OPENALEX_EMAIL/SROS_OPENALEX_MAILTO is not set",
+                    }
+            else:
+                report["scholar_backend"] = {
+                    "status": "healthy",
+                    "details": f"SROS_SCHOLAR_BACKEND={backend}",
+                }
+        except Exception as e:
+            report["scholar_backend"] = {
+                "status": "warning",
+                "details": str(e),
+            }
+        
+        # MCP 服务连通性检查（/health + /sse?once=1 语义）
+        try:
+            import requests
+
+            health_ok = False
+            sse_ok = False
+            details = []
+
+            try:
+                resp = requests.get("http://localhost:8000/health", timeout=1)
+                health_ok = resp.status_code == 200
+                details.append(f"/health={resp.status_code}")
+            except Exception as e:
+                details.append(f"/health error: {e}")
+
+            try:
+                resp = requests.get("http://localhost:8000/sse?once=1", timeout=2)
+                if resp.status_code == 200 and "text/event-stream" in resp.headers.get("content-type", ""):
+                    body = resp.text
+                    # MCP SSE transport expects an endpoint event.
+                    sse_ok = "event: endpoint" in body and "data: /messages" in body
+                details.append(f"/sse?once=1={resp.status_code}")
+            except Exception as e:
+                details.append(f"/sse error: {e}")
+
+            if health_ok and sse_ok:
                 report["mcp_services"] = {
                     "status": "healthy",
-                    "details": "Service running on localhost:8000"
+                    "details": "; ".join(details),
+                }
+            elif health_ok or sse_ok:
+                report["mcp_services"] = {
+                    "status": "warning",
+                    "details": "; ".join(details),
                 }
             else:
                 report["mcp_services"] = {
                     "status": "warning",
-                    "details": "No service running on localhost:8000"
+                    "details": "; ".join(details),
                 }
         except Exception as e:
             report["mcp_services"] = {

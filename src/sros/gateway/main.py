@@ -9,6 +9,7 @@ import json
 import logging
 import sys
 import time
+import uuid
 from typing import Dict, Any, Callable, Optional, List
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
@@ -63,6 +64,10 @@ class SROSGateway:
             self.config = config or GatewayConfig()
             self.app = FastAPI(title="SROS Gateway")
             self.running = False
+
+            # SSE transport session queues (session_id -> asyncio.Queue[str])
+            self._sse_sessions: Dict[str, asyncio.Queue[str]] = {}
+            self._sse_sessions_lock = asyncio.Lock()
             
             # Build registry with error handling
             self.manuscript = get_manuscript_service()
@@ -81,6 +86,7 @@ class SROSGateway:
             self.TOOLS: Dict[str, Callable] = {
                 "manuscript.find_gaps": self.manuscript.find_gaps,
                 "manuscript.get_outline_tree": self.manuscript.get_outline_tree,
+                "manuscript.get_file_sha256": self.manuscript.get_file_sha256,
                 "manuscript.insert_section": self.manuscript.insert_section,
                 "manuscript.patch_draft": self.manuscript.patch_draft,
                 "scholar.brainstorm_perspectives": self.scholar.brainstorm_perspectives,
@@ -88,6 +94,7 @@ class SROSGateway:
                 "scholar.federated_search": self.scholar.federated_search,
                 "memory.store_knowledge": self.memory.store_knowledge,
                 "memory.query_knowledge": self.memory.query_knowledge,
+                "memory.get_citation_map": self.memory.get_citation_map,
             }
             
             # Add zotero tools only if zotero is available
@@ -145,7 +152,7 @@ class SROSGateway:
                     "properties": {
                         "target": {
                             "type": "string",
-                            "description": "Target location for insertion"
+                            "description": "Target location for insertion (append/end/anchor:<hash>/heading:<Title>/heading-<line_no>/line:<n>)"
                         },
                         "content": {
                             "type": "string",
@@ -160,6 +167,10 @@ class SROSGateway:
                             "type": "string",
                             "description": "Workspace-relative path to the manuscript file (default: draft.md)",
                             "default": "draft.md"
+                        },
+                        "expected_sha256": {
+                            "type": "string",
+                            "description": "Optional optimistic concurrency guard. If provided and does not match current file sha256, the call returns ok=false with a Version mismatch error."
                         }
                     },
                     "required": ["target", "content", "citations", "file_path"],
@@ -188,9 +199,29 @@ class SROSGateway:
                             "type": "string",
                             "description": "Workspace-relative path to the manuscript file (default: draft.md)",
                             "default": "draft.md"
+                        },
+                        "expected_sha256": {
+                            "type": "string",
+                            "description": "Optional optimistic concurrency guard. If provided and does not match current file sha256, the call returns ok=false with a Version mismatch error."
                         }
                     },
                     "required": ["patches", "file_path"],
+                    "additionalProperties": False
+                }
+            },
+            "manuscript.get_file_sha256": {
+                "name": "manuscript.get_file_sha256",
+                "description": "Compute sha256 of a manuscript file (empty file if missing)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Workspace-relative path to the manuscript file (default: draft.md)",
+                            "default": "draft.md"
+                        }
+                    },
+                    "required": ["file_path"],
                     "additionalProperties": False
                 }
             },
@@ -280,6 +311,22 @@ class SROSGateway:
                     "required": ["query"],
                     "additionalProperties": False
                 }
+            }
+            ,
+            "memory.get_citation_map": {
+                "name": "memory.get_citation_map",
+                "description": "Get citation edges for a draft section (DraftSection → CITES → Paper)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "section_id": {
+                            "type": "string",
+                            "description": "Section node id, e.g. 'draft_section:draft.md#heading-12'",
+                        }
+                    },
+                    "required": ["section_id"],
+                    "additionalProperties": False,
+                },
             }
         }
         
@@ -374,41 +421,38 @@ class SROSGateway:
                 async def event_generator():
                     once = str(request.query_params.get("once", "")).lower() in {"1", "true", "yes"}
 
-                    # Endpoint discovery first (helps Roo Code / MCP clients route POSTs correctly)
-                    endpoint_info = {
-                        "type": "endpoint_discovery",
-                        "event": "endpoint_discovery",
-                        "endpoints": {
-                            "sse": self.config.sse_endpoint,
-                            "messages": "/messages",
-                            "health": "/health",
-                        },
-                        "capabilities": ["json-rpc", "sse", "streaming"],
-                        "version": "2.0",
-                    }
-                    yield f"data: {json.dumps(endpoint_info)}\n\n"
+                    session_id = uuid.uuid4().hex
+                    queue: asyncio.Queue[str] = asyncio.Queue()
+                    async with self._sse_sessions_lock:
+                        self._sse_sessions[session_id] = queue
 
-                    # Send initial connection event
-                    yield f"data: {json.dumps({'type': 'connected', 'event': 'connected', 'timestamp': time.time()})}\n\n"
+                    try:
+                        # MCP reference SSE transport expects an `endpoint` event first.
+                        # The Python `mcp.client.sse.sse_client` will POST JSON-RPC messages
+                        # to this endpoint URL after connecting.
+                        yield f"event: endpoint\ndata: /messages?session_id={session_id}\n\n"
 
-                    if once:
-                        return
-                    
-                    # Send heartbeat periodically
-                    while True:
-                        try:
-                            # Check if client disconnected
+                        if once:
+                            # One-shot mode: emit a keep-alive message and close.
+                            yield "event: message\ndata:\n\n"
+                            return
+
+                        # Stream responses as JSON-RPC messages, keep-alive when idle.
+                        while True:
                             if await request.is_disconnected():
                                 break
-                            
-                            # Send heartbeat
-                            yield f"data: {json.dumps({'type': 'heartbeat', 'event': 'heartbeat', 'timestamp': time.time()})}\n\n"
-                            
-                            # Sleep for 30 seconds between heartbeats
-                            await asyncio.sleep(30)
-                        except Exception as e:
-                            logger.error(f"SSE stream error: {e}")
-                            break
+                            try:
+                                payload = await asyncio.wait_for(queue.get(), timeout=30)
+                                yield f"event: message\ndata: {payload}\n\n"
+                            except asyncio.TimeoutError:
+                                # Empty message acts as keep-alive; the MCP client ignores it.
+                                yield "event: message\ndata:\n\n"
+                            except Exception as e:
+                                logger.error(f"SSE stream error: {e}")
+                                break
+                    finally:
+                        async with self._sse_sessions_lock:
+                            self._sse_sessions.pop(session_id, None)
                 
                 return StreamingResponse(
                     event_generator(),
@@ -446,7 +490,30 @@ class SROSGateway:
                 Roo Code (and the reference MCP SSE transport) commonly POST JSON-RPC messages
                 to /messages while using /sse for the event-stream.
                 """
-                return await handle_jsonrpc(request)
+                session_id = request.query_params.get("session_id")
+                if not session_id:
+                    # Backward compatible: allow simple request/response over HTTP
+                    return await handle_jsonrpc(request)
+
+                async with self._sse_sessions_lock:
+                    queue = self._sse_sessions.get(session_id)
+
+                if queue is None:
+                    return {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32000, "message": "Unknown or expired SSE session"},
+                        "id": None,
+                    }
+
+                body = await request.json()
+                response = self.dispatch_jsonrpc(body)
+
+                # JSON-RPC notifications (no id) don't get a response.
+                if isinstance(body, dict) and body.get("id") is None:
+                    return {"ok": True}
+
+                await queue.put(json.dumps(response))
+                return {"ok": True}
         except Exception as e:
             raise RuntimeError(f"Failed to setup routes: {str(e)}") from e
     
@@ -531,7 +598,13 @@ class SROSGateway:
                     }
                 
                 # Validate file_path parameter for manuscript tools if provided
-                if tool_name in ["manuscript.find_gaps", "manuscript.get_outline_tree", "manuscript.insert_section", "manuscript.patch_draft"]:
+                if tool_name in [
+                    "manuscript.find_gaps",
+                    "manuscript.get_outline_tree",
+                    "manuscript.get_file_sha256",
+                    "manuscript.insert_section",
+                    "manuscript.patch_draft",
+                ]:
                     if "file_path" in arguments:
                         file_path = arguments["file_path"]
                         if isinstance(file_path, str):
@@ -572,6 +645,16 @@ class SROSGateway:
                                 "error": {
                                     "code": -32602,
                                     "message": f"Missing required arguments for tool '{tool_name}': {missing_args}. Example params: {{'patches': [{{'action': 'append', 'content': 'new content'}}], 'file_path': 'draft.md'}}"
+                                },
+                                "id": request_id
+                            }
+                    elif tool_name == "manuscript.get_file_sha256":
+                        if "file_path" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'file_path' for tool '{tool_name}'. Example params: {{'file_path': 'draft.md'}}"
                                 },
                                 "id": request_id
                             }
@@ -671,6 +754,17 @@ class SROSGateway:
                                     "message": f"Missing required argument 'query' for tool '{tool_name}'. Example params: {{'query': 'search query'}}"
                                 },
                                 "id": request_id
+                            }
+
+                    elif tool_name == "memory.get_citation_map":
+                        if "section_id" not in arguments:
+                            return {
+                                "jsonrpc": "2.0",
+                                "error": {
+                                    "code": -32602,
+                                    "message": f"Missing required argument 'section_id' for tool '{tool_name}'. Example params: {{'section_id': 'draft_section:draft.md#heading-12'}}",
+                                },
+                                "id": request_id,
                             }
                     
                     # Call the function with arguments

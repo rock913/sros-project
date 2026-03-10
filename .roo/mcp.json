@@ -1,12 +1,12 @@
 {
-	"mcpServers": {
-		"sros-gateway": {
-			"name": "SROS Gateway",
-			"url": "http://localhost:8000/sse",
-			"type": "sse",
-			"description": "SROS V2.2 Gateway - Unified MCP Server Aggregator",
-			"disabled": false,
-			"alwaysAllow": []
-		}
-	}
+  "mcpServers": {
+    "sros-gateway": {
+      "name": "SROS Gateway",
+      "url": "http://127.0.0.1:8000/sse",
+      "type": "sse",
+      "description": "SROS V2.2 Gateway - Unified MCP Server Aggregator",
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
 }

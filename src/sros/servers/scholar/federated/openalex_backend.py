@@ -53,7 +53,8 @@ class OpenAlexBackend:
         params: Dict[str, Any] = {
             "search": query.query,
             "per-page": min(int(query.max_results or 10), 200),
-            "select": "id,doi,display_name,publication_year,abstract_inverted_index,host_venue,primary_location,best_oa_location,authorships",
+            # NOTE: OpenAlex `works` does not support `host_venue` in `select`.
+            "select": "id,doi,display_name,publication_year,abstract_inverted_index,primary_location,best_oa_location,authorships",
         }
         if self.mailto:
             params["mailto"] = self.mailto
@@ -107,11 +108,22 @@ class OpenAlexBackend:
             if author:
                 authors.append(author)
 
-        venue = (work.get("host_venue") or {}).get("display_name")
+        venue = None
+        primary_loc = work.get("primary_location") or {}
+        if isinstance(primary_loc, dict):
+            primary_source = primary_loc.get("source") or {}
+            if isinstance(primary_source, dict):
+                venue = primary_source.get("display_name")
+
+        if not venue:
+            best_loc = work.get("best_oa_location") or {}
+            if isinstance(best_loc, dict):
+                best_source = best_loc.get("source") or {}
+                if isinstance(best_source, dict):
+                    venue = best_source.get("display_name")
         abstract = OpenAlexBackend._abstract_from_inverted_index(work.get("abstract_inverted_index"))
 
         primary_url = None
-        primary_loc = work.get("primary_location") or {}
         if isinstance(primary_loc, dict):
             primary_url = primary_loc.get("landing_page_url") or primary_loc.get("pdf_url")
 

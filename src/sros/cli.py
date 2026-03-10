@@ -310,10 +310,11 @@ def status():
     try:
         # 检查当前工作区状态
         current_dir = Path.cwd()
+        workspace_dir = Path(os.getenv("SROS_WORKSPACE_DIR") or current_dir).expanduser().resolve()
         workspace_files = {
-            "draft.md": (current_dir / "draft.md").exists(),
-            ".roo/mcp.json": (current_dir / ".roo" / "mcp.json").exists(),
-            ".sros/graph.db": (current_dir / ".sros" / "graph.db").exists()
+            "draft.md": (workspace_dir / "draft.md").exists(),
+            ".roo/mcp.json": (workspace_dir / ".roo" / "mcp.json").exists(),
+            ".sros/graph.db": (workspace_dir / ".sros" / "graph.db").exists(),
         }
         
         table = Table(title="Current Workspace Status")
@@ -325,9 +326,23 @@ def status():
             table.add_row(file_path, status)
         
         console.print(table)
+
+        console.print(f"\nWorkspace: [bold]{workspace_dir}[/bold]")
+
+        backend = (os.getenv("SROS_SCHOLAR_BACKEND") or "mock").strip().lower()
+        openalex_mailto = (
+            os.getenv("SROS_OPENALEX_MAILTO")
+            or os.getenv("SROS_OPENALEX_EMAIL")
+            or os.getenv("OPENALEX_EMAIL")
+        )
+        if backend == "openalex":
+            console.print(
+                f"Scholar backend: [bold]openalex[/bold] ({'mailto ok' if openalex_mailto else 'missing OPENALEX_EMAIL'})"
+            )
+        else:
+            console.print(f"Scholar backend: [bold]{backend}[/bold]")
         
         # 检查端口状态
-        from sros.utils.port_detector import detect_free_port
         port_in_use = is_port_in_use(8000)
         console.print(f"\nPort 8000: {'[red]In Use[/red]' if port_in_use else '[green]Available[/green]'}")
         

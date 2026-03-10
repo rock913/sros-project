@@ -38,10 +38,12 @@ def is_port_in_use(port: int) -> bool:
         如果端口正在使用则返回 True，否则返回 False
     """
     import socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind(("localhost", port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(("localhost", port))
         sock.close()
-        return False
-    except OSError:
+        return result == 0
+    except Exception:
+        # 失败时保守认为端口被占用，避免启动时误覆盖其他服务
         return True

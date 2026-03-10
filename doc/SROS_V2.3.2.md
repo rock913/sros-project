@@ -4,6 +4,30 @@ SROS V2.3.2 架构白皮书：稿件驱动与原生解耦
 发布日期: 2026-02-10
 核心哲学: Draft is State (稿件即状态) + CLI is Interface (命令行即入口)
 
+---
+
+## Executive Snapshot（2026-03-10）
+
+**一句话结论**：V2.3.2 的“可安装 + 可启动 + 可验收”的产品骨架已稳定；MCP SSE transport 已对齐 reference client；验收脚本可产出 JSON 证据；Scholar 已支持 OpenAlex 真后端并提供可控 fallback；下一阶段进入 Growing Doc Loop 后半段（定位插入 + 引用映射落库 + 最小闭环回归）。
+
+**已完成（✅，有自动化证据）**
+
+- Gateway：`GET /sse` + `POST /messages` 的 MCP SSE transport 语义闭环（`event: endpoint` + `session_id` + SSE `event: message` 回传响应）。
+- 本地可重复验收：`scripts/verify_production.py` 端到端通过并写入 `logs/production_verification.json`。
+- Scholar：默认 mock（离线确定性），可选 OpenAlex 真后端；支持 `SROS_SCHOLAR_FALLBACK=mock` 作为网络波动时的可控降级。
+- Zotero：历史 `.sros/graph.db` 的最小 schema migration（缺列自愈）已落地并有单测。
+
+**部分完成（🟡，可用但尚未闭环产品化）**
+
+- Growing Doc Loop：Gap 检测与写回工具已存在，但“定位插入语义 + 引用映射落库 + 可复现闭环测试”仍需补齐。
+- Federated Search：工具已暴露，但联邦检索质量/数据源迁移仍以 MVP 为主。
+
+**下一步（⬜，建议按顺序落地）**
+
+1) `manuscript.insert_section`：从“仅追加”升级为“可定位插入”（基于 heading/anchor/line）。
+2) 引用映射落库：在 `.sros/graph.db` 写入 DraftSection → CITES → Paper（复用 memory 的 `nodes/edges` 表）。
+3) 最小闭环回归：从 draft.md TODO 出发，跑通 gap→检索(mock)→写回→映射可查询。
+
 0. 背景与动机：从原型到产品 (Prototype → Product)
 
 当前 SROS 正处于从“原型开发期”向“产品发布期”过渡的关键阶段。V2.2 的主要耦合点在于：工具源码（mcp_servers/）与用户数据（workspace/、draft.md）混在一个代码仓库里，导致新用户上手成本高、维护成本高、并且 IDE/Agent 上下文噪音巨大。
@@ -273,7 +297,7 @@ def ingest_pdf(file_path: str) -> IngestResult:
 
 9. 当前实现进度与里程碑（Progress vs V2.3.2）
 
-更新时间：2026-03-09
+更新时间：2026-03-10
 
 9.1 当前进度（以自动化测试为证据）
 
@@ -281,19 +305,30 @@ def ingest_pdf(file_path: str) -> IngestResult:
 
 - 产品化基本形态：`pyproject.toml` + `src/` 包结构 + `sros` CLI 入口点。
 - 解耦工作区：`sros init <project>` 生成 `.roo/mcp.json`、`.sros/graph.db`、`draft.md`、`ideas.md`、`materials/`、`references/`。
-- Gateway SSE Hub：`GET /sse` (event-stream) + `POST /sse` (JSON-RPC) + Roo 兼容 `POST /messages`；支持 `initialize/tools.list/tools.call`。
+- Gateway SSE Hub：
+  - `GET /sse` (event-stream) + `POST /sse` (JSON-RPC) + Roo 兼容 `POST /messages`。
+  - **MCP SSE Transport 兼容性**：SSE 首包提供 `event: endpoint`，并使用 `session_id` 将 JSON-RPC 响应通过 SSE `event: message` 回传（兼容 Python MCP reference client）。
+  - 支持 `initialize` / `tools/list` / `tools/call`。
 - Manuscript MVP：`manuscript.find_gaps(file_path)` 能基于 `[TODO: ...]` 与简单启发式返回结构化 gap；并严格绑定 workspace 相对路径（禁止绝对路径与 `..`）。
+- Growing Doc Loop（最小后半段✅）：`manuscript.insert_section` 已支持按 target 定位插入（heading/line/append），且当提供 citations 时会将 DraftSection → CITES → Paper 写入 `.sros/graph.db`（复用 memory 的 `nodes/edges` 表），并可通过 `memory.get_citation_map(section_id)` 查询。
 - Scholar 工具暴露（MVP）：Gateway 已暴露 `scholar.brainstorm_perspectives`、`scholar.find_critiques`、`scholar.federated_search`，并通过集成测试验证可调用。
+- 生产验证链路（E2E）：`verify_production.py --port 8000 --query "..."` 可稳定完成 `initialize → tools/list → tools/call`（manuscript/scholar/memory），并产出 `logs/production_verification.json` 作为 machine-readable 证据。
+- 稳定性修复：
+  - DuckDB 锁冲突导致的测试不稳定已解决（单测使用临时 workspace 隔离 DB）。
+  - `sros start` 的端口占用检测已修正，避免 TIME_WAIT 误判（提升可重启性）。
 
 证据（可复现）
 
 - 集成测试：`python -m pytest -q`（tests 下已覆盖 SSE + JSON-RPC + tools/list + tools/call 最小链路）。
+- Growing Doc Loop 最小回归：新增单测覆盖 `find_gaps → insert_section(定位插入+citations) → graph.db 映射可查询`。
 - 一次性 SSE（便于探测）：`GET /sse?once=1` 返回 `text/event-stream` 且响应会结束（避免脚本超时）。
 
 部分完成（🟡）
 
 - Scholar/Memory/Zotero 的“真实业务能力”：当前实现以 MVP/示例为主（非完整联邦搜索/非完整 CiTO 证据链）。
-- Growing Doc Loop 的后半段：引用映射（DraftSection → CITES → Paper）、gap_log.json 等仍待产品化落地。
+  - Scholar：已支持 OpenAlex 真实后端（默认仍可走 mock，避免测试依赖外网）；OpenAlex `select` 参数已修复，可真实返回结果。
+	- Zotero：已补齐最小 schema migration（旧 `citations` 表缺列会 best-effort `ALTER TABLE` 自愈），避免历史 `.sros/graph.db` 阻塞初始化；并有单元测试覆盖。
+- Growing Doc Loop 的后半段：已落地“定位插入 + 引用映射落库 + 可查询”的最小闭环；仍待产品化项包括 `gap_log.json` 的标准化与更强的定位插入策略（多 anchor/offset/冲突处理）。
 
 未完成（⬜）
 
@@ -306,18 +341,41 @@ Milestone 1（本周）：契约一致性与可诊断性（Contract Consistency)
 
 - 目标：让 `tools/list` 的 `inputSchema` 与实际 handler 签名/数据结构一致；让 Roo 能基于 schema 自主构造正确请求。
 - 验收：
-	- `tools/list` 中 `scholar.brainstorm_perspectives` 要求 `query`；`memory.store_knowledge` 要求 `nodes/edges`；`zotero.add_citation` 要求 citekey/title/authors/year/journal/url/bibtex。
-	- 通过集成测试验证 `tools/call` 真实可调用上述工具。
-	- `scripts/final_verification.py` 全绿（含 `/sse?once=1` 探测）。
+  - `tools/list` 中 `scholar.brainstorm_perspectives` 要求 `query`；`memory.store_knowledge` 要求 `nodes/edges`；`zotero.add_citation` 要求 citekey/title/authors/year/journal/url/bibtex。
+  - 通过集成测试验证 `tools/call` 真实可调用上述工具。
+  - SSE 传输满足 MCP reference client：SSE 首包 `event: endpoint`，并能通过该 endpoint 完成 JSON-RPC 往返。
+  - `scripts/final_verification.py` 全绿（含 `/sse?once=1` 探测）。
+  - `verify_production.py` 能在本机端到端通过（不要求外网）。
 
 Milestone 2（下周）：Scholar 联邦搜索产品化（Federated Search)
 
 - 目标：将联邦检索能力迁入 `site-packages/sros/servers/scholar`，并在 Gateway 暴露 `scholar.federated_search`/`scholar.find_critiques`。
-- 当前进展：Gateway 暴露与集成测试已完成；下一步是接入稳定数据源与完善返回结构。
+- 当前进展：
+  - Gateway 暴露与集成测试已完成。
+  - 已提供 OpenAlex 可选真实后端（默认 mock，避免 pytest 依赖外网）。
+  - OpenAlex 请求参数与字段映射已修复（避免 400 Bad Request）。
 - 验收：提供最小可用的数据源（如 OpenAlex/Semantic Scholar）与可重复的集成测试（可 mock 外部网络）。
-	- 推荐验收方式（不把外网塞进 pytest）：在工作区 `.env` 中配置 `SROS_SCHOLAR_BACKEND=openalex` + `OPENALEX_EMAIL`，启动 `sros start` 后运行 [scripts/verify_openalex_live.py](scripts/verify_openalex_live.py)；产物写入 `logs/openalex_live_verification.json` 作为可追溯证据。
+	- 推荐验收方式（不把外网塞进 pytest）：在工作区 `.env` 中配置 `SROS_SCHOLAR_BACKEND=openalex` + `OPENALEX_EMAIL`（可选再加 `SROS_SCHOLAR_FALLBACK=mock` 用于 OpenAlex 临时失败时的可控降级），启动 `sros start` 后运行 [scripts/verify_openalex_live.py](scripts/verify_openalex_live.py)；产物写入 `logs/openalex_live_verification.json` 作为可追溯证据。
 
 Milestone 3（两周内）：Growing Doc Loop 闭环（写作→检索→引用→写回）
 
 - 目标：在 `.sros/graph.db` 建立最小引用映射结构；`manuscript.insert_section` 支持定位写入；可选写出 `gap_log.json`。
 - 验收：从 draft.md 中的 TODO 出发，能走通“gap→检索→写回并带引用标记”的自动化回归测试。
+
+9.3 下一步建议（按优先级）
+
+1) **Zotero schema migration（已完成✅）**
+	- 行为：旧 `citations` 表缺列会 best-effort `ALTER TABLE` 自愈；索引创建失败不阻塞启动。
+	- 验收：历史 `.sros/graph.db` 不再因缺列阻塞 Zotero 初始化；单元测试覆盖 legacy→migrate→写入。
+
+2) **Gateway/CLI 可诊断性增强（让“真实可用”更像产品）**
+  - `sros doctor` / `sros status`：输出端口占用、当前 workspace、DuckDB 文件锁、OpenAlex 配置是否齐全、以及 SSE endpoint/消息 endpoint 的连通性。
+	- 为 `verify_production.py` 输出一份 machine-readable JSON（写入 `logs/production_verification.json`）（已实现✅），作为发布前证据。
+
+3) **Scholar 联邦搜索“质量与确定性”**
+	- 增强失败回退策略：当 OpenAlex 临时失败时可降级到 mock（可控开关 `SROS_SCHOLAR_FALLBACK=mock`），避免把网络波动误判为系统不可用。
+  - 统一返回结构（id/doi/journal/url/abstract 等字段）并写入文档契约，减少 Agent 端适配成本。
+
+4) **Growing Doc Loop 后半段落地（最小闭环）**
+  - `manuscript.insert_section` 增加“定位插入”能力（基于 heading/anchor/offset）。
+  - 在 `.sros/graph.db` 写入 DraftSection → CITES → Paper 的最小关系（与 `memory.store_knowledge` 对齐）。
