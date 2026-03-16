@@ -226,3 +226,35 @@ def rpc_call(
         raise
     except Exception as e:
         _raw_fail(str(e), details={"tool": name})
+
+
+data_app = typer.Typer(add_completion=False, help="Data skills")
+app.add_typer(data_app, name="data")
+
+
+@data_app.command("preview")
+def data_preview(
+    ctx: typer.Context,
+    file_path: str = typer.Option(..., "--file", "-f", help="Path to CSV file"),
+):
+    from sros.servers.data.handler import DataHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    res = DataHandler().preview_csv(file_path)
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
+
+
+@data_app.command("run-script")
+def data_run_script(
+    ctx: typer.Context,
+    script_path: str = typer.Option(..., "--script", "-s", help="Path to Python script"),
+):
+    from sros.servers.data.handler import DataHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    res = DataHandler().run_script(script_path)
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
