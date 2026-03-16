@@ -16,45 +16,28 @@ from fastapi.responses import StreamingResponse
 import uvicorn
 
 from sros.gateway.config import GatewayConfig
-from sros.domain.ports import ManuscriptProtocol, ScholarProtocol, MemoryProtocol, ZoteroProtocol
-from sros.domain.schemas import KnowledgeEdge, Citation, SearchQuery
+from sros.gateway.skill_reflector import SkillReflector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 延迟导入以满足性能要求
-def get_manuscript_service() -> ManuscriptProtocol:
-    """获取稿件服务实例"""
-    try:
-        from sros.servers.manuscript.handler import ManuscriptHandler
-        return ManuscriptHandler()
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize manuscript service: {str(e)}") from e
-
-def get_scholar_service() -> ScholarProtocol:
-    """获取学者服务实例"""
-    try:
-        from sros.servers.scholar.handler import ScholarHandler
-        return ScholarHandler()
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize scholar service: {str(e)}") from e
-
-def get_memory_service() -> MemoryProtocol:
-    """获取记忆服务实例"""
-    try:
-        from sros.servers.memory.handler import MemoryHandler
-        return MemoryHandler()
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize memory service: {str(e)}") from e
-
-def get_zotero_service() -> ZoteroProtocol:
-    """获取 Zotero 服务实例"""
-    try:
-        from sros.servers.zotero.handler import ZoteroHandler
-        return ZoteroHandler()
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize zotero service: {str(e)}") from e
+SUPPORTED_TOOLS = {
+    # Manuscript
+    "manuscript.find_gaps",
+    "manuscript.get_outline_tree",
+    "manuscript.get_file_sha256",
+    "manuscript.insert_section",
+    "manuscript.patch_draft",
+    # Scholar
+    "scholar.brainstorm_perspectives",
+    "scholar.find_critiques",
+    "scholar.federated_search",
+    # Memory
+    "memory.store_knowledge",
+    "memory.query_knowledge",
+    "memory.get_citation_map",
+}
 
 class SROSGateway:
     """SROS Gateway 主类 - MCP SSE Hub Implementation"""
@@ -69,38 +52,17 @@ class SROSGateway:
             self._sse_sessions: Dict[str, asyncio.Queue[str]] = {}
             self._sse_sessions_lock = asyncio.Lock()
             
-            # Build registry with error handling
-            self.manuscript = get_manuscript_service()
-            self.scholar = get_scholar_service()
-            self.memory = get_memory_service()
-            
-            # Zotero might fail due to database schema issues, make it optional
-            try:
-                self.zotero = get_zotero_service()
-                zotero_available = True
-            except Exception as e:
-                logger.warning(f"Zotero service failed to initialize: {e}")
-                self.zotero = None
-                zotero_available = False
-            
-            self.TOOLS: Dict[str, Callable] = {
-                "manuscript.find_gaps": self.manuscript.find_gaps,
-                "manuscript.get_outline_tree": self.manuscript.get_outline_tree,
-                "manuscript.get_file_sha256": self.manuscript.get_file_sha256,
-                "manuscript.insert_section": self.manuscript.insert_section,
-                "manuscript.patch_draft": self.manuscript.patch_draft,
-                "scholar.brainstorm_perspectives": self.scholar.brainstorm_perspectives,
-                "scholar.find_critiques": self.scholar.find_critiques,
-                "scholar.federated_search": self.scholar.federated_search,
-                "memory.store_knowledge": self.memory.store_knowledge,
-                "memory.query_knowledge": self.memory.query_knowledge,
-                "memory.get_citation_map": self.memory.get_citation_map,
-            }
-            
-            # Add zotero tools only if zotero is available
-            if zotero_available and self.zotero:
-                self.TOOLS["zotero.add_citation"] = self.zotero.add_citation
-                self.TOOLS["zotero.search_citations"] = self.zotero.search_citations
+            # V3: gateway is a thin reflector; dispatch happens in `sros.skills`.
+            self.zotero = None
+            self._reflector = SkillReflector()
+
+            def _make_tool(tool_name: str):
+                def _call(**kwargs):
+                    return self._reflector.call(tool_name, kwargs).value
+
+                return _call
+
+            self.TOOLS = {name: _make_tool(name) for name in sorted(SUPPORTED_TOOLS)}
             
             self._setup_routes()
         except Exception as e:
@@ -330,45 +292,6 @@ class SROSGateway:
             }
         }
         
-        # Add zotero tools if available
-        if hasattr(self, 'zotero') and self.zotero:
-            tool_schemas.update({
-                "zotero.add_citation": {
-                    "name": "zotero.add_citation",
-                    "description": "Add a citation to the Zotero library",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "citekey": {"type": "string", "description": "Unique citation key"},
-                            "title": {"type": "string", "description": "Paper title"},
-                            "authors": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Author names",
-                            },
-                            "year": {"type": "integer", "description": "Publication year"},
-                            "journal": {"type": "string", "description": "Journal or venue"},
-                            "url": {"type": "string", "description": "Canonical URL"},
-                            "bibtex": {"type": "string", "description": "BibTeX entry"},
-                        },
-                        "required": ["citekey", "title", "authors", "year", "journal", "url", "bibtex"],
-                        "additionalProperties": False
-                    }
-                },
-                "zotero.search_citations": {
-                    "name": "zotero.search_citations",
-                    "description": "Search for citations in the Zotero library",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query"}
-                        },
-                        "required": ["query"],
-                        "additionalProperties": False
-                    }
-                }
-            })
-        
         # Filter to only include tools that actually exist
         for tool_name, schema in tool_schemas.items():
             if tool_name in self.TOOLS:
@@ -406,12 +329,7 @@ class SROSGateway:
                         "store_knowledge",
                         "query_knowledge",
                         "get_citation_map"
-                    ],
-                    "zotero": [
-                        "add_citation",
-                        "get_citation",
-                        "search_citations"
-                    ] if hasattr(self, 'zotero') and self.zotero else []
+                    ]
                 }
                 return tools
 
@@ -551,7 +469,7 @@ class SROSGateway:
                     "protocolVersion": "2024-11-05",
                     "serverInfo": {
                         "name": "SROS Gateway",
-                        "version": "2.3.2"
+                        "version": "3.0.0"
                     },
                     "capabilities": {
                         "methods": ["initialize", "tools/list", "tools/call"]
@@ -690,13 +608,6 @@ class SROSGateway:
                                 },
                                 "id": request_id,
                             }
-                        # Coerce request dict into SearchQuery model expected by handler.
-                        search_query = SearchQuery(
-                            query=str(arguments["query"]),
-                            max_results=int(arguments.get("max_results", 10)),
-                            filters=dict(arguments.get("filters", {})),
-                        )
-                        arguments = {"query": search_query}
 
                     elif tool_name == "memory.store_knowledge":
                         missing = [k for k in ("nodes", "edges") if k not in arguments]
@@ -709,42 +620,6 @@ class SROSGateway:
                                 },
                                 "id": request_id
                             }
-
-                        # Coerce edges into KnowledgeEdge models if passed as dicts.
-                        if isinstance(arguments.get("edges"), list):
-                            coerced_edges: List[KnowledgeEdge] = []
-                            for edge in arguments["edges"]:
-                                if isinstance(edge, KnowledgeEdge):
-                                    coerced_edges.append(edge)
-                                elif isinstance(edge, dict):
-                                    coerced_edges.append(KnowledgeEdge(**edge))
-                                else:
-                                    raise TypeError("edges must be a list of objects")
-                            arguments["edges"] = coerced_edges
-
-                    elif tool_name == "zotero.add_citation":
-                        required_args = ["citekey", "title", "authors", "year", "journal", "url", "bibtex"]
-                        missing_args = [arg for arg in required_args if arg not in arguments]
-                        if missing_args:
-                            return {
-                                "jsonrpc": "2.0",
-                                "error": {
-                                    "code": -32602,
-                                    "message": f"Missing required arguments for tool '{tool_name}': {missing_args}." 
-                                },
-                                "id": request_id,
-                            }
-                        citation = Citation(
-                            citekey=str(arguments["citekey"]),
-                            title=str(arguments["title"]),
-                            authors=list(arguments["authors"]),
-                            year=int(arguments["year"]),
-                            journal=str(arguments["journal"]),
-                            url=str(arguments["url"]),
-                            bibtex=str(arguments["bibtex"]),
-                        )
-                        # Handler expects a Citation model.
-                        arguments = {"citation": citation}
                     elif tool_name == "memory.query_knowledge":
                         if "query" not in arguments:
                             return {

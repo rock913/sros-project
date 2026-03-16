@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional
+import sys
+from typing import Any, Dict, List, Optional
 
 import typer
 from rich.console import Console
@@ -39,6 +40,26 @@ def _emit(value: Any, raw: bool) -> None:
         console.print(table)
     else:
         console.print(_to_jsonable(value))
+
+
+def _read_json_args(args_json: Optional[str]) -> Dict[str, Any]:
+    if args_json is not None:
+        return json.loads(args_json) if args_json.strip() else {}
+
+    # If invoked via gateway reflection, args come from stdin.
+    if not sys.stdin.isatty():
+        data = sys.stdin.read()
+        return json.loads(data) if data.strip() else {}
+
+    return {}
+
+
+def _raw_fail(message: str, *, details: Optional[Dict[str, Any]] = None) -> None:
+    payload: Dict[str, Any] = {"ok": False, "error": message}
+    if details:
+        payload.update(details)
+    typer.echo(json.dumps(payload, ensure_ascii=False))
+    raise typer.Exit(code=1)
 
 
 @app.callback()
@@ -112,3 +133,96 @@ def manuscript_insert(
     _emit(res, raw=raw)
     if isinstance(res, dict) and res.get("ok") is False:
         raise typer.Exit(code=1)
+
+
+scholar_app = typer.Typer(add_completion=False, help="Scholar skills")
+app.add_typer(scholar_app, name="scholar")
+
+
+@scholar_app.command("federated-search")
+def scholar_federated_search(
+    ctx: typer.Context,
+    query: str = typer.Option(..., "--query", help="Search query"),
+    max_results: int = typer.Option(10, "--max-results", help="Max results"),
+    filters_json: str = typer.Option("{}", "--filters", help="JSON object string for filters"),
+):
+    from sros.domain.schemas import SearchQuery
+    from sros.servers.scholar.handler import ScholarHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    filters = json.loads(filters_json) if filters_json.strip() else {}
+    q = SearchQuery(query=query, max_results=max_results, filters=filters)
+    res = ScholarHandler().federated_search(q)
+    _emit(res, raw=raw)
+
+
+memory_app = typer.Typer(add_completion=False, help="Memory skills")
+app.add_typer(memory_app, name="memory")
+
+
+@memory_app.command("query")
+def memory_query(
+    ctx: typer.Context,
+    query: str = typer.Option(..., "--query", help="Query string"),
+    limit: int = typer.Option(10, "--limit", help="Max rows"),
+):
+    from sros.servers.memory.handler import MemoryHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    res = MemoryHandler().query_knowledge(query=query, limit=limit)
+    _emit(res, raw=raw)
+
+
+@memory_app.command("citation-map")
+def memory_citation_map(
+    ctx: typer.Context,
+    section_id: str = typer.Option(..., "--section-id", help="Section id"),
+):
+    from sros.servers.memory.handler import MemoryHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    res = MemoryHandler().get_citation_map(section_id=section_id)
+    _emit(res, raw=raw)
+
+
+@memory_app.command("store")
+def memory_store(
+    ctx: typer.Context,
+    nodes_json: str = typer.Option("[]", "--nodes", help="JSON array of node dicts"),
+    edges_json: str = typer.Option("[]", "--edges", help="JSON array of edge dicts"),
+):
+    from sros.domain.schemas import KnowledgeEdge
+    from sros.servers.memory.handler import MemoryHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    nodes = json.loads(nodes_json) if nodes_json.strip() else []
+    edges_in = json.loads(edges_json) if edges_json.strip() else []
+    edges = [KnowledgeEdge(**e) if isinstance(e, dict) else e for e in edges_in]
+    ok = MemoryHandler().store_knowledge(nodes=nodes, edges=edges)
+    _emit({"ok": bool(ok)}, raw=raw)
+    if not ok:
+        raise typer.Exit(code=1)
+
+
+rpc_app = typer.Typer(add_completion=False, help="RPC adapter for gateway reflection")
+app.add_typer(rpc_app, name="rpc")
+
+
+@rpc_app.command("call")
+def rpc_call(
+    ctx: typer.Context,
+    name: str = typer.Option(..., "--name", help="Tool name, e.g. manuscript.find_gaps"),
+    args_json: Optional[str] = typer.Option(None, "--args-json", help="JSON args (otherwise read from stdin)"),
+):
+    raw = bool((ctx.obj or {}).get("raw"))
+    args = _read_json_args(args_json)
+
+    from sros.skills.rpc import dispatch_tool
+
+    try:
+        res = dispatch_tool(name, args)
+        _emit(res, raw=raw)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _raw_fail(str(e), details={"tool": name})
