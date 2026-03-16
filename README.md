@@ -61,9 +61,10 @@ python scripts/verify_production.py --port 8000 --query "transformer attention"
 
 This writes a machine-readable report to `logs/production_verification.json`.
 
-For the authoritative execution contract and acceptance tests, see:
-- `docs/specs/sros_roo_playbooks.md`
-- `docs/specs/sros_v232_implementation_spec.md`
+For the authoritative V3 execution contract and milestones, see:
+
+- `doc/SROS_V3.0.md`
+- `plans/sros_v30_implementation_plan.md`
 
 ## ✨ Key Features
 
