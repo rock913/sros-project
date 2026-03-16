@@ -301,6 +301,12 @@ sros start -w . -p 8000
 sros verify --port 8000
 ```
 
+也可以用仓库自带检查脚本快速确认工作区状态（不依赖 Claude）：
+
+```
+bash scripts/claude_code_mvp_checklist.sh my-transformer-paper
+```
+
 MVP 开发状态（2026-03-10）：已完成 ✅
 
 已交付能力（仓库内可复现）：
@@ -315,6 +321,46 @@ MVP 开发状态（2026-03-10）：已完成 ✅
 1) 真实 Claude Code 端到端验收脚本：在本机 Claude 中确认能发现 MCP server、能实际调用 `manuscript.*` 工具并写回（含常见报错排查）
 2) 远程/端口转发场景的更强指引：建议配置 `--gateway-url`、何时需要 `sros start --auto-port`/更新 URL
 3) 失败可恢复 UX（对应 Milestone B）：anchor 前缀歧义候选列表、heading 失败 Top-N 推荐、并发冲突的下一步建议更标准化
+
+Claude Code 尚未安装/配置时的指引（推荐按此走）：
+
+1) 先只验证 SROS 侧是否 OK（不需要 Claude）
+
+- `sros start -w . -p 8000`
+- `sros verify --port 8000`
+    - 期望：命令返回成功
+    - 证据：生成 `logs/claude_mvp_verification.json`
+
+2) 安装 Claude Code（在你的机器上执行）
+
+- 请使用 Claude Code 官方提供的安装方式完成安装与登录（不同平台/发行版可能不同）。
+- 安装完成后应满足：
+    - `claude --version` 能运行（命令名以你安装版本为准）
+    - 在当前 workspace 根目录能读取到 `.clauderc`（由 `sros init --target claude-code` 生成）
+
+3) Claude Code 端到端验收（E2E）
+
+- 在 workspace 根目录启动 Claude Code CLI
+- 让 Claude Code 执行一个最小闭环：
+    - 读 `CLAUDE.md`/`.clauderc` 里的约束
+    - 调用 `manuscript.find_gaps(file_path="draft.md")`
+    - 调用 `manuscript.get_outline_tree(file_path="draft.md")` 并选择 `anchor`
+    - 调用 `manuscript.get_file_sha256(file_path="draft.md")`
+    - 调用 `manuscript.insert_section(..., expected_sha256=...)` 写回一小段内容
+
+4) Remote-SSH / 端口转发场景（常见坑）
+
+- 如果 Claude Code 运行在本机，但 gateway 在远端：
+    - 建议通过端口转发把远端 `8000` 转到本机某端口（例如 `18000`）
+    - 然后在初始化时指定对 Claude 可达的 URL：
+        - `sros init <project> --target claude-code --gateway-url http://127.0.0.1:18000/sse`
+    - 或者在 gateway 启动后手动更新 `.clauderc`（也可用 `sros start` 的更新能力）
+
+常见故障排查（从高频到低频）：
+
+- `sros verify` 失败：先确认 gateway 是否在该端口运行；本机访问 `http://localhost:<port>/sse` 是否可连
+- Claude Code 看不到 MCP server：检查 `.clauderc` 里的 URL 是否对 Claude 所在机器可达（特别是 Remote-SSH/容器/WSL）
+- 写回失败 Version mismatch：按提示先重新取 `get_file_sha256/get_outline_tree`，再带最新 `expected_sha256` 重试
 
 这会生成：
 
