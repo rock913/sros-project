@@ -10,6 +10,20 @@
 - **Workspace is truth**：所有状态落在工作区文件与 `.sros/graph.db`，不依赖隐式内存。
 - **TDD**：先写验收测试（unit/integration），再写实现；每个切片都落入测试与文档。
 
+## Current Status (as of 2026-03-16)
+
+已完成（已在远程 `origin/v3.0-main`）：
+
+- Repo 清理：根目录脚本/旧文档已系统归档；`legacy/mcp_servers/` 已迁移；误提交的运行期产物（`.db/.jsonl`）已移除。
+- Skill-first CLI：已提供 `sros-skill`（Typer）并支持 `--raw` JSON 输出；已覆盖 manuscript/scholar/memory 的关键能力。
+- Thin Gateway：Gateway 已改为“薄层”，`tools/call` 统一反射到 skills RPC（映射集中在 `sros.skills.rpc`，Gateway 只负责协议/路由）。
+- MVP Golden Thread：已存在可自动化验收的端到端链路测试（gap → search(mock) → insert → draft.md 更新）。
+
+仍未完成（立即进入）：
+
+- Slice 0：`sros init` 直接升级为 V3 workspace 规范（`data/raw`、`data/processed`、`figures`、`scripts`）并生成 `openclaw.yaml`。
+- Slice 2：数据闭环（preview csv / run script / register figure / insert figure）与异构图谱 schema。
+
 ## Milestones
 
 ### V3.0-Alpha (3 weeks)
@@ -27,6 +41,12 @@
 
 - `tests/unit/test_skills_cli_*`：`--raw` 必须是可解析 JSON
 - `tests/integration/test_gateway_reflects_skill_*`：`tools/list` 与 `tools/call` 路由到对应 skill
+
+备注：目前已实现并通过的验收测试包含：
+
+- `tests/unit/test_v3_skills_cli_raw_output.py`
+- `tests/unit/test_v3_gateway_reflector.py`
+- `tests/integration/test_v3_golden_thread_mvp.py`
 
 ### V3.0-Beta (1–2 months)
 

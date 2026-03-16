@@ -26,6 +26,15 @@ def test_init_target_claude_code(tmp_path: Path, monkeypatch):
     assert (project / "draft.md").exists()
     assert (project / ".sros" / "graph.db").exists()
 
+    # V3 workspace expansion
+    assert (project / "data" / "raw").is_dir()
+    assert (project / "data" / "processed").is_dir()
+    assert (project / "figures").is_dir()
+    assert (project / "scripts").is_dir()
+
+    # OpenClaw bootstrap
+    assert (project / "openclaw.yaml").exists()
+
     # Claude artifacts
     rc = project / ".clauderc"
     assert rc.exists()
@@ -56,6 +65,7 @@ def test_init_target_both(tmp_path: Path, monkeypatch):
     assert (project / ".roo" / "mcp.json").exists()
     assert (project / ".clauderc").exists()
     assert (project / "CLAUDE.md").exists()
+    assert (project / "openclaw.yaml").exists()
 
 
 def test_init_default_target_roo_only(tmp_path: Path, monkeypatch):
@@ -69,3 +79,4 @@ def test_init_default_target_roo_only(tmp_path: Path, monkeypatch):
     assert (project / ".roo" / "mcp.json").exists()
     assert not (project / ".clauderc").exists()
     assert not (project / "CLAUDE.md").exists()
+    assert (project / "openclaw.yaml").exists()

@@ -181,6 +181,56 @@ Rules:
 """
     (workspace_path / "CLAUDE.md").write_text(content, encoding="utf-8")
 
+
+def _write_openclaw_yaml(workspace_path: Path, gateway_url: str, server_key: str = "sros-gateway") -> None:
+    """Write a minimal OpenClaw bootstrap config.
+
+    The exact OpenClaw schema may evolve; keep it human-readable and stable.
+    """
+    try:
+        import yaml  # type: ignore
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError(f"Missing dependency pyyaml required to write openclaw.yaml: {e}") from e
+
+    payload = {
+        "version": "v3",
+        "workspace": {
+            "draft": "draft.md",
+            "graph": ".sros/graph.db",
+            "data_raw": "data/raw",
+            "data_processed": "data/processed",
+            "figures": "figures",
+            "scripts": "scripts",
+        },
+        "mcp_servers": {
+            server_key: {
+                "url": gateway_url,
+                "transport": "sse",
+            }
+        },
+        "skills": {
+            "cli": "sros-skill",
+            "recommended": [
+                "manuscript.find_gaps",
+                "manuscript.get_outline_tree",
+                "manuscript.get_file_sha256",
+                "manuscript.insert_section",
+                "scholar.federated_search",
+                "memory.store_knowledge",
+            ],
+        },
+        "notes": [
+            "IDE-as-UI: keep draft.md preview open.",
+            "Prefer --raw for agent/pipeline usage.",
+            "All file paths are workspace-relative; never use absolute paths or '..'.",
+        ],
+    }
+
+    (workspace_path / "openclaw.yaml").write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
 def validate_workspace_dir(workspace_dir: str) -> str:
     """验证工作区目录"""
     if not os.path.exists(workspace_dir):
@@ -225,11 +275,15 @@ def init(
         
         project_path.mkdir(parents=True, exist_ok=True)
         
-        # 创建工作区结构
+        # 创建工作区结构（V3：扩展数据/图表/脚本目录）
         workspace_dirs = [
             project_path / ".sros",
             project_path / "materials",
-            project_path / "references"
+            project_path / "references",
+            project_path / "data" / "raw",
+            project_path / "data" / "processed",
+            project_path / "figures",
+            project_path / "scripts",
         ]
 
         if target_norm in {"roo", "both"}:
@@ -239,8 +293,8 @@ def init(
             dir_path.mkdir(parents=True, exist_ok=True)
         
         # 创建初始文件
-        (project_path / "draft.md").write_text("# My Paper\n\n")
-        (project_path / "ideas.md").write_text("# Ideas\n\n")
+        (project_path / "draft.md").write_text("# My Paper\n\n", encoding="utf-8")
+        (project_path / "ideas.md").write_text("# Ideas\n\n", encoding="utf-8")
         
         if target_norm in {"roo", "both"}:
             # 创建 .roo/mcp.json (Roo Code expected schema)
@@ -259,6 +313,9 @@ def init(
             (project_path / ".roo" / "mcp.json").write_text(
                 json.dumps(mcp_config, indent=2, ensure_ascii=False), encoding="utf-8"
             )
+
+        # Always write OpenClaw bootstrap (V3 requirement)
+        _write_openclaw_yaml(project_path, gateway_url, server_key=server_key)
 
         if target_norm in {"claude-code", "both"}:
             _write_claude_rc(project_path, gateway_url, server_key=server_key)

@@ -207,6 +207,21 @@ V3.0-Beta (Data-Aware OS)：完成 Phase 2 部分。验收：Agent 能够读取 
 
 V3.0-GA (The AI4S Ecosystem)：完成 Phase 3 核心框架。验收：发布一套完善的 Plugin 开发文档。展示如何用 50 行 Python 代码将一个复杂的外部生信模型包装成 sros-skill，并被 OpenClaw 动态加载和调用。
 
+
+5.1 当前实现状态（2026-03-16，v3.0-main）
+
+已完成：
+
+- `sros-skill` 已落地（支持 `--raw`），覆盖 manuscript/scholar/memory 的 MVP 工具。
+- Gateway 已“变薄”：`tools/call` 不直接持有业务 Handler；统一反射到 skills 层的 RPC 派发（映射集中在 skills 模块），Gateway 只负责协议/路由。
+- 已有自动化端到端验收：gap → search(mock) → insert → draft.md 更新（Golden Thread）。
+- Repo 已完成大规模去噪：V2 文档/spec/旧 mcp_servers 已归档，不再干扰主线。
+
+待完成（下一步）：
+
+- Slice 0：升级 `sros init` 直接生成 V3 workspace 规范（`data/raw`、`data/processed`、`figures`、`scripts`）并生成 `openclaw.yaml`。
+- Slice 2：数据闭环与异构图谱 schema（Dataset/Script/Figure 节点与 GENERATES/ANALYZES 边）。
+
 6. 总结
 
 未来的科研软件不会是堆砌无数按钮的图形界面（那是上个时代的 GraphMRI）。
