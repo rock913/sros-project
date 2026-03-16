@@ -174,22 +174,100 @@ def test_mcp_json_schema():
         finally:
             os.chdir(original_cwd)
 
-def test_lazy_imports():
-    """Test that lazy imports are working properly"""
-    print("4. Testing lazy imports...")
-    
-    try:
-        # Import modules that should use lazy loading
-        from sros.gateway.main import get_manuscript_service, get_scholar_service, get_memory_service, get_zotero_service
-        
-        # These should not raise ImportError immediately
-        # They will raise ImportError only when actually used
-        print("   ✓ Lazy import functions defined correctly")
-        return True
-        
-    except Exception as e:
-        print(f"   ✗ Lazy import test failed: {e}")
-        return False
+
+def test_v3_golden_thread():
+    """V3 MVP: gap -> search (mock) -> insert, via gateway JSON-RPC."""
+    print("4. Testing V3 golden thread (gap->search->insert)...")
+
+    test_port = 8084
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        ws = Path(temp_dir) / "ws"
+
+        init_process = subprocess.run(
+            [sys.executable, "-m", "sros.cli", "init", str(ws)],
+            capture_output=True,
+            text=True,
+        )
+        if init_process.returncode != 0:
+            print(f"   Failed to init workspace: {init_process.stderr}")
+            return False
+
+        (ws / "draft.md").write_text("# T\n\n## Intro\n\n[TODO: add citation]\n", encoding="utf-8")
+
+        process = subprocess.Popen(
+            [sys.executable, "-m", "sros.cli", "start", "-w", str(ws), "-p", str(test_port)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            if not _wait_for_health(test_port, timeout_s=12):
+                stdout, stderr = process.communicate(timeout=2) if process.poll() is not None else (b"", b"")
+                if stdout or stderr:
+                    print(f"   Process output:\n{stdout.decode(errors='replace')}{stderr.decode(errors='replace')}")
+                return False
+
+            # gap
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "manuscript.find_gaps", "arguments": {"file_path": "draft.md"}},
+            }
+            r = requests.post(f"http://localhost:{test_port}/sse", json=payload, timeout=10)
+            if r.status_code != 200:
+                print(f"   gap call failed: {r.status_code} {r.text[:200]}")
+                return False
+
+            # search
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "scholar.federated_search",
+                    "arguments": {"query": "transformer attention", "max_results": 2, "filters": {}},
+                },
+            }
+            r = requests.post(f"http://localhost:{test_port}/sse", json=payload, timeout=10)
+            if r.status_code != 200:
+                print(f"   search call failed: {r.status_code} {r.text[:200]}")
+                return False
+
+            # insert
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "manuscript.insert_section",
+                    "arguments": {
+                        "target": "heading:Intro",
+                        "content": "Inserted by final verification.",
+                        "citations": ["doe2021"],
+                        "file_path": "draft.md",
+                    },
+                },
+            }
+            r = requests.post(f"http://localhost:{test_port}/sse", json=payload, timeout=10)
+            if r.status_code != 200:
+                print(f"   insert call failed: {r.status_code} {r.text[:200]}")
+                return False
+
+            updated = (ws / "draft.md").read_text(encoding="utf-8")
+            if "Inserted by final verification." not in updated:
+                print("   draft.md was not updated")
+                return False
+
+            print("   ✓ V3 golden thread ok")
+            return True
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
 
 def main():
     """Run all verification tests"""
@@ -199,7 +277,7 @@ def main():
         test_cli_port_option,
         test_sse_content_type,
         test_mcp_json_schema,
-        test_lazy_imports
+        test_v3_golden_thread,
     ]
     
     passed = 0
