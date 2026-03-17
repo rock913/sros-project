@@ -258,3 +258,7 @@ def data_run_script(
     _emit(res, raw=raw)
     if isinstance(res, dict) and res.get("ok") is False:
         raise typer.Exit(code=1)
+
+
+if __name__ == "__main__":
+    app()

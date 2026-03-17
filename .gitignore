@@ -118,6 +118,9 @@ target/
 
 # IPython
 profile_default/
+
+# Local MVP sandboxes
+test-mvp/
 ipython_config.py
 
 # pyenv
