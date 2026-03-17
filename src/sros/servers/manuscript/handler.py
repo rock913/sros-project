@@ -39,6 +39,40 @@ def resolve_workspace_path(file_path: str) -> Path:
 class ManuscriptHandler(ManuscriptProtocol):
     """稿件管理器实现"""
 
+    def _validate_citekeys_exist(self, citekeys: List[str]) -> None:
+        """Raise ValueError if any citekeys are missing from the Zotero `citations` table."""
+        keys = [str(k).strip() for k in (citekeys or []) if str(k).strip()]
+        if not keys:
+            return
+
+        workspace_env = os.getenv("SROS_WORKSPACE_DIR")
+        if not workspace_env:
+            raise ValueError("SROS_WORKSPACE_DIR is not set")
+        workspace = Path(workspace_env)
+        db_path = workspace / ".sros" / "graph.db"
+
+        if not db_path.exists():
+            raise ValueError(f"Missing citations database: {db_path}")
+
+        conn = duckdb.connect(str(db_path))
+        try:
+            try:
+                conn.execute("SELECT 1 FROM citations LIMIT 1")
+            except Exception:
+                raise ValueError("Citations table not found. Run scholar zotero-sync first.")
+
+            placeholders = ",".join(["?"] * len(keys))
+            rows = conn.execute(
+                f"SELECT citekey FROM citations WHERE citekey IN ({placeholders})",
+                keys,
+            ).fetchall()
+            found = {str(r[0]) for r in (rows or [])}
+            missing = [k for k in keys if k not in found]
+            if missing:
+                raise ValueError(f"Missing citations: {missing}. Run scholar zotero-sync to seed them.")
+        finally:
+            conn.close()
+
     def index_figure_references(self, file_path: str = "draft.md") -> Dict[str, Any]:
         """Index figure references from a draft into the knowledge graph.
 
@@ -622,6 +656,109 @@ class ManuscriptHandler(ManuscriptProtocol):
         except Exception as e:
             current_sha256 = hashlib.sha256(current_content.encode("utf-8")).hexdigest() if "current_content" in locals() else None
             return {"ok": False, "error": f"Unexpected error in insert_section: {e}", "current_sha256": current_sha256}
+
+    def refactor_section(
+        self,
+        target: str,
+        content: str,
+        citations: List[str],
+        file_path: str = "draft.md",
+        expected_sha256: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Replace the body of a target section.
+
+        - If target resolves to a heading, replaces content until the next heading of same-or-higher level.
+        - If target is `heading:<Title>` and not found, appends a new `## <Title>` section.
+        - Validates provided citekeys exist in DuckDB `citations` before writing CITES edges.
+        """
+
+        # Ensure citations are real (anti-hallucination guard)
+        self._validate_citekeys_exist(citations)
+
+        path = resolve_workspace_path(file_path)
+        current_content = path.read_text(encoding="utf-8") if path.exists() else ""
+        current_sha256 = hashlib.sha256(current_content.encode("utf-8")).hexdigest()
+        if expected_sha256 and expected_sha256 != current_sha256:
+            return {
+                "ok": False,
+                "error": (
+                    "Version mismatch: file changed since last read. "
+                    f"expected_sha256={expected_sha256} current_sha256={current_sha256}."
+                ),
+                "expected_sha256": expected_sha256,
+                "current_sha256": current_sha256,
+            }
+
+        content_lines = current_content.splitlines(keepends=True)
+        heading_title_to_create: Optional[str] = None
+        try:
+            anchor, line_no, anchor_hash, match_mode = self._derive_anchor(target, content_lines)
+        except ValueError as e:
+            t = (target or "").strip()
+            if t.lower().startswith("heading:"):
+                heading_title_to_create = t.split(":", 1)[1].strip()
+                anchor, line_no, anchor_hash, match_mode = "append", None, None, "create"
+            else:
+                raise
+
+        body = (content or "").rstrip() + "\n"
+        if citations:
+            citation_text = " ".join([f"[@{c}]" for c in citations])
+            if citation_text.strip() and citation_text not in body:
+                body = body.rstrip() + "\n\n" + citation_text + "\n"
+        # Ensure a trailing blank line to avoid merging headings
+        if not body.endswith("\n\n"):
+            body = body.rstrip("\n") + "\n\n"
+
+        if heading_title_to_create:
+            # Append a new section.
+            heading_line = f"## {heading_title_to_create}\n\n"
+            if current_content.strip():
+                new_content = current_content.rstrip("\n") + "\n\n" + heading_line + body
+                new_line_no = current_content.rstrip("\n").count("\n") + 3  # blank + heading
+            else:
+                new_content = heading_line + body
+                new_line_no = 1
+            anchor = f"heading-{new_line_no}"
+            match_mode = "created"
+            anchor_hash = None
+        else:
+            if anchor == "append" or line_no is None:
+                # No resolvable heading; fall back to append.
+                new_content = current_content.rstrip("\n") + "\n\n" + body
+                match_mode = "append"
+            else:
+                headings = self._collect_headings(content_lines)
+                current_heading = next((h for h in headings if int(h["line"]) == int(line_no)), None)
+                current_level = int(current_heading["level"]) if current_heading else 1
+
+                # Find the next heading line (same-or-higher level).
+                following = [h for h in headings if int(h["line"]) > int(line_no) and int(h["level"]) <= current_level]
+                next_line_no = int(sorted(following, key=lambda h: int(h["line"]))[0]["line"]) if following else None
+
+                start_idx = int(line_no)  # after heading line (1-based) => 0-based index
+                end_idx = (next_line_no - 1) if next_line_no is not None else len(content_lines)
+
+                prefix = "".join(content_lines[:start_idx])
+                suffix = "".join(content_lines[end_idx:])
+                # Keep exactly one blank line after the heading.
+                prefix = prefix.rstrip("\n") + "\n\n"
+                new_content = prefix + body + suffix.lstrip("\n")
+
+        path.write_text(new_content, encoding="utf-8")
+
+        # Persist mapping into graph.db (CITES edges)
+        self._persist_citation_mapping(file_path=file_path, anchor=anchor, citations=citations)
+
+        new_sha256 = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
+        return {
+            "ok": True,
+            "match": match_mode,
+            "anchor": anchor,
+            "anchor_hash": anchor_hash,
+            "file_path": file_path,
+            "current_sha256": new_sha256,
+        }
     
     def patch_draft(
         self,

@@ -32,6 +32,13 @@ STATIC_TOOLS = {
     "manuscript.index_figure_references",
     "manuscript.insert_section",
     "manuscript.patch_draft",
+    # V4 Phase 1
+    "manuscript.refactor",
+    "ext.web_scrape",
+    "rag.build",
+    "rag.query",
+    "scholar.search",
+    "scholar.zotero_sync",
     # Scholar
     "scholar.brainstorm_perspectives",
     "scholar.find_critiques",
@@ -386,6 +393,116 @@ class SROSGateway:
                 },
             }
         }
+
+        # V4 Phase 1: Lit-Pack MVP tools
+        tool_schemas.update(
+            {
+                "ext.web_scrape": {
+                    "name": "ext.web_scrape",
+                    "description": "Fetch a URL and extract title + plain text (mock-friendly web scrape)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string", "description": "URL to fetch"},
+                            "timeout_s": {"type": "number", "description": "HTTP timeout seconds", "default": 15.0},
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                },
+                "rag.build": {
+                    "name": "rag.build",
+                    "description": "Build lexical RAG index into DuckDB document_chunks table (Phase 1 MVP)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "sources": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Workspace-relative file or directory paths to ingest",
+                                "default": [],
+                            }
+                        },
+                        "required": ["sources"],
+                        "additionalProperties": False,
+                    },
+                },
+                "rag.query": {
+                    "name": "rag.query",
+                    "description": "Query lexical RAG chunks by token overlap (Phase 1 MVP)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"},
+                            "top_k": {"type": "integer", "description": "Number of chunks to return", "default": 5},
+                        },
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                },
+                "scholar.search": {
+                    "name": "scholar.search",
+                    "description": "Phase 1 alias for federated_search (returns paper list with citekeys)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"},
+                            "max_results": {"type": "integer", "description": "Maximum results to return", "default": 10},
+                            "filters": {"type": "object", "description": "Optional filters", "default": {}},
+                        },
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                },
+                "scholar.zotero_sync": {
+                    "name": "scholar.zotero_sync",
+                    "description": "Seed citations into DuckDB and export references/zotero_library.bib (Phase 1 MVP)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "citekeys": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Citation keys to seed",
+                            }
+                        },
+                        "required": ["citekeys"],
+                        "additionalProperties": False,
+                    },
+                },
+                "manuscript.refactor": {
+                    "name": "manuscript.refactor",
+                    "description": "Replace a target section body and write CITES edges (Phase 1 MVP)",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "target": {
+                                "type": "string",
+                                "description": "heading:<Title> (creates if missing); also supports anchor:/heading-<n>/line:<n>",
+                            },
+                            "content": {"type": "string", "description": "Markdown content for the section body"},
+                            "citations": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Citation keys (must exist in citations table)",
+                                "default": [],
+                            },
+                            "file_path": {
+                                "type": "string",
+                                "description": "Workspace-relative markdown path (default: draft.md)",
+                                "default": "draft.md",
+                            },
+                            "expected_sha256": {
+                                "type": "string",
+                                "description": "Optional optimistic concurrency guard",
+                            },
+                        },
+                        "required": ["target", "content", "citations", "file_path"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        )
 
         # Slice 3: task tools
         tool_schemas.update(

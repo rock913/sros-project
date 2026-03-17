@@ -135,6 +135,106 @@ def dispatch_tool(name: str, args: Dict[str, Any]) -> Any:
             expected_sha256=args.get("expected_sha256"),
         )
 
+    if name in {"manuscript.refactor", "manuscript.refactor_section"}:
+        from sros.servers.manuscript.handler import ManuscriptHandler
+
+        missing = [k for k in ("target", "content", "citations", "file_path") if k not in args]
+        if missing:
+            raise ValueError(f"Missing required args: {missing}")
+
+        return ManuscriptHandler().refactor_section(
+            target=str(args["target"]),
+            content=str(args["content"]),
+            citations=list(args.get("citations") or []),
+            file_path=str(args.get("file_path") or "draft.md"),
+            expected_sha256=args.get("expected_sha256"),
+        )
+
+    if name in {"ext.web_scrape", "ext.web-scrape"}:
+        from sros.servers.ext.handler import ExtHandler
+
+        url = str(args.get("url") or "").strip()
+        if not url:
+            raise ValueError("Missing required arg: url")
+        timeout_s = float(args.get("timeout_s", args.get("timeout", 15.0)))
+        return ExtHandler.web_scrape(url, timeout_s=timeout_s)
+
+    if name == "rag.build":
+        from sros.servers.rag.handler import RagHandler
+
+        sources = list(args.get("sources") or args.get("source") or [])
+        return RagHandler().build(sources=[str(s) for s in sources])
+
+    if name == "rag.query":
+        from sros.servers.rag.handler import RagHandler
+
+        q = str(args.get("query") or "").strip()
+        if not q:
+            raise ValueError("Missing required arg: query")
+        top_k = int(args.get("top_k", args.get("top-k", 5)))
+        return RagHandler().query(query=q, top_k=top_k)
+
+    if name in {"scholar.search", "scholar.search_papers"}:
+        # Phase-1 alias of federated_search
+        from sros.domain.schemas import SearchQuery
+        from sros.servers.scholar.handler import ScholarHandler
+
+        q = SearchQuery(
+            query=str(args.get("query") or ""),
+            max_results=int(args.get("max_results", args.get("max-results", 10))),
+            filters=dict(args.get("filters", {}) or {}),
+        )
+        return ScholarHandler().federated_search(q)
+
+    if name in {"scholar.zotero_sync", "scholar.zotero-sync"}:
+        # Phase-1 MVP: insert placeholder citations + export bib
+        import os
+        from pathlib import Path
+
+        from sros.domain.schemas import Citation
+        from sros.servers.zotero.handler import ZoteroHandler
+
+        keys = list(args.get("citekeys") or args.get("citekey") or [])
+        keys = [str(k).strip() for k in keys if str(k).strip()]
+        if not keys:
+            raise ValueError("Missing required arg: citekeys")
+
+        ws = os.getenv("SROS_WORKSPACE_DIR")
+        if not ws:
+            raise ValueError("SROS_WORKSPACE_DIR is not set")
+
+        root = Path(ws)
+        refs_dir = root / "references"
+        (refs_dir / "pdfs").mkdir(parents=True, exist_ok=True)
+        refs_dir.mkdir(parents=True, exist_ok=True)
+
+        zot = ZoteroHandler()
+        for ck in keys:
+            zot.add_citation(
+                Citation(
+                    citekey=ck,
+                    title=ck,
+                    authors=["Unknown"],
+                    year=2026,
+                    journal="",
+                    url="",
+                    bibtex=(
+                        "@article{" + ck + ",\n"
+                        "  title={" + ck + "},\n"
+                        "  author={Unknown},\n"
+                        "  year={2026}\n"
+                        "}\n"
+                    ),
+                )
+            )
+
+        bib_path = refs_dir / "zotero_library.bib"
+        citations = zot.search_citations("")
+        citations_sorted = sorted(citations, key=lambda c: c.citekey)
+        bib_text = "\n".join([(c.bibtex or "").rstrip() for c in citations_sorted if (c.bibtex or "").strip()]) + "\n"
+        bib_path.write_text(bib_text, encoding="utf-8")
+        return {"ok": True, "citekeys": keys, "bib_path": str(bib_path)}
+
     if name == "scholar.federated_search":
         from sros.domain.schemas import SearchQuery
         from sros.servers.scholar.handler import ScholarHandler

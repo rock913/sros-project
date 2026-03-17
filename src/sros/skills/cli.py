@@ -213,8 +213,124 @@ def manuscript_insert(
         raise typer.Exit(code=1)
 
 
+@manuscript_app.command("refactor")
+def manuscript_refactor(
+    ctx: typer.Context,
+    target: str = typer.Option(..., "--target", help="heading:<Title> (creates if missing); supports anchor:/heading-<n> too"),
+    content: str = typer.Option(..., "--content", help="Markdown content for the section body"),
+    citations: List[str] = typer.Option([], "--cite", help="Citation keys (repeatable)"),
+    file_path: str = typer.Option("draft.md", "--file", "-f", help="Workspace-relative markdown path"),
+    expected_sha256: Optional[str] = typer.Option(None, "--expected-sha256", help="Optimistic concurrency guard"),
+):
+    from sros.servers.manuscript.handler import ManuscriptHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        res = ManuscriptHandler().refactor_section(
+            target=target,
+            content=content,
+            citations=citations,
+            file_path=file_path,
+            expected_sha256=expected_sha256,
+        )
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "manuscript.refactor"})
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
+
+
+ext_app = typer.Typer(add_completion=False, help="External tools (CLI-Anything MVP)")
+app.add_typer(ext_app, name="ext")
+
+
+@ext_app.command("web-scrape")
+def ext_web_scrape(
+    ctx: typer.Context,
+    url: str = typer.Option(..., "--url", help="URL to fetch and extract text"),
+    timeout_s: float = typer.Option(15.0, "--timeout", help="HTTP timeout seconds"),
+):
+    from sros.servers.ext.handler import ExtHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        res = ExtHandler.web_scrape(url, timeout_s=timeout_s)
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "ext.web-scrape"})
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
+
+
+rag_app = typer.Typer(add_completion=False, help="RAG (Phase-1 lexical MVP)")
+app.add_typer(rag_app, name="rag")
+
+
+@rag_app.command("build")
+def rag_build(
+    ctx: typer.Context,
+    sources: List[str] = typer.Option([], "--source", help="Workspace-relative file/dir sources (repeatable)"),
+):
+    from sros.servers.rag.handler import RagHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        res = RagHandler().build(sources=sources)
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "rag.build"})
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
+
+
+@rag_app.command("query")
+def rag_query(
+    ctx: typer.Context,
+    query: str = typer.Option(..., "--query", help="Query text"),
+    top_k: int = typer.Option(5, "--top-k", help="Top K chunks"),
+):
+    from sros.servers.rag.handler import RagHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        res = RagHandler().query(query=query, top_k=top_k)
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "rag.query"})
+    _emit(res, raw=raw)
+    if isinstance(res, dict) and res.get("ok") is False:
+        raise typer.Exit(code=1)
+
+
 scholar_app = typer.Typer(add_completion=False, help="Scholar skills")
 app.add_typer(scholar_app, name="scholar")
+
+
+def _slugify(value: str) -> str:
+    import re
+
+    v = (value or "").strip().lower()
+    v = re.sub(r"[^a-z0-9]+", "", v)
+    return v or "ref"
+
+
+def _make_citekey(item: Dict[str, Any]) -> str:
+    """Create a deterministic citekey for Phase-1 workflows."""
+
+    try:
+        authors = item.get("authors") or []
+        first_author = str(authors[0]) if authors else "unknown"
+        year = item.get("year") or ""
+        title = item.get("title") or ""
+        base = f"{_slugify(first_author)}{year}{_slugify(str(title)[:24])}"
+        if base and base != "ref":
+            return base
+    except Exception:
+        pass
+
+    import hashlib
+
+    raw = json.dumps(_to_jsonable(item), ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return "ref" + hashlib.sha1(raw).hexdigest()[:10]
 
 
 @scholar_app.command("federated-search")
@@ -235,6 +351,117 @@ def scholar_federated_search(
     except Exception as e:
         _fail(str(e), raw=raw, details={"tool": "scholar.federated-search"})
     _emit(res, raw=raw)
+
+
+@scholar_app.command("search")
+def scholar_search(
+    ctx: typer.Context,
+    query: str = typer.Option(..., "--query", help="Search query"),
+    max_results: int = typer.Option(10, "--max-results", help="Max results"),
+    filters_json: str = typer.Option("{}", "--filters", help="JSON object string for filters"),
+):
+    """Phase-1 compatibility entrypoint (alias of federated-search).
+
+    Adds a deterministic `citekey` field to each result.
+    """
+
+    from sros.domain.schemas import SearchQuery
+    from sros.servers.scholar.handler import ScholarHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    filters = json.loads(filters_json) if filters_json.strip() else {}
+    q = SearchQuery(query=query, max_results=max_results, filters=filters)
+    try:
+        res = ScholarHandler().federated_search(q)
+        if isinstance(res, list):
+            enriched: List[Any] = []
+            for it in res:
+                if isinstance(it, dict):
+                    d = dict(it)
+                    d.setdefault("citekey", _make_citekey(d))
+                    enriched.append(d)
+                else:
+                    enriched.append(it)
+            res = enriched
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "scholar.search"})
+    _emit(res, raw=raw)
+
+
+@scholar_app.command("zotero-sync")
+def scholar_zotero_sync(
+    ctx: typer.Context,
+    citekeys: List[str] = typer.Option(
+        [],
+        "--citekeys",
+        "--citekey",
+        help="Citation keys to sync (repeatable)",
+    ),
+):
+    """Phase-1 MVP zotero-sync.
+
+    Creates local assets under `references/` and inserts citations into DuckDB.
+    """
+
+    import os
+    from pathlib import Path
+
+    from sros.domain.schemas import Citation
+    from sros.servers.zotero.handler import ZoteroHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+
+    keys = [str(k).strip() for k in (citekeys or []) if str(k).strip()]
+    if not keys:
+        _fail("Missing required arg: citekeys", raw=raw, details={"tool": "scholar.zotero-sync"})
+
+    ws = os.getenv("SROS_WORKSPACE_DIR")
+    if not ws:
+        _fail("SROS_WORKSPACE_DIR is not set", raw=raw, details={"tool": "scholar.zotero-sync"})
+
+    root = Path(ws)
+    refs_dir = root / "references"
+    pdfs_dir = refs_dir / "pdfs"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+    pdfs_dir.mkdir(parents=True, exist_ok=True)
+
+    zot = ZoteroHandler()
+    created = 0
+
+    for ck in keys:
+        citation = Citation(
+            citekey=ck,
+            title=ck,
+            authors=["Unknown"],
+            year=2026,
+            journal="",
+            url="",
+            bibtex=(
+                "@article{" + ck + ",\n"
+                "  title={" + ck + "},\n"
+                "  author={Unknown},\n"
+                "  year={2026}\n"
+                "}\n"
+            ),
+        )
+        if zot.add_citation(citation):
+            created += 1
+
+    bib_path = refs_dir / "zotero_library.bib"
+    citations = zot.search_citations("")
+    citations_sorted = sorted(citations, key=lambda c: c.citekey)
+    bib_text = "\n".join([(c.bibtex or "").rstrip() for c in citations_sorted if (c.bibtex or "").strip()]) + "\n"
+    bib_path.write_text(bib_text, encoding="utf-8")
+
+    _emit(
+        {
+            "ok": True,
+            "citekeys": keys,
+            "created": created,
+            "bib_path": str(bib_path.relative_to(root)),
+        },
+        raw=raw,
+    )
 
 
 memory_app = typer.Typer(add_completion=False, help="Memory skills")
