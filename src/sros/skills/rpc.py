@@ -12,6 +12,79 @@ def dispatch_tool(name: str, args: Dict[str, Any]) -> Any:
 
     args = args or {}
 
+    # Slice 3: Dynamic plugins
+    if name == "plugins.list":
+        from sros.utils.plugin_loader import discover_plugins
+
+        plugins = [
+            {
+                "name": p.name,
+                "display_name": p.display_name or p.name,
+                "description": p.description,
+                "path": str(p.path),
+                "input_schema": p.input_schema,
+            }
+            for p in discover_plugins()
+        ]
+        return {"ok": True, "plugins": plugins, "count": len(plugins)}
+
+    if name == "plugins.run":
+        from sros.utils.plugin_loader import run_plugin
+
+        plugin = str(args.get("name") or "").strip()
+        if not plugin:
+            raise ValueError("Missing required arg: name")
+        plugin_args = args.get("args") or {}
+        if not isinstance(plugin_args, dict):
+            raise ValueError("args must be an object")
+        value = run_plugin(plugin, dict(plugin_args))
+        return {"ok": True, "plugin": plugin, "result": value}
+
+    if name.startswith("plugin."):
+        from sros.utils.plugin_loader import run_plugin
+
+        plugin = name.split(".", 1)[1].strip()
+        if not plugin:
+            raise ValueError("Invalid plugin tool name")
+        if not isinstance(args, dict):
+            raise ValueError("Plugin arguments must be an object")
+        value = run_plugin(plugin, dict(args))
+        return {"ok": True, "plugin": plugin, "result": value}
+
+    # Slice 3: Long-running tasks
+    if name == "tasks.run_plugin_async":
+        from sros.servers.tasks.handler import TasksHandler
+
+        plugin = str(args.get("plugin") or "").strip()
+        if not plugin:
+            raise ValueError("Missing required arg: plugin")
+        plugin_args = args.get("args") or {}
+        if not isinstance(plugin_args, dict):
+            raise ValueError("args must be an object")
+        return TasksHandler().run_plugin_async(plugin=plugin, args=dict(plugin_args))
+
+    if name == "tasks.get":
+        from sros.servers.tasks.handler import TasksHandler
+
+        task_id = str(args.get("task_id") or "").strip()
+        if not task_id:
+            raise ValueError("Missing required arg: task_id")
+        return TasksHandler().get_task(task_id)
+
+    if name == "tasks.list":
+        from sros.servers.tasks.handler import TasksHandler
+
+        return TasksHandler().list_tasks()
+
+    if name == "tasks.wait":
+        from sros.servers.tasks.handler import TasksHandler
+
+        task_id = str(args.get("task_id") or "").strip()
+        if not task_id:
+            raise ValueError("Missing required arg: task_id")
+        timeout_s = float(args.get("timeout_s", 30.0))
+        return TasksHandler().wait_task(task_id, timeout_s=timeout_s)
+
     if name == "manuscript.find_gaps":
         from sros.servers.manuscript.handler import ManuscriptHandler
 
@@ -28,6 +101,11 @@ def dispatch_tool(name: str, args: Dict[str, Any]) -> Any:
         file_path = str(args.get("file_path", "draft.md"))
         sha = ManuscriptHandler().get_file_sha256(file_path)
         return {"file_path": file_path, "sha256": sha}
+
+    if name == "manuscript.index_figure_references":
+        from sros.servers.manuscript.handler import ManuscriptHandler
+
+        return ManuscriptHandler().index_figure_references(str(args.get("file_path") or "draft.md"))
 
     if name == "manuscript.insert_section":
         from sros.servers.manuscript.handler import ManuscriptHandler

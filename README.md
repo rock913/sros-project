@@ -15,7 +15,7 @@ SROS is an AI-native research operating system that transforms academic writing 
 
 ### Installation
 ```bash
-pip install -e .
+pip install -e "./[test]"
 ```
 
 > Tip: If you prefer a regular install, build/publish the package and then use `pip install sros`.
@@ -24,6 +24,9 @@ pip install -e .
 ```bash
 sros init my-research-paper
 cd my-research-paper
+
+# strongly recommended: bind this workspace for all skills
+export SROS_WORKSPACE_DIR="$PWD"
 ```
 
 Optional (V3 direction): use the skill-first CLI directly:
@@ -43,6 +46,18 @@ If port 8000 is occupied, use:
 sros start -w . --auto-port
 ```
 
+If port 8000 is occupied by a stuck process:
+
+```bash
+sros status
+
+# preferred: stop the gateway if this workspace owns it
+sros stop -w .
+
+# escape hatch: if there is no .sros/gateway.pid but you confirm the port owner is SROS
+sros stop --kill-port-owner -p 8000
+```
+
 ### Begin Writing
 Open the project directory in VS Code with Roo Code extension — the MCP connection is auto-configured via `.roo/mcp.json`.
 
@@ -52,6 +67,25 @@ V3 recommended “visualization”: open `draft.md` in VS Code and keep Markdown
 
 - Health: `curl -s http://localhost:8000/health`
 - SSE stream (MCP transport; should start with an `event: endpoint` frame): `curl -N http://localhost:8000/sse`
+
+### Data → Figure → Provenance (skill-first, no gateway)
+
+The key rule: to get DuckDB provenance, you must run scripts via `sros-skill data run-script` (do not run raw `python scripts/...`).
+
+```bash
+# preview a dataset
+sros-skill --raw data preview --file data/raw/sample.csv
+
+# run a script that writes into figures/
+sros-skill --raw data run-script --script scripts/plot.py --dataset data/raw/sample.csv
+
+# verify provenance
+python - <<'PY'
+import duckdb
+con = duckdb.connect('.sros/graph.db')
+print(con.execute("SELECT source,target,relationship FROM edges WHERE relationship in ('GENERATES','ANALYZES')").df())
+PY
+```
 
 Production verification (end-to-end MCP initialize → tools/list → tools/call):
 

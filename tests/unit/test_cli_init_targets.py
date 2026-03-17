@@ -40,6 +40,11 @@ def test_init_target_claude_code(tmp_path: Path, monkeypatch):
     assert rc.exists()
     assert (project / "CLAUDE.md").exists()
 
+    claudemd = (project / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "CRITICAL RULES" in claudemd
+    assert "Do NOT run raw `python" in claudemd
+    assert "sros-skill --raw data run-script" in claudemd
+
     data = json.loads(rc.read_text(encoding="utf-8"))
     assert "custom_instructions" in data
     assert "mcp_servers" in data

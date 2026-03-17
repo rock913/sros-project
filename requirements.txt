@@ -1,3 +1,17 @@
-mcp>=0.1.0
-starlette>=0.30.0
-uvicorn>=0.20.0
+# AUTO-GENERATED FILE - DO NOT EDIT DIRECTLY
+# Source: /mnt/data/hyf/gemini-fullstack-langgraph-quickstart/pyproject.toml
+# Regenerate: python scripts/export_requirements.py
+
+mcp>=1.0.0
+starlette
+fastapi
+uvicorn
+psutil>=5.9.0
+typer>=0.9.0
+rich>=13.0.0
+duckdb>=0.10.0
+pandas>=2.0.0
+pydantic>=2.0.0
+pydantic[email]
+requests
+pyyaml

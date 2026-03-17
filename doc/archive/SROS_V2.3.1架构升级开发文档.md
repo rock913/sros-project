@@ -23,7 +23,7 @@ dependencies = [
     "mcp>=1.0.0",
     "starlette",
     "uvicorn",
-    "typer[all]",  # 用于构建 CLI
+    "typer",  # 用于构建 CLI
     "rich",        # 用于漂亮的终端输出
     "duckdb",
     "pandas"

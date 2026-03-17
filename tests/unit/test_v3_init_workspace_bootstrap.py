@@ -20,6 +20,7 @@ def test_v3_init_creates_workspace_dirs_and_openclaw(tmp_path: Path, monkeypatch
     assert (project / "draft.md").exists()
     assert (project / "ideas.md").exists()
     assert (project / ".sros" / "graph.db").exists()
+    assert (project / ".sros" / "plugins").is_dir()
 
     # V3 workspace expansion
     assert (project / "data" / "raw").is_dir()

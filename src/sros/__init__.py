@@ -1,6 +1,6 @@
 """SROS - Scientific Research Operating System"""
 
-__version__ = "2.3.2"
+__version__ = "3.0.0b1"
 __author__ = "SROS Team"
 __description__ = "AI-native research assistant for academic writing"
 

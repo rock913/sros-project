@@ -34,37 +34,76 @@ class DataHandler:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def run_script(self, script_path: str) -> Dict[str, Any]:
+    def run_script(self, script_path: str, dataset_paths: List[str] | None = None) -> Dict[str, Any]:
         """
         Execute a Python script and register any generated figures in the knowledge graph.
         """
+        workspace_dir = Path(os.getenv("SROS_WORKSPACE_DIR", "."))
+        dataset_paths = list(dataset_paths or [])
+
         script = Path(script_path)
+        if not script.is_absolute():
+            script = workspace_dir / script
         if not script.exists():
             return {"ok": False, "error": f"Script not found: {script_path}"}
 
-        workspace_dir = Path(os.getenv("SROS_WORKSPACE_DIR", "."))
+        resolved_datasets: List[Path] = []
+        for dataset_path in dataset_paths:
+            dataset = Path(dataset_path)
+            if not dataset.is_absolute():
+                dataset = workspace_dir / dataset
+            if not dataset.exists():
+                return {"ok": False, "error": f"Dataset not found: {dataset_path}"}
+            resolved_datasets.append(dataset)
+
         figures_dir = workspace_dir / "figures"
         figures_dir.mkdir(exist_ok=True)
 
-        # Get existing figures before execution
-        existing_figures = set(figures_dir.glob("*"))
+        # Snapshot figures before execution (path -> (mtime_ns, size))
+        def _sig(p: Path) -> tuple[int, int]:
+            st = p.stat()
+            return (getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9)), int(st.st_size))
+
+        existing_figures: Dict[Path, tuple[int, int]] = {}
+        for p in figures_dir.glob("*"):
+            if p.is_file():
+                try:
+                    existing_figures[p] = _sig(p)
+                except Exception:
+                    continue
 
         try:
             # Execute the script
+            argv = [sys.executable, str(script)] + [str(p) for p in resolved_datasets]
+
+            # Environment hardening: force a headless matplotlib backend unless user explicitly overrides.
+            env = os.environ.copy()
+            env.setdefault("MPLBACKEND", "Agg")
+
             result = subprocess.run(
-                [sys.executable, str(script)],
+                argv,
                 cwd=workspace_dir,
                 capture_output=True,
                 text=True,
+                env=env,
                 timeout=300  # 5 minutes timeout
             )
 
             if result.returncode != 0:
-                return {"ok": False, "error": f"Script execution failed: {result.stderr}"}
+                details = (result.stderr or result.stdout or "").strip()
+                return {"ok": False, "error": f"Script execution failed: {details}"}
 
-            # Check for new figures
-            new_figures = set(figures_dir.glob("*")) - existing_figures
-            generated_figures = [f for f in new_figures if f.is_file()]
+            # Check for new OR modified figures
+            generated_figures: List[Path] = []
+            for p in figures_dir.glob("*"):
+                if not p.is_file():
+                    continue
+                try:
+                    sig = _sig(p)
+                except Exception:
+                    continue
+                if p not in existing_figures or existing_figures.get(p) != sig:
+                    generated_figures.append(p)
 
             # Register in knowledge graph
             memory = MemoryHandler()
@@ -79,6 +118,22 @@ class DataHandler:
                 "title": script.name,
                 "content": {"path": str(script), "execution_output": result.stdout}
             })
+
+            # Register dataset nodes and ANALYZES edges (optional)
+            for dataset in resolved_datasets:
+                dataset_id = f"dataset_{dataset.name}"
+                nodes.append({
+                    "id": dataset_id,
+                    "type": "Dataset",
+                    "title": dataset.name,
+                    "content": {"path": str(dataset)}
+                })
+                edges.append(KnowledgeEdge(
+                    source=script_id,
+                    target=dataset_id,
+                    relationship="ANALYZES",
+                    confidence=1.0,
+                ))
 
             # Register figure nodes and edges
             for fig in generated_figures:
@@ -110,6 +165,7 @@ class DataHandler:
                     "stdout": result.stdout,
                     "stderr": result.stderr
                 },
+                "datasets": [str(p) for p in resolved_datasets],
                 "generated_figures": [str(f) for f in generated_figures]
             }
 

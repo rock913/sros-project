@@ -44,7 +44,18 @@ print('ok')
     assert preview_json["summary"]["rows"] == 2
 
     # Act 2: run script
-    run = runner.invoke(app, ["--raw", "data", "run-script", "--script", str(script_path)])
+    run = runner.invoke(
+        app,
+        [
+            "--raw",
+            "data",
+            "run-script",
+            "--script",
+            str(script_path),
+            "--dataset",
+            str(csv_path),
+        ],
+    )
     assert run.exit_code == 0, run.output
     run_json = json.loads(run.output)
     assert run_json["ok"] is True
@@ -63,4 +74,6 @@ print('ok')
 
     assert any(t == "Script" for _, t in nodes)
     assert any(t == "Figure" for _, t in nodes)
+    assert any(t == "Dataset" for _, t in nodes)
     assert any(rel == "GENERATES" for _, _, rel in edges)
+    assert any(rel == "ANALYZES" for _, _, rel in edges)

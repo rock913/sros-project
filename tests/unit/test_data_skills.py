@@ -83,6 +83,56 @@ print("Plot generated")
     assert "test_plot.png" in data["generated_figures"][0]
 
 
+def test_data_run_script_with_dataset_writes_analyzes_edge(tmp_path: Path, monkeypatch):
+    import duckdb
+
+    # Set workspace dir
+    monkeypatch.setenv("SROS_WORKSPACE_DIR", str(tmp_path))
+    (tmp_path / ".sros").mkdir(parents=True, exist_ok=True)
+
+    # Dataset
+    dataset = tmp_path / "data.csv"
+    dataset.write_text("x,y\n1,2\n", encoding="utf-8")
+
+    # Script generates a figure
+    script_file = tmp_path / "plot.py"
+    script_file.write_text(
+        """
+with open('figures/test_plot.png', 'w', encoding='utf-8') as f:
+    f.write('fake png data')
+print('Plot generated')
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "--raw",
+            "data",
+            "run-script",
+            "--script",
+            str(script_file),
+            "--dataset",
+            str(dataset),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+
+    conn = duckdb.connect(str(tmp_path / ".sros" / "graph.db"))
+    try:
+        nodes = conn.execute("SELECT id, type FROM nodes").fetchall()
+        edges = conn.execute("SELECT source, target, relationship FROM edges").fetchall()
+    finally:
+        conn.close()
+
+    assert any(t == "Dataset" for _, t in nodes)
+    assert any(rel == "ANALYZES" for _, _, rel in edges)
+
+
 def test_data_run_script_not_found(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SROS_WORKSPACE_DIR", str(tmp_path))
 

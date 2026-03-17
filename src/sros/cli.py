@@ -11,6 +11,13 @@ from rich.table import Table
 from sros.utils.process_manager import is_port_in_use
 from sros.utils.health_checker import HealthChecker
 from sros.utils.port_detector import detect_free_port
+from sros.utils.gateway_process import (
+    cleanup_zombie_pid_file,
+    find_port_owner,
+    is_pid_alive,
+    read_pid_file,
+    terminate_process,
+)
 from sros.gateway.config import GatewayConfig
 
 app = typer.Typer()
@@ -161,23 +168,49 @@ def _update_claude_rc(workspace_path: Path, url: str, server_key: str = "sros-ga
 
 
 def _write_claude_md(workspace_path: Path, url: str) -> None:
-    content = f"""# Claude Code + SROS (MVP)
+    content = f"""# Claude Code + SROS (V3 Workspace)
 
 MCP Gateway SSE URL:
 
 - {url}
 
-Recommended workflow:
+## 🔬 CRITICAL RULES（不可触碰的红线）
+
+1) Do NOT run raw `python scripts/xxx.py ...` for data workflows.
+
+- 必须使用 `sros-skill --raw data run-script ...` 执行数据脚本。
+- 否则会绕过 SROS 的“拦截器”，导致 DuckDB 图谱缺失（`GENERATES` / `ANALYZES` 边为空）。
+
+2) If a `sros-skill` call fails, fix and retry the same tool.
+
+- 不允许“逃逸”到原生命令完成任务。
+
+3) For writing operations, use optimistic concurrency.
+
+- Always pass `expected_sha256` to avoid clobbering user edits.
+
+## Golden workflow (writing)
 
 1) `manuscript.find_gaps(file_path=\"draft.md\")`
 2) `manuscript.get_outline_tree(file_path=\"draft.md\")` → copy the target heading's `anchor`
 3) `manuscript.get_file_sha256(file_path=\"draft.md\")`
 4) `manuscript.insert_section(target=\"anchor:<hash>\", ..., expected_sha256=<sha>)`
 
-Rules:
+## Golden workflow (data → figure → provenance)
 
-- Prefer `target=\"anchor:<hash>\"` (stable).
-- Always pass `expected_sha256` on write operations to avoid clobbering user edits.
+```bash
+export SROS_WORKSPACE_DIR=\"$PWD\"
+
+# preview dataset
+sros-skill --raw data preview --file data/raw/<file>.csv
+
+# run script (records ANALYZES/GENERATES into .sros/graph.db)
+sros-skill --raw data run-script --script scripts/<script>.py --dataset data/raw/<file>.csv
+```
+
+Notes:
+
+- SROS will default `MPLBACKEND=Agg` for headless plotting when running `data run-script`.
 """
     (workspace_path / "CLAUDE.md").write_text(content, encoding="utf-8")
 
@@ -278,6 +311,7 @@ def init(
         # 创建工作区结构（V3：扩展数据/图表/脚本目录）
         workspace_dirs = [
             project_path / ".sros",
+            project_path / ".sros" / "plugins",
             project_path / "materials",
             project_path / "references",
             project_path / "data" / "raw",
@@ -356,6 +390,7 @@ def start(
     workspace_dir: Optional[str] = typer.Option(None, "--workspace", "-w", help="工作区目录"),
     port: int = typer.Option(8000, "--port", "-p", help="监听端口"),
     auto_port: bool = typer.Option(False, "--auto-port", help="端口占用时自动寻找可用端口"),
+    reload: bool = typer.Option(False, "--reload", help="开发模式：监听 .sros/plugins 变更并热重启（uvicorn reload）"),
     update_mcp_json: Optional[bool] = typer.Option(
         None,
         "--update-mcp-json/--no-update-mcp-json",
@@ -391,12 +426,44 @@ def start(
 
         # Best-effort: load workspace .env for provider config (OpenAlex/Zotero/etc)
         _load_dotenv(workspace_path / ".env")
+
+        # Workspace PID governance: if a gateway is already running for this workspace, do not start another.
+        try:
+            cleanup_zombie_pid_file(workspace_path)
+            pid_info = read_pid_file(workspace_path)
+            if pid_info:
+                try:
+                    pid = int(pid_info.get("pid"))
+                except Exception:
+                    pid = None
+                try:
+                    pid_port = int(pid_info.get("port"))
+                except Exception:
+                    pid_port = None
+
+                if pid and is_pid_alive(pid):
+                    console.print(
+                        f"[yellow]Gateway is already running in this workspace[/yellow] (pid={pid}{', port='+str(pid_port) if pid_port else ''})."
+                    )
+                    console.print("Tip: use 'sros stop -w <workspace>' to stop it.")
+                    raise typer.Exit(code=0)
+        except typer.Exit:
+            raise
+        except Exception:
+            # Never block start on pid-file governance.
+            pass
         
         # 检查端口是否被占用
         if is_port_in_use(port):
             if not auto_port:
-                console.print(f"[red]Error:[/red] Port {port} is already in use")
-                console.print("Tip: use --auto-port or -p <port>, or stop the existing process.")
+                owner = find_port_owner(port)
+                if owner.pid:
+                    console.print(
+                        f"[red]Error:[/red] Port {port} is already in use by {owner.name or 'unknown'} (pid={owner.pid})"
+                    )
+                else:
+                    console.print(f"[red]Error:[/red] Port {port} is already in use")
+                console.print("Tip: use --auto-port or -p <port>, or run 'sros status' to inspect ownership.")
                 raise typer.Exit(code=1)
             free_port = detect_free_port(start_port=port)
             if free_port is None:
@@ -426,12 +493,34 @@ def start(
             if (workspace_path / ".clauderc").exists():
                 console.print(f"[green]Updated .clauderc url ->[/green] {gateway_url}")
         
-        console.print(f"[blue]Starting SROS gateway on port {port}...[/blue]")
-        
         # 创建配置对象并传递给网关
         config = GatewayConfig()
         config.port = port
         config.workspace_dir = str(workspace_path.absolute())
+
+        console.print(f"[blue]Starting SROS gateway on port {port}...[/blue]")
+
+        # Dev mode: use uvicorn reload with an app factory.
+        if reload:
+            try:
+                import uvicorn  # type: ignore
+
+                reload_dir = workspace_path / ".sros" / "plugins"
+                reload_dirs = [str(reload_dir)] if reload_dir.exists() else None
+
+                uvicorn.run(
+                    "sros.gateway.main:create_app",
+                    factory=True,
+                    host=config.host,
+                    port=port,
+                    log_level="info",
+                    reload=True,
+                    reload_dirs=reload_dirs,
+                )
+                return
+            except Exception as e:
+                console.print(f"[red]Error:[/red] Failed to start gateway in --reload mode: {e}")
+                raise typer.Exit(code=1)
         
         # 导入并运行网关
         from sros.gateway.main import main
@@ -439,6 +528,8 @@ def start(
         
     except KeyboardInterrupt:
         console.print("\n[yellow]SROS gateway stopped by user[/yellow]")
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]Error:[/red] Failed to start gateway: {str(e)}")
         raise typer.Exit(code=1)
@@ -477,12 +568,26 @@ def status():
         # 检查当前工作区状态
         current_dir = Path.cwd()
         workspace_dir = Path(os.getenv("SROS_WORKSPACE_DIR") or current_dir).expanduser().resolve()
+
+        # Clean zombie pid files (best-effort)
+        try:
+            cleanup_zombie_pid_file(workspace_dir)
+        except Exception:
+            pass
+
+        pid_info = None
+        try:
+            pid_info = read_pid_file(workspace_dir)
+        except Exception:
+            pid_info = None
+
         workspace_files = {
             "draft.md": (workspace_dir / "draft.md").exists(),
             ".roo/mcp.json": (workspace_dir / ".roo" / "mcp.json").exists(),
             ".clauderc": (workspace_dir / ".clauderc").exists(),
             "CLAUDE.md": (workspace_dir / "CLAUDE.md").exists(),
             ".sros/graph.db": (workspace_dir / ".sros" / "graph.db").exists(),
+            ".sros/gateway.pid": (workspace_dir / ".sros" / "gateway.pid").exists(),
         }
         
         table = Table(title="Current Workspace Status")
@@ -510,13 +615,132 @@ def status():
         else:
             console.print(f"Scholar backend: [bold]{backend}[/bold]")
         
-        # 检查端口状态
-        port_in_use = is_port_in_use(8000)
-        console.print(f"\nPort 8000: {'[red]In Use[/red]' if port_in_use else '[green]Available[/green]'}")
+        # Gateway service status (best-effort)
+        port = int(os.getenv("SROS_PORT", "8000"))
+        owned_pid = None
+        owned_port = None
+        if isinstance(pid_info, dict):
+            try:
+                owned_pid = int(pid_info.get("pid"))
+            except Exception:
+                owned_pid = None
+            try:
+                owned_port = int(pid_info.get("port"))
+            except Exception:
+                owned_port = None
+            if owned_port:
+                port = owned_port
+
+        port_in_use = is_port_in_use(port)
+        if owned_pid and is_pid_alive(owned_pid):
+            console.print("\nGateway Service:")
+            console.print(f"  Status:  [green]RUNNING[/green]")
+            console.print(f"  Port:    {port}")
+            console.print(f"  PID:     {owned_pid} (Owned by this workspace)")
+        elif port_in_use:
+            owner = find_port_owner(port)
+            console.print("\nGateway Service:")
+            console.print(f"  Status:  [red]IN USE[/red]")
+            console.print(f"  Port:    {port}")
+            if owner.pid:
+                console.print(f"  Owner:   {owner.name or 'unknown'} (pid={owner.pid})")
+            else:
+                console.print("  Owner:   unknown")
+            console.print("  Tip:     use 'sros start --auto-port' or choose a different --port")
+        else:
+            console.print("\nGateway Service:")
+            console.print(f"  Status:  [yellow]STOPPED[/yellow]")
+            console.print(f"  Port:    {port} ([green]available[/green])")
         
     except Exception as e:
         console.print(f"[red]Error:[/red] Failed to check status: {str(e)}")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def stop(
+    workspace_dir: Optional[str] = typer.Option(None, "--workspace", "-w", help="工作区目录"),
+    timeout_s: float = typer.Option(3.0, "--timeout", help="优雅退出等待时间（秒）"),
+    port: int = typer.Option(8000, "--port", "-p", help="当缺失 gateway.pid 时用于推断占用者的端口"),
+    kill_port_owner: bool = typer.Option(
+        False,
+        "--kill-port-owner",
+        help="当缺失 gateway.pid 时：尝试终止当前监听该端口的进程（谨慎使用）",
+    ),
+):
+    """停止当前工作区的 SROS Gateway（基于 .sros/gateway.pid）"""
+    try:
+        if workspace_dir is None:
+            workspace_dir = os.getenv("SROS_WORKSPACE_DIR") or "."
+        workspace_path = Path(workspace_dir).expanduser().resolve()
+
+        # Cleanup zombie files first
+        try:
+            cleanup_zombie_pid_file(workspace_path)
+        except Exception:
+            pass
+
+        pid_info = read_pid_file(workspace_path)
+        if not pid_info:
+            if not kill_port_owner:
+                console.print("[yellow]No gateway.pid found for this workspace.[/yellow]")
+                console.print(
+                    "Tip: if the port is in use, run 'sros status' to see the owner, or re-run with --kill-port-owner -p <port>."
+                )
+                return
+
+            owner = find_port_owner(port)
+            if not owner.pid:
+                console.print(f"[yellow]No LISTEN owner found for port {port}.[/yellow]")
+                return
+
+            terminated, msg = terminate_process(owner.pid, timeout_s=timeout_s)
+            if terminated:
+                console.print(
+                    f"[green]Stopped port owner[/green] (port={port}, pid={owner.pid}, name={owner.name or 'unknown'}): {msg}"
+                )
+            else:
+                console.print(
+                    f"[yellow]Failed to stop port owner[/yellow] (port={port}, pid={owner.pid}, name={owner.name or 'unknown'}): {msg}"
+                )
+            return
+
+        try:
+            pid = int(pid_info.get("pid"))
+        except Exception:
+            pid = -1
+
+        terminated, msg = terminate_process(pid, timeout_s=timeout_s)
+        if terminated:
+            console.print(f"[green]Gateway stopped[/green] (pid={pid}): {msg}")
+        else:
+            console.print(f"[yellow]Gateway not stopped[/yellow] (pid={pid}): {msg}")
+
+        # Always remove pid file; if the process is still alive the next status will reveal it.
+        try:
+            from sros.utils.gateway_process import remove_pid_file
+
+            remove_pid_file(workspace_path)
+        except Exception:
+            pass
+        return
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error:[/red] Failed to stop gateway: {str(e)}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def restart(
+    workspace_dir: Optional[str] = typer.Option(None, "--workspace", "-w", help="工作区目录"),
+    port: int = typer.Option(8000, "--port", "-p", help="监听端口"),
+    auto_port: bool = typer.Option(False, "--auto-port", help="端口占用时自动寻找可用端口"),
+    timeout_s: float = typer.Option(3.0, "--timeout", help="stop 优雅退出等待时间（秒）"),
+):
+    """重启当前工作区的 SROS Gateway（stop + start）"""
+    stop(workspace_dir=workspace_dir, timeout_s=timeout_s)
+    start(workspace_dir=workspace_dir, port=port, auto_port=auto_port)
 
 
 @app.command()

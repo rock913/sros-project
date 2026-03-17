@@ -9,13 +9,18 @@ import difflib
 import duckdb
 from sros.domain.ports import ManuscriptProtocol
 from sros.domain.schemas import GapAnalysisResult, OutlineNode
+from sros.domain.schemas import KnowledgeEdge
+from sros.servers.memory.handler import MemoryHandler
 
 def resolve_workspace_path(file_path: str) -> Path:
     """
     Resolve a workspace-relative file path.
     Enforces that file_path is relative to SROS_WORKSPACE_DIR and prevents path traversal.
     """
-    workspace = Path(os.environ["SROS_WORKSPACE_DIR"])
+    workspace_env = os.getenv("SROS_WORKSPACE_DIR")
+    if not workspace_env:
+        raise ValueError("SROS_WORKSPACE_DIR is not set. Please export SROS_WORKSPACE_DIR to your workspace root.")
+    workspace = Path(workspace_env)
     
     rel = Path(file_path)
     if rel.is_absolute() or ".." in rel.parts:
@@ -33,6 +38,145 @@ def resolve_workspace_path(file_path: str) -> Path:
 
 class ManuscriptHandler(ManuscriptProtocol):
     """稿件管理器实现"""
+
+    def index_figure_references(self, file_path: str = "draft.md") -> Dict[str, Any]:
+        """Index figure references from a draft into the knowledge graph.
+
+        - Scans markdown image links like: ![alt](figures/foo.png)
+        - Attaches each reference to the nearest preceding heading (draft_section node)
+        - Writes edges: Figure -REFERENCED_IN-> draft_section
+        """
+
+        path = resolve_workspace_path(file_path)
+        if not path.exists():
+            return {"ok": False, "error": f"File not found: {file_path}"}
+
+        content_lines = path.read_text(encoding="utf-8").splitlines()
+        headings = self._collect_headings(content_lines)
+
+        headings_sorted = sorted(headings, key=lambda h: int(h["line"]))
+        heading_idx = 0
+        current_heading = None
+
+        def _advance_heading(line_no: int) -> None:
+            nonlocal heading_idx, current_heading
+            while heading_idx < len(headings_sorted) and int(headings_sorted[heading_idx]["line"]) <= line_no:
+                current_heading = headings_sorted[heading_idx]
+                heading_idx += 1
+
+        # Markdown image: ![alt](path "title")
+        image_pat = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+        memory = MemoryHandler()
+        nodes: List[Dict[str, Any]] = []
+        edges: List[KnowledgeEdge] = []
+        seen_section_ids: set[str] = set()
+        seen_edges: set[tuple[str, str, str]] = set()
+
+        referenced: List[Dict[str, Any]] = []
+
+        for line_no, line in enumerate(content_lines, 1):
+            _advance_heading(line_no)
+
+            for m in image_pat.finditer(line):
+                raw_target = (m.group(1) or "").strip()
+                # drop optional title: figures/a.png "caption"
+                if "\"" in raw_target:
+                    raw_target = raw_target.split("\"", 1)[0].strip()
+                if raw_target.startswith("<") and raw_target.endswith(">"):
+                    raw_target = raw_target[1:-1].strip()
+                if raw_target.startswith("./"):
+                    raw_target = raw_target[2:]
+
+                # Only index workspace figure references
+                if not raw_target.startswith("figures/"):
+                    continue
+
+                figure_name = Path(raw_target).name
+                figure_id = f"figure_{figure_name}"
+
+                if current_heading is None:
+                    anchor = "top"
+                    section_title = "top"
+                    section_line = None
+                    section_level = None
+                    section_hash = None
+                else:
+                    anchor = f"heading-{int(current_heading['line'])}"
+                    section_title = str(current_heading["title"])
+                    section_line = int(current_heading["line"])
+                    section_level = int(current_heading["level"])
+                    section_hash = str(current_heading["anchor"])
+
+                section_id = f"draft_section:{file_path}#{anchor}"
+
+                if section_id not in seen_section_ids:
+                    nodes.append(
+                        {
+                            "id": section_id,
+                            "type": "draft_section",
+                            "title": section_title,
+                            "content": {
+                                "file_path": file_path,
+                                "anchor": anchor,
+                                "heading": {
+                                    "title": section_title,
+                                    "line": section_line,
+                                    "level": section_level,
+                                    "hash": section_hash,
+                                },
+                            },
+                        }
+                    )
+                    seen_section_ids.add(section_id)
+
+                # Ensure figure node exists (safe upsert)
+                nodes.append(
+                    {
+                        "id": figure_id,
+                        "type": "Figure",
+                        "title": figure_name,
+                        "content": {"path": raw_target},
+                    }
+                )
+
+                key = (figure_id, section_id, "REFERENCED_IN")
+                if key not in seen_edges:
+                    edges.append(
+                        KnowledgeEdge(
+                            source=figure_id,
+                            target=section_id,
+                            relationship="REFERENCED_IN",
+                            confidence=1.0,
+                        )
+                    )
+                    seen_edges.add(key)
+
+                referenced.append(
+                    {
+                        "figure": raw_target,
+                        "figure_id": figure_id,
+                        "section_id": section_id,
+                        "section_title": section_title,
+                        "ref_line": line_no,
+                    }
+                )
+
+        if nodes or edges:
+            ok = memory.store_knowledge(nodes=nodes, edges=edges)
+            if not ok:
+                return {"ok": False, "error": "Failed to store knowledge"}
+
+        return {
+            "ok": True,
+            "file_path": file_path,
+            "references": referenced,
+            "counts": {
+                "references": len(referenced),
+                "sections": len(seen_section_ids),
+                "edges": len(edges),
+            },
+        }
 
     def get_file_sha256(self, file_path: str = "draft.md") -> str:
         """Return sha256 of the current file contents (empty file if missing)."""
@@ -93,7 +237,9 @@ class ManuscriptHandler(ManuscriptProtocol):
     def _derive_anchor(self, target: str, content_lines: List[str]) -> Tuple[str, Optional[int], Optional[str], str]:
         """Return (anchor_id, line_no_1_based_if_known, anchor_hash_if_any, match_mode)."""
         t = (target or "").strip()
-        if not t or t.lower() in {"append", "end"}:
+        t_norm = t.lower()
+        # Compatibility: some agents use section:end / section:append.
+        if not t or t_norm in {"append", "end", "section:end", "section:append", "section:bottom"}:
             return "append", None, None, "append"
 
         headings = self._collect_headings(content_lines)

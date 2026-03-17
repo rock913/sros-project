@@ -1,334 +1,397 @@
-SROS V3.0 战略规划：面向 AI4S 的全链路科研操作系统
+# SROS V3.0 战略规划（AI4S 全链路科研操作系统）
 
-1. 重新定义生态位：SROS 的“主板与实验室”哲学
+> 本文是“战略 + 可执行研发节奏”的单页版单一事实来源。
+> 最后更新：2026-03-17（分支：v3.0-main）。
 
-在未来的科研形态中，通用大模型（Claude、GPT-4）是**“科学家的大脑”，Claude Code / OpenClaw 等 Agent 框架是“科学家的双手（研究员）”**。
+## 0. TL;DR
 
-SROS 的终极生态位是：科学家的“标准化实验室（Laboratory）”与“高速数据总线（Data Bus）”。
+SROS V3.0 的定位是 **Headless Lab（无头实验室）**：
 
-SROS 不负责“思考”，SROS 负责“供给环境、提供仪器、管理账本”。
+- Agent（Claude Code / OpenClaw / Roo）负责“思考与编排”。
+- SROS 负责“提供规范化实验室（Workspace）+ 封装可调用仪器（Skills）+ 维护不可见账本（DuckDB 图谱）”。
 
-1.1 SROS 与通用 Agent 的共生契约
+研发方法：坚持 **Golden Thread + TDD**，每个 Slice 都要端到端可跑、可验收、可回归。
 
-Claude Code / OpenClaw 负责：理解人类意图、分解任务、规划流水线、阅读文献、撰写文字、编写临时代码。
+本文阅读方式：
+
+- 先看「第 4 节：当前进度」确认现状
+- 再看「第 5 节：Slice 3 → GA 路径」按迭代推进
+- 最后用「第 6 节：验收清单」把关键链路跑一遍
+
+## 1. 系统契约：Agent vs SROS
+
+Agent 负责：
+
+- 理解意图、拆解任务、组织技能调用
+- 生成临时代码/脚本、撰写草稿、修订排版
 
 SROS 负责：
 
-环境隔离：提供极其规范的物理目录（Workspace），让大模型知道数据在哪、图表在哪、草稿在哪。
+- **Workspace 规范**：数据/脚本/图表/草稿的物理位置固定且可预测
+- **Skills 封装**：把复杂能力变成一条稳定命令（人类可读 + 机器可读）
+- **溯源图谱**：在生成数据/图表/文本时，自动写入“数据-代码-产物-文本”的可追溯链
 
-高阶仪器的封装：大模型不会凭空算蛋白质或做 fMRI 预处理，SROS 将这些庞大的计算库（如 ESM3, fMRIPrep）封装成一句简单的 sros-skill 命令。
+## 2. 架构（1 页）
 
-隐形图谱守护：在大模型修改 Markdown 或生成数据的同时，SROS 在底层 DuckDB 自动维护极其严谨的 知识-数据-代码-文本 有向图。
-
-2. 覆盖“科研全流程”的系统架构设计 (V3.0)
-
-一个完整的科研生命周期包含：Idea (洞察) -> Literature (文献) -> Experiment (实验/计算) -> Result (数据/图表) -> Writing (成文/排版)。
-
-SROS V3 必须从“只做首尾（文献+成文）”扩展到“吞下中段（实验+数据）”。
-
-2.1 架构升级：The "Headless Lab" Architecture (无头实验室架构)
-
+```text
 ┌───────────────────────────────────────────────────────────────┐
-│  AI Agents (The Brain & Hands): Claude Code, OpenClaw, Roo    │
+│ AI Agents: Claude Code / OpenClaw / Roo                        │
 └───────┬───────────────────────────────┬───────────────────────┘
-        │ (Terminal / CLI)              │ (MCP / JSON-RPC)
-        ▼                               ▼
+        │ CLI                            │ MCP / JSON-RPC
+        ▼                                ▼
 ┌───────────────────────────────────────────────────────────────┐
-│                   SROS Gateway & CLI Router                   │
-└───────┬───────────────────────────────┬───────────────┬───────┘
-        ▼                               ▼               ▼
-┌───────────────┐               ┌───────────────┐ ┌─────────────┐
-│ Core Skills   │               │ Domain Skills │ │ Custom      │
-│ (原生核心技能)  │               │ (官方垂直扩展包) │ │ Plugins   │
-├───────────────┤               ├───────────────┤ ├─────────────┤
-│ • Gap Detect  │               │ • Neuro-Pack  │ │ • K-Dense   │
-│ • Scholar Sync│               │ • Bio-Pack    │ │   Skills    │
-│ • Draft Insert│               │ • Data-Viz    │ │ • User Skill│
-└───────┬───────┘               └───────┬───────┘ └───────┬─────┘
-        │                               │                 │
-┌───────▼───────────────────────────────▼─────────────────▼─────┐
-│ SROS Workspace (The Single Source of Truth)                   │
-├─────────────────┬─────────────────┬─────────────┬─────────────┤
-│ draft.md (稿件) │ graph.db (图谱)  │ data/ (数据) │ figs/ (图表)│
-└─────────────────┴─────────────────┴─────────────┴─────────────┘
+│                SROS CLI Router & Thin Gateway                  │
+└───────┬───────────────────────────────┬───────────────────────┘
+        ▼                               ▼
+┌─────────────────┐             ┌───────────────────────────────┐
+│ sros-skill CLI   │             │ Domain/Core Skills (Python)    │
+│ (human + --raw)  │             │ - manuscript / scholar / data  │
+└───────┬─────────┘             └───────────────┬───────────────┘
+        ▼                                       ▼
+┌───────────────────────────────────────────────────────────────┐
+│ SROS Workspace (Single Source of Truth)                        │
+│ - draft.md / data/ / scripts/ / figures/ / .sros/graph.db      │
+└───────────────────────────────────────────────────────────────┘
+```
 
+设计约束：**IDE-as-UI**（VS Code 的文件树 + Markdown 预览 + 终端即“可视化界面”），不投入传统 Web GUI。
 
-2.2 端到端 MVP 与“可视化界面”：IDE-as-UI（把反馈飞轮做成产品能力）
+## 3. 里程碑（Milestones）
 
-在 V3.0 里，“可视化界面”不等于传统 Web GUI。SROS 的主要用户是 Claude Code / OpenClaw / Roo 这类 Agent 与开发者本人。
+| 版本 | 核心目标 | 最小验收标准（必须自动化/可复现） |
+|---|---|---|
+| V3.0-Alpha（Skill-Driven） | 写作闭环 & CLI/Gateway 基础设施 | 通过 `sros-skill` 走通“gap → search → insert → draft.md 更新”，并有集成回归测试 |
+| V3.0-Beta（Data-Aware OS） | 数据/图表闭环 & 最小溯源链 | 读 CSV → 跑脚本出图 → draft 引用 → DuckDB 里可查到 `Script -GENERATES-> Figure` |
+| V3.0-GA（Ecosystem） | 插件生态与长任务能力 | 插件可动态加载为新 skill；长耗时任务具备事件回调/通知机制 |
 
-核心结论：
+## 4. 研发切片（Slices）与当前进度（2026-03-17）
 
-- 不做传统前端面板（React/Vue 的按钮表单），避免预设交互路径束缚 Agent。
-- 必须做端到端可运行的 MVP（Golden Thread），并把 VS Code 的文件树 + Markdown 预览 + 终端视作“天然可视化界面”。
-- 让 `sros-skill` 命令成为 Agent 的“UI 按钮”：参数极简、输出可读、支持 `--raw` JSON、错误信息可自愈。
+为避免“规划很宏大但无法落地”，V3.0 用切片管理交付：每个 Slice 都有 CLI 接口、工作区产物、图谱写入、测试回归。
 
-为什么端到端 MVP 会极大加速迭代：
+### Slice 0：Workspace Bootstrapping ✅
 
-- 只有端到端，才能暴露“接口衔接处”的系统性摩擦（Token 爆炸、路径约定、插入破坏排版、错误可恢复性）。
-- 反馈飞轮极短：一条命令/一次工具调用即可复现与验证，而不是手动拼 JSON + 看日志。
-- 可视化“体感”来自 IDE：草稿实时长出内容/图表，就是最强的 Aha Moment。
+- `sros init <proj> --target both` 初始化 V3 工作区结构（`data/raw`、`data/processed`、`figures`、`scripts`），并生成 Agent 配置（如 `openclaw.yaml`）。
 
-端到端 MVP 的形态（V3.0 的“新型界面”三件套）：
+### Slice 1：Writing Loop（Golden Thread）✅
 
-1) 人类研究员 UI：VS Code + 物理文件（workspace 目录规范 + draft.md 预览）
-2) Agent UI：CLI Skills + 标准化输出（默认人类友好 + `--raw` 机器可读）
-3) IDE 兼容壳：极简 MCP Gateway（不含业务逻辑，只做 CLI 反射代理）
+- 已具备写作闭环的端到端回归：gap → search(mock) → insert → `draft.md` 更新。
 
-黄金主线（Golden Thread）建议的迭代节奏：
+### Slice 2：Data Loop（数据闭环）✅
 
-- 第 1 周：只求跑通（mock search + insert-markdown），用 Claude Code 串起来
-- 第 2 周：引入“数据/图表”闭环（run-script → figures/ → draft.md 引用）
-- 第 3 周：把 mock 替换为真实能力（OpenAlex/真实脚本/真实图谱）
+- `sros-skill --raw data preview --file <csv>`：返回 CSV 摘要（行列数/列名/类型/样本/空值统计）。
+- `SROS_WORKSPACE_DIR=<proj> sros-skill --raw data run-script --script <py> --dataset <csv> [--dataset <csv> ...]`：执行脚本，检测 `figures/` 新增文件并写入 DuckDB 图谱（并记录最小数据溯源）。
+- 已落地最小溯源链：`[Script] -GENERATES-> [Figure]`（节点类型 Script/Figure）。
 
+### Slice 2+：Provenance Enrichment（溯源增强）✅
 
-3. SROS 新版本研发思路与详细开发路径
+目标：把“能跑”升级为“可解释、可追问、可复用”。
 
-为了实现上述宏伟蓝图，建议将开发路径分为三个阶段（Phase 1 ~ 3），逐步完成从“写作工具”到“科研 OS”的蜕变。
+- Dataset 节点与 `ANALYZES` 边：`[Script] -ANALYZES-> [Dataset]`（通过 `--dataset` 显式声明）。
+- Figure -> Draft/Section 引用关系：`[Figure] -REFERENCED_IN-> [draft_section:*]`（通过 `sros-skill --raw manuscript index-figures --file draft.md` 写回图谱）。
 
-🚀 Phase 1: 核心重构 —— 拥抱 Unix 哲学与大一统 CLI (预计耗时: 3周)
+### Slice 2++：Data Loop Hardening（防逃逸 + Headless 默认值）✅
 
-目标：解决目前 MCP 导致的上下文污染，完成 CLI Skills 的底层重构，让 Claude Code 能够以极低的 Token 成本丝滑调用 SROS。
+动机：真实 Agent 流水线里，“图画出来了但图谱是空的”通常不是能力缺失，而是 Agent 在报错后绕过 `sros-skill` 直接跑 `python scripts/*.py` 导致拦截器失效。
 
-开发路径：
+交付物：
 
-实现 sros-skill 基类：
+- `data run-script` 环境硬化：默认注入 `MPLBACKEND=Agg`（无头环境画图不再因 `plt.show()` 等行为崩溃）
+- Workspace 契约强化：`sros init` 生成的 `CLAUDE.md` 明确“禁止原生 python 运行数据脚本，必须用 `sros-skill data run-script`”
 
-抛弃原有的 mcp_servers 目录，建立 src/sros/skills/。
+验收标准（TDD）：
 
-使用 typer 将所有现有能力（scholar.search, manuscript.find_gaps, manuscript.insert_section）封装为独立的命令行工具。
+- `data run-script` 子进程环境包含 `MPLBACKEND=Agg`（允许用户显式覆盖）
+- `CLAUDE.md` 包含“不可触碰红线规则”与数据闭环的 Golden commands
 
-强制标准输出格式 (Unix Pipe Ready)：
+### Slice 3：Plugins / Packs / Event Hooks ✅（MVP）
 
-所有的 sros-skill 必须支持 --raw (输出纯 JSON 供 jq 过滤) 和默认的人类友好输出（供 LLM 直接阅读摘要）。
+- 插件（First-class MCP Tools）
+  - 工作区 `.sros/plugins/*.py` 自动发现
+  - 在 Gateway `tools/list` 中动态暴露为 MCP tools：`plugin.<plugin_id>`
+  - 也提供通用工具：`plugins.list` / `plugins.run`
+  - 插件可选声明 `SKILL_INPUT_SCHEMA`（JSON Schema）以获得精确入参约束
+- 长耗时任务（最小事件钩子）
+  - `tasks.run_plugin_async` 启动后台任务并返回 `task_id`
+  - `tasks.get/list/wait` 查询/等待任务状态
+  - 任务完成后通过 Gateway SSE 广播 JSON-RPC notification：`method = sros.task.completed`
 
-极简 MCP Gateway：
+说明：这里的 Slice 3 标记为「MVP」——已经能被 Agent 调用、能回归测试，但还未做持久化/隔离/订阅等 GA 级硬化。
 
-重新实现一个极其轻量的 Gateway。它不包含任何业务代码，纯粹作为 CLI 的反射代理：当 IDE（如 Roo Code）通过 MCP 发送请求时，它在后台执行对应的 sros-skill 命令并返回结果。
+## 5. Slice 3 → GA 的最快研发路径（聚焦 2-3 个迭代，TDD 优先）
 
-Agent 启蒙配置自动生成：
+目标：把 Slice 3 从“能演示（MVP）”推进到“能长期维护 & 可放心扩展（GA）”。优先顺序遵循：可回归 > 可观测 > 可扩展。
 
-修改 sros init，在初始化时不仅生成 .roo/mcp.json，还要生成 .clauderc (面向 Claude Code) 和 openclaw.yaml (面向 OpenClaw)，在其中用自然语言写明当前 Workspace 可用的 sros-skill 列表及用法。
+现状（已具备）：
 
-🚀 Phase 2: 突破纯文本 —— 数据、计算与全息图谱 (预计耗时: 1-2个月)
+- 插件可在 Gateway 动态暴露为 `plugin.<id>`，并可通过 `plugins.list` / `plugins.run` 调用。
+- 长任务可通过 `tasks.run_plugin_async` 启动，并在完成时通过 SSE 广播 `sros.task.completed` 通知。
 
-目标：覆盖“Experiment (实验)”和“Result (数据)”环节，让 SROS 具备硬核科学计算的承载能力。
+一键回归入口（建议把它当成 Slice 3 的“金线”）：
 
-开发路径：
+```bash
+pytest -q tests/integration/test_v3_slice3_plugins_and_tasks_gateway.py
+```
 
-扩展 Workspace 规范：
+### Iteration D：Plugin 工具化（让生态可“被调用”）
 
-sros init 新增目录结构：data/raw/, data/processed/, figures/, scripts/。强制科研数据管理的最佳实践。
+交付物（面向 Agent / MCP）：
 
-重新设计 DuckDB 图谱 (Heterogeneous Graph)：
+- Gateway `tools/list` 能动态发现 `.sros/plugins/*.py` 并暴露为 `plugin.<id>`。
+- `tools/call` 可直接调用 `plugin.<id>`，返回 JSON 可序列化结果。
+- 插件可选提供 `SKILL_INPUT_SCHEMA`（JSON Schema），在 `tools/list` 中体现（便于 Agent 生成正确入参）。
 
-抛弃旧表，直接建立全新的“异构科研溯源图谱”。
+验收标准（自动化）：
 
-Schema 设计：节点包含 Paper, Section, Dataset, Model, Figure。
+- `tools/list` 动态包含 `plugin.<id>`
+- `tools/call` 可直接调用 `plugin.<id>` 并返回结构化结果
+- 插件可选提供 `SKILL_INPUT_SCHEMA`，在 `tools/list` 中体现
 
-Edge 设计：包含 CITES, GENERATES, ANALYZES, TRAINED_ON。
+最小约定（当前已支持）：
 
-效果：当大模型插入一张图片时，DuckDB 记录 [Figure: roc.png] <- GENERATES <- [Script: svc.py] <- ANALYZES <- [Dataset: fmri.csv]。
+- 插件路径：`.sros/plugins/<id>.py`
+- 元数据：`SKILL_NAME` / `SKILL_DESCRIPTION` / `SKILL_INPUT_SCHEMA`
+- 入口：`def run(args: dict) -> Any`
 
-开发 sros-skill-data 核心扩展包：
+GA 补强建议（下一步优先）：
 
-提供 sros-skill data preview <file> (用 pandas 快速返回 CSV 摘要供 LLM 理解)。
+- 插件命名约束：限定 `<id>` 只允许 `[a-z0-9_\-]`（避免奇怪路径/显示问题）
+- 插件失败语义：统一错误 envelope（例如 `{ok:false,error:{code,message,details}}`），CLI/Gateway 一致
+- 插件导入/执行隔离（最小可用）：异常不污染核心模块，错误信息可定位（含 `plugin_id`、`trace_id`/`task_id`）
 
-提供 sros-skill data plot <script> (执行绘图脚本并将结果注册到工作区)。
+### Iteration E：Long Task + Event Hook（让 Agent 可“被唤醒”）
 
-🚀 Phase 3: 开放生态与垂直领域重构 (预计耗时: 长期演进)
+交付物（面向 Agent / 编排）：
 
-目标：通过插件系统接入类似 K-Dense、GraphMRI 等庞大能力，实现生态大爆发。
+- `tasks.run_plugin_async` 可启动后台执行并返回 `task_id`
+- `tasks.get/list/wait` 可查询并等待最终状态
+- 完成时在 SSE 流中广播 `sros.task.completed` 通知（JSON-RPC notification）
 
-开发路径：
+验收标准（自动化）：
 
-动态插件挂载系统 (Plugin Loader)：
+- `tasks.run_plugin_async` 返回 `task_id`
+- 任务完成后在 SSE 流中收到 `sros.task.completed` 通知（JSON-RPC notification）
+- `tasks.get/wait` 可稳定拿到最终状态（succeeded/failed）
 
-在 .sros/ 下建立 plugins/ 目录。
+GA 补强建议（下一步优先）：
 
-允许用户或 OpenClaw 动态将 Python 脚本放入该目录，SROS 自动解析其 Docstring 并将其注册为新的 sros-skill，同时通过 MCP 暴露给前端 IDE。
+- 事件订阅/路由：避免“全量广播”，至少支持按 session 订阅（或按 workspace 隔离）
+- 资源治理：超时/取消/并发上限（避免任务堆积拖垮进程）
+- 任务状态持久化（可选但推荐）：写入 `.sros/tasks.jsonl` 或 DuckDB 表（进程崩溃后可追溯）
 
-官方垂直扩展包 (SROS Packs)：
+### Iteration F：硬化与可维护性（GA 必备）
 
-SROS-Neuro-Pack：用 SROS 逻辑重构 GraphMRI。集成 fMRIPrep docker 调用命令，脑网络提取命令。
+最小必做（推荐都落到自动化测试里）：
 
-SROS-Bio-Pack：对接 ESM3, AlphaFold3，让大模型可以通过一行 sros-skill bio fold <sequence> 获得 PDB 文件。
+- 稳定错误语义：插件异常/任务失败在 CLI 与 Gateway 都有一致结构与错误码
+- 可观测性：日志包含 `plugin_id` / `task_id` / `session_id`（至少能把一次失败串起来）
+- 边界与回退：插件目录缺失/为空/包含坏文件时不影响核心工具可用性
 
-事件驱动架构 (Event Hooks)：
+可选（准备对外发布时再做）：
 
-科研计算往往耗时很长（如训练模型耗时 3 天）。
+- 任务状态持久化：把任务结果写入 `.sros/`（例如 jsonl/duckdb 表）用于崩溃后排查
+- 事件路由：支持按 session_id/订阅过滤，而不是全量广播
 
-SROS 加入后台任务队列。当长耗时 sros-skill 执行完毕时，SROS 能够主动向 Claude Code 或 OpenClaw 发送 Webhook/系统通知，唤醒大模型继续写论文。
+### Iteration G：Gateway 进程与端口治理（PID / status / stop / restart）
 
-4. 演进策略：无历史包袱的“破坏性重构” (Breaking Changes)
+目标：解决“8000 端口占用但不知道是谁占的 / 同一工作区重复启动 / Zombie 进程残留”等日常痛点，让 SROS Gateway 具备类似 `docker` / `systemctl` 的自诊断与自启停能力。
 
-鉴于目前 V2 版本尚无真实的外部生产用户依赖，这是系统演进中极其宝贵的**“架构红利期”**。
+交付物（面向用户 / Agent 的工程化能力）：
 
-我们应该采用快刀斩乱麻的“破坏性重构”策略，坚决剔除任何为了“向后兼容（Backward Compatibility）”而存在的累赘代码，轻装上阵直奔 V3 终态。
+- 状态落盘：工作区写入 `.sros/gateway.pid`（JSON），包含 `pid` / `port` / `started_at`
+- `sros status`：能判断端口占用者归属
+  - 若 PID 文件存在且进程仍存活：显示 `RUNNING (Owned by this workspace)`
+  - 若 PID 文件存在但进程已不存在：自动清理 PID 文件（Zombie 修复）
+  - 若 PID 文件不存在但端口被占用：显示占用进程信息（尽力而为：name/pid）
+- `sros start`：防呆 + 自适应
+  - 同一工作区已运行：直接提示并退出（不再二次启动）
+  - 端口被外部进程占用：提示占用者 + 给出 `--auto-port` / `-p` 建议
+- 新命令：`sros stop` / `sros restart`
+  - `stop`：按 PID 文件优雅退出（SIGTERM）→ 超时后强杀（SIGKILL），并清理 PID 文件
+  - `restart`：组合 stop + start，便于 Agent 重置环境
 
-4.1 核心清理计划（大砍刀）
+验收标准（自动化 / 可回归）：
 
-废弃旧版数据库迁移脚本 (Drop Schema Migrations)：
+- 在临时工作区写入“存活 PID”的 `.sros/gateway.pid` 后，`sros start -w <ws>` 不会再次启动，并明确提示“已在本工作区运行”
+- `.sros/gateway.pid` 指向不存在的 PID 时，`sros status`/`sros stop` 会清理 PID 文件
+- `sros stop` 能终止一个由测试进程启动的“可控子进程”（用于验证 kill 逻辑）
+- `sros status` 在端口被占用时能尽力输出占用者信息（至少区分：本工作区 / 外部进程 / 未知）
 
-立即移除 V2.3.2 中所有的 Zotero schema migration (如 ALTER TABLE 自愈逻辑)。
+实现策略（保持最小入侵）：
 
-V3 策略：直接用一套干净的 DDL 初始化全新异构图谱。如果检测到旧的 .sros/graph.db，直接在 sros init 时报错并要求用户删除重建（因为目前并没有包含重要数据的旧工作区）。这能砍掉大量复杂的数据库防御性编程代码。
+- 依赖：引入 `psutil`（端口占用者识别 & 更稳的进程管理）
+- Gateway：在 FastAPI `startup` 时写 PID 文件，在 `shutdown` 时清理（best-effort，不影响启动/关闭）
+- CLI：把“端口占用诊断 + PID 文件归属判断 + stop/restart”封装到可测试的 utils
 
-废弃历史通信协议兼容 (Drop Legacy APIs)：
+TDD 建议（先写测试再补实现）：
 
-移除为了早期客户端存在的非标准 API（例如 POST /sse 等兼容路由）。
+- 新增：`tests/unit/test_v3_gateway_process_governance.py`
+  - `test_start_refuses_when_workspace_pid_alive`
+  - `test_stop_cleans_zombie_pid_file`
+  - `test_stop_terminates_spawned_process`
+  - `test_status_cleans_zombie_pid_file`
 
-V3 策略：Gateway 只提供符合最新规范的极简接口（或完全让位给 CLI），不再维护历史包袱。
+开发者模式（可选，后置）：
 
-删减硬编码的 Reasoning 代码 (Drop Hardcoded Logic)：
+- `sros start --reload`：开发时监听 `.sros/plugins/` 变更并热重启（需要 Uvicorn reload/watchfiles 支持；建议作为 `dev`/`extra` 能力单独开关）
 
-清理掉任何试图用 Python 编写的“自动规划流”代码（例如自己写的 Co-STORM 循环体、死板的 Gap 填补控制流）。
+实现入口（读代码从这里开始）：
 
-V3 策略：将这些复杂的流转全部剥离出 Python 代码，转而用自然语言编写成 .clauderc 提示词，交给外部的通用大脑（Claude/OpenClaw）去动态规划。
+- `src/sros/gateway/main.py`：SSE Hub、动态 `tools/list` 聚合、通知广播
+- `src/sros/skills/rpc.py`：`tools/call` 分发（静态工具 + 动态插件 + tasks）
+- `src/sros/utils/plugin_loader.py`：插件发现、元数据/Schema 解析
+- `src/sros/utils/task_manager.py`：后台任务生命周期（start/get/list + 完成回调）
+- `src/sros/servers/tasks/handler.py`：`tasks.*` RPC handler
+- `src/sros/cli.py`：`sros start/status/stop/restart` CLI 入口
 
-4.2 底层资产的“摘樱桃”式重用 (Cherry-picking the Good Parts)
+### Iteration H：CLI Compatibility / Agent UX Hardening（降低“报错即逃逸”概率）
 
-虽然是破坏性重构，但并非推倒重来。我们要将 V2 中经过验证的纯粹算法“摘樱桃”般提取出来：
+动机：真实 Agent 执行里，最常见的失败不是能力缺失，而是 **命令/参数/target 名称不匹配**（例如把 `outline` 误写成 `get-outline-tree`、把 `sha256` 误写成 `get-file-sha256`、使用不存在的 `--position`、使用 `section:end` 作为插入目标）。这些“小摩擦”会显著提高 Agent 绕过 `sros-skill` 直接跑原生命令的概率，从而让图谱/溯源链路断裂。
 
-提取核心 Domain Logic：
-把稳定可用的算法（如 Markdown AST 的定向解析与无损插入、OpenAlex API 的请求与降级封装）从原本的 src/sros/servers/* 目录中抽离。
+交付物（最小兼容层，保持主语义不变）：
 
-重组到 core 目录：
-把它们放到 src/sros/core/ 下，变成无状态的纯函数，完全独立于任何 Web 或 MCP 框架。
+- 命令别名：
+  - `sros-skill manuscript get-outline-tree` → 等价于 `outline`
+  - `sros-skill manuscript get-file-sha256` → 等价于 `sha256`
+- 插入兼容：
+  - `--target section:end` / `section:append` 被识别为 `end`
+  - `manuscript insert --position ...` 被接受但忽略（避免 hard fail）
 
-套上 Typer CLI 外壳：
-在 src/sros/cli/skills/ 目录下，用 Typer 将上述 core 函数包装为 sros-skill 命令行，作为新系统唯一的核心接驳点。
+验收标准（自动化 / 可回归）：
 
-5. 关键里程碑验收标准 (Milestones)
+- 兼容别名命令在 `--raw` 模式下输出结构化 JSON 并 exit code = 0
+- `manuscript insert --target section:end` 能成功追加写入
+- `manuscript insert --position after ...` 不会因参数解析失败而退出
 
-V3.0-Alpha (Skill-Driven Only)：完成 Phase 1 核心重构与清理。验收：旧的兼容代码全部移除。完全通过终端的 sros-skill 命令与 Claude Code 配合，走通“检索->写入”闭环。
+测试入口：
 
-V3.0-Beta (Data-Aware OS)：完成 Phase 2 部分。验收：Agent 能够读取 data/ 下的 CSV，编写并执行一个 Python 脚本生成图表，将图表路径插入 draft.md，并在全新的 DuckDB 中能查到这条数据溯源链路。
+```bash
+pytest -q tests/unit/test_v3_skills_cli_compatibility.py
+```
 
-V3.0-GA (The AI4S Ecosystem)：完成 Phase 3 核心框架。验收：发布一套完善的 Plugin 开发文档。展示如何用 50 行 Python 代码将一个复杂的外部生信模型包装成 sros-skill，并被 OpenClaw 动态加载和调用。
+## 6. MVP 端到端验收清单（本地可直接照做）
 
+> 说明：`--raw` 是 `sros-skill` 的根选项，必须放在子命令前。
 
-5.1 当前实现状态（2026-03-17，v3.0-main）
+1) 初始化工作区
 
-已完成：
+```bash
+sros init <proj> --target both
+```
 
-- `sros-skill` 已落地（支持 `--raw`），覆盖 manuscript/scholar/memory 的 MVP 工具。
-- Gateway 已“变薄”：`tools/call` 不直接持有业务 Handler；统一反射到 skills 层的 RPC 派发（映射集中在 skills 模块），Gateway 只负责协议/路由。
-- 已有自动化端到端验收：gap → search(mock) → insert → draft.md 更新（Golden Thread）。
-- Repo 已完成大规模去噪：V2 文档/spec/旧 mcp_servers 已归档，不再干扰主线。
-- Slice 0：升级 `sros init` 直接生成 V3 workspace 规范（`data/raw`、`data/processed`、`figures`、`scripts`）并生成 `openclaw.yaml`。已通过 TDD 实现并测试通过。
-- Slice 2：数据闭环（Data Loop）已落地：
-        - `sros-skill --raw data preview --file <csv>`：CSV 摘要（行列数/列名/类型/样本行/空值统计）。
-        - `SROS_WORKSPACE_DIR=<proj> sros-skill --raw data run-script --script <py>`：执行脚本，检测 `figures/` 新增文件并写入 DuckDB 图谱。
-        - DuckDB 图谱已记录最小溯源链：`[Script] -GENERATES-> [Figure]`（节点类型 Script/Figure）。
+2) 准备数据（放入任意 CSV）
 
-待完成（下一步）：
+```bash
+cd <proj>
+cp <your.csv> data/raw/sample_data.csv
+```
 
-- Slice 2（增强项）：补齐更强的异构溯源链
-  - Dataset 节点与 `ANALYZES` 边：`[Script] -ANALYZES-> [Dataset]`（通过约定或显式参数声明输入数据）。
-  - Figure -> Draft/Section 的引用关系（用于回答“这张图出现在论文哪里？”）。
-- Slice 3：插件系统与生态化（Plugin Loader / Packs / Event Hooks）
-  - `.sros/plugins/` 动态加载：将用户脚本注册为新的 `sros-skill`。
-  - 长耗时任务事件回调（Webhook/通知）：脚本执行完成后唤醒 Agent 继续写作。
+3) 预览数据（机器可读 JSON）
 
-下一步计划（可进行 MVP 测试的验收清单）：
+```bash
+sros-skill --raw data preview --file data/raw/sample_data.csv
+```
 
-1) 初始化工作区：`sros init <proj> --target both`
-2) 准备数据：在 `data/raw/` 放入一个 CSV（例如 `sample_data.csv`）
-3) 预览数据：`sros-skill --raw data preview --file data/raw/sample_data.csv`
-4) 运行脚本：在 `scripts/` 放入脚本（输出图表到 `figures/`），并运行：
-   - `SROS_WORKSPACE_DIR=<proj> sros-skill --raw data run-script --script scripts/plot.py`
-5) 校验产物：
-   - `figures/` 下出现新图表文件
-   - `.sros/graph.db` 中 `nodes/edges` 增量写入（至少包含 Script/Figure 与 GENERATES）
-6) 写回草稿：在 `draft.md` 引用图表路径：`![...](figures/<file>)`（IDE Markdown 预览应可见）
+4) 运行脚本（脚本需把图输出到 `figures/`）
 
-下一步开发节奏（TDD）：
+```bash
+SROS_WORKSPACE_DIR="$PWD" sros-skill --raw data run-script --script scripts/plot.py --dataset data/raw/sample_data.csv
+```
 
-- 先为 Dataset/ANALYZES 与 Figure->Draft 引用链补测试，再落实现有最小闭环的增强项。
+5) 校验产物
 
-6. 总结
+- `figures/` 下出现新图表文件
+- `.sros/graph.db` 的 `nodes/edges` 有增量写入（至少包含 Script/Figure 与 GENERATES）
 
-未来的科研软件不会是堆砌无数按钮的图形界面（那是上个时代的 GraphMRI）。
+6) 写回草稿（IDE 预览应可见）
 
-未来的科研软件将是一个个高度标准化的命令行原子技能。大模型是极其出色的“命令行乐手”，而 SROS V3.0 就是那个提供全套乐器、标准乐谱格式、以及超级录音棚的操作系统。利用好“零历史包袱”的红利期进行果断重构，我们将以极低的工程成本，为未来的 AI4S 大爆发奠定最坚实的基建底座。
+```markdown
+![my figure](figures/<file>)
+```
 
+7) 可选：把“图表在草稿中的位置”写回图谱（支持追问）
 
-附录 A：端到端 MVP 与“可视化界面”需求深度分析（并入 V3.0 单一事实来源）
+```bash
+SROS_WORKSPACE_DIR="$PWD" sros-skill --raw manuscript index-figures --file draft.md
+```
 
-> 说明：本附录来自项目内部对“端到端 MVP/可视化工作流为何能加速迭代”的系统性分析。
-> V3.0 的落地策略以此为约束：不做传统 Web GUI，但必须构建 IDE-as-UI + CLI Skills + 极简 MCP 壳的端到端飞轮。
+8) 可选：Slice 3（插件 + 长任务通知）
 
-### 1. 为什么“端到端 MVP/可视化界面”能极大加速迭代？
+```bash
+# 先放一个插件到工作区
+mkdir -p .sros/plugins
+cat > .sros/plugins/hello.py << 'EOF'
+SKILL_NAME = "Hello"
+SKILL_DESCRIPTION = "Return a greeting"
 
-在产品早期，拥有一个能让人（或 AI）完整走通主流程的东西，会产生强大的“飞轮效应”：
+def run(args: dict): return {"greeting": f"hello {args.get('name', 'world')}"}
+EOF
 
-- 暴露“全局系统性”缺陷，而非“局部逻辑”错误：
-        - 开发单个 Python 函数（例如爬取论文）很容易完美，但这只是局部最优。
-        - 当把“Gap检测 -> 检索 -> 写回”串联成端到端 MVP 时，你才会发现真正的痛点：比如检索返回的 JSON 太大导致大模型 Token 爆掉，或者写回时破坏了 Markdown 的原有排版。只有端到端，才能暴露出接口衔接处的摩擦力。
+# 启动 Gateway（MCP SSE Hub）
+sros start -w . -p 8000
 
-- 极速缩短反馈飞轮 (Feedback Loop)：
-        - 如果没有界面或自动化流程，测试一次功能需要手动拼凑 JSON、用 Postman 发请求、看终端日志。这会让开发者产生畏难情绪。
-        - 如果有一个可视化界面（或一行简单的终端命令能跑通全流程），开发者每天可以高频测试 50 次，迭代速度自然起飞。
+# （本地直连 CLI）调用插件
+SROS_WORKSPACE_DIR="$PWD" sros-skill --raw plugins run --name hello --args-json '{"name":"sros"}'
 
-- “体感（Empathy）”与“顿悟时刻（Aha Moment）”：
-        - 可视化界面能让人直观看到产品的价值。当你在界面上点一个按钮，看到结果瞬间生成，这种“体感”会极大地激励开发者，并能迅速向利益相关者证明产品可行性。
+# （推荐）一键回归：验证 gateway tools/list 动态包含 plugin.<id>，并验证任务完成通知
+pytest -q tests/integration/test_v3_slice3_plugins_and_tasks_gateway.py
+```
 
-### 2. 核心拷问：SROS 还需要传统的“可视化界面 (GUI)”吗？
+9) 可选：全量回归（准备提测/发版前）
 
-结论：坚决不需要传统的 Web GUI（如 GraphMRI 那样的网页表单），但极度需要一个“面向 AI 与开发者的端到端可视化工作流”。
+```bash
+pytest -q
+```
 
-在《SROS V3.0 战略规划》中，我们已经将 SROS 定义为 “Headless Lab（无头实验室）”。如果我们花一个月去写一个 React 或 Vue 的前端面板，那就是战略上的倒退，原因如下：
+---
 
-- 目标用户变了：SROS 的主要使用者不再是“只会点鼠标的人类”，而是 Claude Code、OpenClaw 等 AI Agent。AI 不需要好看的 CSS 按钮，AI 需要的是标准化的 CLI 输入输出、无损的机器可读日志。
-- GUI 是束缚：GUI 意味着你要预设所有的交互路径。这与 AI Agent “自由组合技能、动态规划”的理念背道而驰。
+## 6.1 Slice 3（MVP）验收：回归入口（已覆盖）
 
-### 3. 那么，SROS 的“可视化与端到端 MVP”到底长什么样？
+目标：确保“插件动态工具 + 长任务 + 完成通知”在 Gateway 形态下可稳定回归。
 
-既然不写传统的 Web 界面，SROS 如何获得“加速迭代”的红利？答案是：将现成的顶级工具（IDE + 通用 Agent）作为 SROS 的“可视化界面和交互外壳”。
+```bash
+pytest -q tests/integration/test_v3_slice3_plugins_and_tasks_gateway.py
+```
 
-SROS V3 的端到端 MVP 应该是由以下三个组件拼合而成的“新型界面”：
+## 6.2 Slice 3（GA）验收：必须补强的发布门槛（建议逐条落测试）
 
-#### 视角一：人类研究员的“可视化界面” (VS Code + 物理文件)
+说明：以下是 **GA 发布门槛**。其中部分能力当前仍处于“建议/待实现”，这里先把验收标准固化，避免后续口径漂移。
 
-SROS 不需要自己画 UI，用户的编辑器（VS Code / Cursor）就是最完美的 UI。
+1) 稳定错误语义（CLI 与 Gateway 一致）
 
-- 界面体验：左边分屏是项目目录（看到 data/, figures/ 自动生成），中间分屏是实时预览的 draft.md，右边分屏是终端（运行 Claude Code）。
-- 体感：当人类在终端输入一句话，中间的 draft.md 就像有幽灵打字机一样自动长出新的章节和图片。这就是极致的可视化反馈。
+- 插件异常 / 参数不合法 / 插件缺失等错误，返回统一 envelope：`{ok:false,error:{code,message,details}}`
+- `tools/call` 与 `sros-skill --raw` 的错误字段一致（至少 code/message 可对齐）
 
-#### 视角二：AI Agent 的“UI 界面” (CLI Skills + 标准输出)
+建议测试：新增 `tests/integration/test_v3_slice3_error_envelope.py`
 
-对于 Claude Code 来说，`sros-skill` 命令行就是它的 UI 按钮。
+2) 插件命名与发现边界
 
-SROS 的 MVP 必须保证 `sros-skill` 足够“好按”（参数极简，支持 `--raw`，报错信息是自然语言建议而不是 Python 堆栈崩溃，引导 AI 自我纠正）。
+- 插件 id 只允许 `[a-z0-9_\-]`；不合法文件名不会被暴露为 tool
+- 插件目录缺失/为空/包含坏文件时：Gateway 仍可启动，核心工具仍可用
 
-### 4. 落地建议：构建基于 Claude Code 的“黄金主线 (Golden Thread)”
+建议测试：新增 `tests/integration/test_v3_slice3_plugin_discovery_edge_cases.py`
 
-为了达到“通过端到端使用起来快速迭代”的效果，SROS V3 的开发不应该按照模块（先写完所有爬虫，再写所有数据库）来开发，而必须垂直切片，贯穿一条“黄金主线”。
+3) 事件路由（避免全量广播）
 
-建议的 MVP 研发与迭代路径：
+- `sros.task.completed` 至少支持按 `session_id` 隔离（同一进程多会话互不干扰）
 
-#### 第一周：不写任何复杂计算，只求“走通”
+建议测试：扩展现有用例，覆盖“双 session 并发 + 只收自己的通知”
 
-- 构建一个极其简陋的 `sros-skill search`（哪怕后端写死只返回 3 篇固定的 mock 论文）。
-- 构建一个简陋的 `sros-skill insert-markdown`。
-- 关键动作：立刻使用 Claude Code，给它一句 Prompt：“帮我查 3 篇论文，插入到 draft.md 的前言中。”
-- 迭代红利：在这一步，你立刻就会发现 Claude Code 是否能正确组合这两个命令，是否会搞错文件路径。你所有的优化精力都会集中在“如何让 Claude Code 用得更爽”上。
+4) 资源治理（避免拖垮进程）
 
-#### 第二周：引入数据生成闭环
+- 支持超时/取消（最小可用：取消后状态可见且不会继续执行）
+- 并发上限可配置（默认值要安全）
 
-- 开发 `sros-skill run-script` 和 SROS 目录下的 `figures/` 监听机制。
-- 放入一个极其简单的 Python 画图脚本（比如画一个 2D 散点图，假装是复杂的脑影像处理）。
-- 关键动作：让 Claude Code 运行该脚本，并将生成的 `plot.png` 用 Markdown 语法写入 draft.md。
-- 迭代红利：你会发现相对路径在 Markdown 里怎么写才不会裂图，从而倒逼你去完善 SROS 的 Workspace 路径管理规范。
+建议测试：新增 `tests/integration/test_v3_slice3_task_limits.py`
 
-#### 第三周：真实能力替换 (Make it Real)
+5) 任务状态持久化（推荐，允许延后但需明确策略）
 
-当上述的 Claude Code 端到端交互（找 gap -> 跑命令 -> 看到草稿更新）完全顺滑后，再把 mock 的搜索换成真正的 OpenAlex，把简陋的画图脚本换成真实的 GraphMRI / 脑网络提取逻辑。
+- 进程崩溃后仍可追溯：至少能查到 `task_id` 的最终状态/错误摘要（jsonl 或 DuckDB 表）
 
-### 5. 总结
+建议测试：新增 `tests/integration/test_v3_slice3_task_persistence.py`
 
-“跑通端到端 MVP”是让项目活下来的唯一法则。
+## 7. 参考文档（把“长文分析”留在外部，保持本文可读）
 
-但请务必克制住“写一个前端网页”的冲动。在 AI4S 时代，Claude Code 的终端窗口就是你的超级对话框，VS Code 的 Markdown 预览就是你的前端画布。把 SROS 打造成能在这些现成工具里丝滑流转的 CLI 组件库，才能以最少的代码量获得最快的产品迭代速度。
+- V3.0-Beta 端到端测试与操作指南：
+  - [SROS V3.0-Beta 进展分析与端到端测试指南.md](SROS%20V3.0-Beta%20进展分析与端到端测试指南.md)
+- 更细的架构/目录/迁移计划见 `plans/` 与 `doc/` 下对应文档（本文只保留可执行路线图）。
 

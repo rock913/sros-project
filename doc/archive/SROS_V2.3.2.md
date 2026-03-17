@@ -121,7 +121,7 @@ dependencies = [
 	"mcp>=1.0.0",
 	"starlette",
 	"uvicorn",
-	"typer[all]",
+	"typer",
 	"rich",
 	"duckdb",
 	"pandas",
