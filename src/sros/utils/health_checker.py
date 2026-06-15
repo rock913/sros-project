@@ -1,5 +1,6 @@
 """健康检查工具"""
 
+import json
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -113,6 +114,146 @@ class HealthChecker:
             report["database_integrity"] = {
                 "status": "unhealthy",
                 "details": str(e)
+            }
+
+        # ── ARC Code-Wiki 集成诊断 ──────────────────────────────────────────
+
+        # arc_wiki.json 存在性与有效性
+        try:
+            wiki_json_path = workspace_dir / "arc_wiki.json"
+            if wiki_json_path.exists():
+                try:
+                    data = json.loads(wiki_json_path.read_text(encoding="utf-8"))
+                    required_keys = ["project_name", "raw_dir", "wiki_dir"]
+                    missing_keys = [k for k in required_keys if k not in data]
+                    if missing_keys:
+                        report["arc_wiki_json"] = {
+                            "status": "unhealthy",
+                            "details": f"Missing required keys: {missing_keys}",
+                        }
+                    else:
+                        report["arc_wiki_json"] = {
+                            "status": "healthy",
+                            "details": f"Valid (project={data.get('project_name')})",
+                        }
+                except (json.JSONDecodeError, ValueError) as e:
+                    report["arc_wiki_json"] = {
+                        "status": "unhealthy",
+                        "details": f"Invalid JSON: {e}",
+                    }
+            else:
+                report["arc_wiki_json"] = {
+                    "status": "warning",
+                    "details": "arc_wiki.json not found in workspace",
+                }
+        except Exception as e:
+            report["arc_wiki_json"] = {
+                "status": "unhealthy",
+                "details": str(e),
+            }
+
+        # docs/code_schema.md 存在性
+        try:
+            schema_path = workspace_dir / "docs" / "code_schema.md"
+            if schema_path.exists():
+                report["code_schema_md"] = {
+                    "status": "healthy",
+                    "details": f"Found ({schema_path.stat().st_size} bytes)",
+                }
+            else:
+                report["code_schema_md"] = {
+                    "status": "warning",
+                    "details": "docs/code_schema.md not found",
+                }
+        except Exception as e:
+            report["code_schema_md"] = {
+                "status": "unhealthy",
+                "details": str(e),
+            }
+
+        # claw-code-ingest CLI 可用性
+        try:
+            import shutil
+
+            ingest_path = shutil.which("claw-code-ingest")
+            if not ingest_path:
+                # Also check common user-local install location
+                local_bin = Path.home() / ".local" / "bin" / "claw-code-ingest"
+                if local_bin.exists():
+                    ingest_path = str(local_bin)
+            if ingest_path:
+                report["claw_code_ingest"] = {
+                    "status": "healthy",
+                    "details": f"Found at {ingest_path}",
+                }
+            else:
+                report["claw_code_ingest"] = {
+                    "status": "warning",
+                    "details": "claw-code-ingest not on PATH. Install: pip install -e ../ARC-Engine",
+                }
+        except Exception as e:
+            report["claw_code_ingest"] = {
+                "status": "unhealthy",
+                "details": str(e),
+            }
+
+        # docs/code_wiki/ 目录存在性与新鲜度
+        try:
+            wiki_dir = workspace_dir / "docs" / "code_wiki"
+            if wiki_dir.is_dir():
+                wiki_files = list(wiki_dir.rglob("*"))
+                file_count = sum(1 for f in wiki_files if f.is_file())
+                if file_count > 0:
+                    # Freshness check: compare newest .py in src/sros vs newest in wiki
+                    src_dir = workspace_dir / "src" / "sros"
+                    if src_dir.is_dir():
+                        try:
+                            import os as _os
+                            newest_src = max(
+                                (p.stat().st_mtime for p in src_dir.rglob("*.py") if p.is_file()),
+                                default=0,
+                            )
+                            newest_wiki = max(
+                                (p.stat().st_mtime for p in wiki_files if p.is_file()),
+                                default=0,
+                            )
+                            if newest_src > newest_wiki:
+                                report["code_wiki_dir"] = {
+                                    "status": "warning",
+                                    "details": (
+                                        f"Stale: {file_count} files. "
+                                        "Source code is newer than Code-Wiki. Run: make update-wiki"
+                                    ),
+                                }
+                            else:
+                                report["code_wiki_dir"] = {
+                                    "status": "healthy",
+                                    "details": f"Up-to-date ({file_count} files)",
+                                }
+                        except Exception:
+                            report["code_wiki_dir"] = {
+                                "status": "healthy",
+                                "details": f"Present ({file_count} files)",
+                            }
+                    else:
+                        report["code_wiki_dir"] = {
+                            "status": "healthy",
+                            "details": f"Present ({file_count} files)",
+                        }
+                else:
+                    report["code_wiki_dir"] = {
+                        "status": "warning",
+                        "details": "docs/code_wiki/ is empty. Run: make update-wiki",
+                    }
+            else:
+                report["code_wiki_dir"] = {
+                    "status": "warning",
+                    "details": "docs/code_wiki/ not found. Run: make update-wiki",
+                }
+        except Exception as e:
+            report["code_wiki_dir"] = {
+                "status": "unhealthy",
+                "details": str(e),
             }
 
         # Scholar/OpenAlex 配置检查（不触发网络）

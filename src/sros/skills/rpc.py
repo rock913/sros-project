@@ -284,11 +284,151 @@ def dispatch_tool(name: str, args: Dict[str, Any]) -> Any:
             raise ValueError("Missing required arg: query")
         return MemoryHandler().query_knowledge(query=str(args["query"]), limit=int(args.get("limit", 10)))
 
+    if name in {"db.ingest", "db.ingest_data"}:
+        from sros.servers.db.handler import DBHandler
+
+        source = str(args.get("source") or "")
+        if not source:
+            raise ValueError("Missing required arg: source")
+        handler = DBHandler(str(args.get("db_path", "sxmu.duckdb")))
+        try:
+            return handler.ingest(
+                source_dir=source,
+                bids_dir=args.get("bids_dir"),
+                participants=args.get("participants"),
+                clinical=args.get("clinical"),
+                schema_path=args.get("schema"),
+            )
+        finally:
+            handler.close()
+
+    if name in {"db.query", "db.query_data"}:
+        from sros.servers.db.handler import DBHandler
+
+        sql = str(args.get("sql") or "").strip()
+        if not sql:
+            raise ValueError("Missing required arg: sql")
+        handler = DBHandler(str(args.get("db_path", "sxmu.duckdb")))
+        try:
+            return handler.query(
+                sql=sql,
+                params=args.get("params"),
+                limit=int(args.get("limit", 100)),
+                offset=int(args.get("offset", 0)),
+            )
+        finally:
+            handler.close()
+
+    if name in {"hpc.submit", "hpc.submit_job"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        script = str(args.get("script_path") or args.get("script") or "")
+        if not script:
+            raise ValueError("Missing required arg: script_path")
+        handler = HPCHandler(dry_run=bool(args.get("dry_run", False)))
+        return handler.submit(
+            script_path=script,
+            array_size=args.get("array_size"),
+        )
+
+    if name in {"hpc.status", "hpc.job_status"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        job_id = str(args.get("job_id") or "")
+        if not job_id:
+            raise ValueError("Missing required arg: job_id")
+        handler = HPCHandler(dry_run=bool(args.get("dry_run", False)))
+        return handler.status(job_id=job_id)
+
+    if name in {"hpc.cancel", "hpc.cancel_job"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        job_id = str(args.get("job_id") or "")
+        if not job_id:
+            raise ValueError("Missing required arg: job_id")
+        handler = HPCHandler(dry_run=bool(args.get("dry_run", False)))
+        return handler.cancel(job_id=job_id)
+
+    if name in {"hpc.list", "hpc.list_jobs"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        handler = HPCHandler(dry_run=bool(args.get("dry_run", False)))
+        return handler.list_jobs(user=args.get("user"))
+
+    if name in {"hpc.logs", "hpc.job_logs"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        job_id = str(args.get("job_id") or "")
+        if not job_id:
+            raise ValueError("Missing required arg: job_id")
+        handler = HPCHandler()
+        return handler.logs(job_id=job_id, log_dir=str(args.get("log_dir", ".")))
+
+    if name in {"hpc.generate", "hpc.generate_job"}:
+        from sros.servers.hpc.handler import HPCHandler
+
+        template = str(args.get("template") or args.get("template_path") or "")
+        subject = str(args.get("subject") or args.get("subject_id") or "")
+        if not template or not subject:
+            raise ValueError("Missing required args: template, subject")
+        handler = HPCHandler(dry_run=True)
+        return handler.generate_job_script(
+            template_path=template,
+            subject_id=subject,
+            output_dir=str(args.get("output_dir", ".")),
+            substitutions=args.get("substitutions"),
+        )
+
     if name == "memory.get_citation_map":
         from sros.servers.memory.handler import MemoryHandler
 
         if "section_id" not in args:
             raise ValueError("Missing required arg: section_id")
         return MemoryHandler().get_citation_map(section_id=str(args["section_id"]))
+
+    if name in {"neuro.validate", "neuro.validate_bids"}:
+        from sros.servers.neuro.handler import NeuroHandler
+
+        bids_dir = str(args.get("bids_dir") or args.get("bids-dir") or "")
+        if not bids_dir:
+            raise ValueError("Missing required arg: bids_dir")
+        return NeuroHandler().validate_bids(bids_dir, use_validator=bool(args.get("use_validator", False)))
+
+    if name in {"neuro.generate_graphmri", "neuro.generate-graphmri"}:
+        from sros.servers.neuro.handler import NeuroHandler
+
+        subject = str(args.get("subject_id") or args.get("subject") or "")
+        bids_dir = str(args.get("bids_dir") or args.get("bids-dir") or "")
+        output_dir = str(args.get("output_dir") or args.get("output-dir") or "")
+        if not all([subject, bids_dir, output_dir]):
+            raise ValueError("Missing required args: subject_id, bids_dir, output_dir")
+        config = args.get("config")
+        matrices = args.get("connectivity_matrices") or args.get("matrices")
+        return NeuroHandler().generate_graphmri_script(
+            subject_id=subject,
+            bids_dir=bids_dir,
+            output_dir=output_dir,
+            config=config,
+            connectivity_matrices=matrices,
+        )
+
+    if name in {"neuro.generate_fmriprep", "neuro.generate-fmriprep"}:
+        from sros.servers.neuro.handler import NeuroHandler
+
+        subject_ids = list(args.get("subject_ids") or args.get("subjects") or [])
+        if not subject_ids:
+            raise ValueError("Missing required arg: subject_ids")
+        bids_dir = str(args.get("bids_dir") or args.get("bids-dir") or "")
+        output_dir = str(args.get("output_dir") or args.get("output-dir") or "")
+        if not bids_dir or not output_dir:
+            raise ValueError("Missing required args: bids_dir, output_dir")
+        return NeuroHandler().generate_fmriprep_batch(
+            subject_ids=[str(s) for s in subject_ids],
+            bids_dir=bids_dir,
+            output_dir=output_dir,
+            work_dir=args.get("work_dir"),
+            fs_license=args.get("fs_license"),
+            template=args.get("template"),
+        )
 
     raise NotImplementedError(f"Tool not implemented: {name}")

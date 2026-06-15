@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "raw": {
+    "src/sros/__init__.py": {
+      "sha256": "4735002f3129ea21e61f9250260b1af017506c95d2b75a308fcc64f163c56435",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/cli.py": {
+      "sha256": "2ebd5d5af4fe609294fe9a24044ea8e55e9ec596241d4089991c22ae5ae2a0fe",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/ports/__init__.py": {
+      "sha256": "0e025f01a470affbb9130cc37062904caed58ffbbd191a6d2ba5d3c85eefd02d",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/ports/manuscript_protocol.py": {
+      "sha256": "968d73b516e710607139a38a35a199dc889088a71fc2199b6d49959f1de8ed0f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/ports/memory_protocol.py": {
+      "sha256": "593b41509a8c2dc0f5bae14a8ce02a57f33d3066baf5fe5c360d8f188b5c6001",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/ports/scholar_protocol.py": {
+      "sha256": "70ffff23687a20175e37fd6fb86542b8f13295a883f72c6f7053dd3181c663a2",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/ports/zotero_protocol.py": {
+      "sha256": "06fec0204eae880f28cf996d702e9921f9692cdd1273c6d4f8995da6c172566f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/schemas/__init__.py": {
+      "sha256": "fdb9ff157f640635a5d6d32ff69f8f3afa5a7cfbca68cab5333fe94adc4aa531",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/schemas/manuscript_models.py": {
+      "sha256": "5485dffca1921585f2cc77acf950310396bb362f84d922d0ee586448572fb783",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/schemas/memory_models.py": {
+      "sha256": "e7da64ac983c58ef00120e6dc102c60184c73df924442485c6e589c65f323c3b",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/schemas/scholar_models.py": {
+      "sha256": "265e76fd100fe120626f7c4ebc41746b799c1515e4d77c71ecf519859eaf2eac",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/domain/schemas/zotero_models.py": {
+      "sha256": "88348befd7dfb4cb94436cbbbbed01c176bba9d4bed4d507378dc5525fec4aca",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/gateway/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/gateway/config.py": {
+      "sha256": "e11ac7484b8445224d42ba0bae3910cfe343a660b4b05f9e68774aefdc60af59",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/gateway/main.py": {
+      "sha256": "36f83b3b8f2b5cee9522f09b7919203b4d307ca2a1fa4ce12e3a0757fa427b5f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/gateway/skill_reflector.py": {
+      "sha256": "c9c8f91ea41d4501087e1035c7e02e9d3a345bbf8cba76dbe6a2f883868b3caf",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/gateway/sse_handler.py": {
+      "sha256": "6b62ff157997bff4902852ad43d37082ee19e36d9431c23fce58b384a62dec17",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/data/handler.py": {
+      "sha256": "b800dc6b4d42b8188dda12ab0e6ed0ac51f99aeea401fd40acfc7cb7ff104edd",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/db/__init__.py": {
+      "sha256": "59fe2b808e6c473ce806a92127c9b3f6f3d6ef5192424b596db6b8aedc3ba789",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/db/handler.py": {
+      "sha256": "632884d87b1780df553b61d99978d8eb34f6c4b24a97a786cf858e77d4027939",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/ext/handler.py": {
+      "sha256": "639c420f7cd97aa1b9d53c13de8c5e9a2845011f788680247280aa528e679e64",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/hpc/__init__.py": {
+      "sha256": "f033fb1487aff1cb57a416fd94779351efefadad0cd907ba2a171824ae022dfd",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/hpc/handler.py": {
+      "sha256": "a767c478e0c9ff8ad63287bf5db1a4f9db6bad007332782f75dc37188a92be1e",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/manuscript/__init__.py": {
+      "sha256": "4dfe5e4374512528bc0cc741214fd1705396415ac809411752a81f3e615f8a75",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/manuscript/handler.py": {
+      "sha256": "4c76ed4d7b678bf037f923e40079794518adb2338ef8fb0c6ab6334f58ee8bb7",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/manuscript/server.py": {
+      "sha256": "87951e66f5a9e4f987a4e7c02165b5367dd3a3ce013420162696dac4c868f568",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/memory/__init__.py": {
+      "sha256": "8e24567e6554420cb077119f980dad52305a28cbf0a2ad4e4fca0d96fa93c01e",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/memory/handler.py": {
+      "sha256": "efa18b4af233b9dc7912f1097478c87b8ea02e89dcb6ca7e19b018f8155c8021",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/memory/server.py": {
+      "sha256": "cbb0e5f1330a1a8a0653ab171e0341d1511b6e427d2615433f6cff94f29b1fd7",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/rag/handler.py": {
+      "sha256": "2a8a4493a56978ef52e2a0d2d1ac47e8b278c946db99f8ede5923fe98887dddd",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/scholar/__init__.py": {
+      "sha256": "7e89db443545502d7417b32f6722185410e7178d354a20109d302ac750010b02",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/scholar/federated/__init__.py": {
+      "sha256": "82713241ebdc76d48e61ac92a81352993420c07b769d1263ed7a513a8ae833d6",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/scholar/federated/openalex_backend.py": {
+      "sha256": "8423edc0243fc20b2e4f6a661372a258cb6f809d55c4008fe79a246d5793f8c3",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/scholar/handler.py": {
+      "sha256": "cd11ce1a7a48316557fc9ef3ff068816152dd98c48fbd5a19de3f8ebd3987ac8",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/scholar/server.py": {
+      "sha256": "71c3739f754a2f688b77fe28bca5444a788023e51c31fa22428a8b58673061f8",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/tasks/__init__.py": {
+      "sha256": "5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/tasks/handler.py": {
+      "sha256": "72dd2f7ef482059686aeb6efd6d2f05c1f1d4a1488871b1f248ce40f68e6b616",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/zotero/__init__.py": {
+      "sha256": "a1297bd88990db87efcfd2ca316d2f7fae1bfa66b45530418b47204efe744ace",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/zotero/handler.py": {
+      "sha256": "2bb3e69630d90beebc3c566e6883d99ca0460162d7060b4edf31c7d159ede969",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/servers/zotero/server.py": {
+      "sha256": "dbc2934bd418287d248bb038004d27c01a11b4edef1088c06fb7abe6347c7dcb",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/skills/__init__.py": {
+      "sha256": "c843e771224cf5db16b92fb2f0ad417aa3d97672bacd432aa139ca54d7408f13",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/skills/__main__.py": {
+      "sha256": "78a0aa8e7f43bc11367d7afda7353291d90423dc7c26697a7f7977872893879f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/skills/cli.py": {
+      "sha256": "c42a6f578527752864cdc9755d65b68b39a245c6a225b01267f0db86b8283e73",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/skills/rpc.py": {
+      "sha256": "0b57abe60789a4d3810fd0e06676e6c3b673f5bd91982f5e31b993e88a269ff0",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/gateway_process.py": {
+      "sha256": "72771bb79a18caab4de2bb6c96a2186090ad00b200bfc326b34bb8f3b4ddb780",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/health_checker.py": {
+      "sha256": "6f2a5cd4a84bb85cefc1337f634b471db0145ff5a91d185c95bdd157900868be",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/plugin_loader.py": {
+      "sha256": "7dfb0797861f575e7c8791b7f924c7e42e584953569585d1dee0b3898e9acb09",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/port_detector.py": {
+      "sha256": "3add31deaf810f12a209acba39550beb133fd6fbc9671246d428cd03af489071",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/process_manager.py": {
+      "sha256": "f8d215b5d711dd44aa87cf0921123dadc9ad1a35f48d3b925dc666a1ff6f5f5c",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    },
+    "src/sros/utils/task_manager.py": {
+      "sha256": "a7bd89d1cef7e356382abdffd64275a82c85bf8942ad2eb6de64f489f9e78e9f",
+      "last_ingested_at": "2026-05-16T11:44:26.621573+00:00",
+      "compiler_version": "v3.3.0"
+    }
+  },
+  "git_head": "8ab4d068509a75c2a682a4660fbc0410fd13ca63"
+}

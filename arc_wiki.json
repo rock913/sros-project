@@ -1,0 +1,12 @@
+{
+  "project_name": "SROS",
+  "description": "Scientific Research Operating System — AI-native research assistant for academic writing, data ingestion, and HPC scheduling",
+  "arc_version_required": ">=3.2.0",
+  "raw_dir": "src/sros",
+  "wiki_dir": "docs/code_wiki",
+  "raw_glob": "**/*.py",
+  "compiler_version": "v3.3.0",
+  "git_diff_since": ":state",
+  "ignore_patterns": ["tests/", "__pycache__/", ".sros/", "legacy/", "workspace/"],
+  "schema_file": "docs/code_schema.md"
+}

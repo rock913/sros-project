@@ -498,7 +498,25 @@ def start(
         config.port = port
         config.workspace_dir = str(workspace_path.absolute())
 
-        console.print(f"[blue]Starting SROS gateway on port {port}...[/blue]")
+        # ── Startup summary panel ─────────────────────────────────────────
+        gateway_url = f"http://{mcp_host}:{port}/sse"
+        scholar_backend = (os.getenv("SROS_SCHOLAR_BACKEND") or "mock").strip().lower()
+
+        startup = Table(show_header=False, box=None, expand=True)
+        startup.add_column("Key", style="cyan", no_wrap=True)
+        startup.add_column("Value", style="green")
+        startup.add_row("Workspace", str(workspace_path.absolute()))
+        startup.add_row("Port", str(port))
+        startup.add_row("MCP URL", gateway_url)
+        startup.add_row("Scholar backend", scholar_backend)
+        startup.add_row("Dev reload", "on" if reload else "off")
+        console.print(
+            Panel(
+                startup,
+                title="[bold]SROS Gateway — Startup[/bold]",
+                border_style="blue",
+            )
+        )
 
         # Dev mode: use uvicorn reload with an app factory.
         if reload:
@@ -534,29 +552,127 @@ def start(
         console.print(f"[red]Error:[/red] Failed to start gateway: {str(e)}")
         raise typer.Exit(code=1)
 
+SUBSYSTEM_GROUPS = {
+    "SROS Gateway": {
+        "keys": ["port_availability", "mcp_services"],
+        "icon": "🌐",
+    },
+    "DuckDB Data Layer": {
+        "keys": ["database_integrity", "dependencies"],
+        "icon": "🗄️",
+    },
+    "ARC Code-Wiki": {
+        "keys": ["arc_wiki_json", "code_schema_md", "claw_code_ingest", "code_wiki_dir"],
+        "icon": "📖",
+    },
+    "Runtime Environment": {
+        "keys": ["workspace", "python_environment", "scholar_backend"],
+        "icon": "⚙️",
+    },
+}
+
+STATUS_STYLES = {
+    "healthy": "[green]healthy[/green]",
+    "warning": "[yellow]warning[/yellow]",
+    "unhealthy": "[red]unhealthy[/red]",
+    "unknown": "[dim]unknown[/dim]",
+}
+
+
+def _worst_status(statuses: list[str]) -> str:
+    if "unhealthy" in statuses:
+        return "unhealthy"
+    if "warning" in statuses:
+        return "warning"
+    if all(s == "healthy" for s in statuses):
+        return "healthy"
+    return "unknown"
+
+
+def _panel_border(status: str) -> str:
+    return {"healthy": "green", "warning": "yellow", "unhealthy": "red"}.get(status, "white")
+
+
 @app.command()
 def doctor():
     """诊断 SROS 状态"""
     try:
         checker = HealthChecker()
         report = checker.generate_report()
-        
-        table = Table(title="SROS Health Report")
-        table.add_column("Component", style="cyan")
-        table.add_column("Status", style="magenta")
-        table.add_column("Details", style="green")
-        
-        for component, status in report.items():
-            if isinstance(status, dict):
-                status_str = status.get('status', 'unknown')
-                details = status.get('details', '')
-            else:
-                status_str = str(status)
-                details = ''
-            table.add_row(component, status_str, details)
-        
-        console.print(table)
-        
+
+        # Group report keys into subsystems
+        grouped: dict[str, dict[str, Any]] = {}
+        ungrouped: dict[str, Any] = dict(report)
+
+        for group_name, group_def in SUBSYSTEM_GROUPS.items():
+            grouped[group_name] = {}
+            for key in group_def["keys"]:
+                if key in ungrouped:
+                    grouped[group_name][key] = ungrouped.pop(key)
+
+        # Render each subsystem as a Panel with nested Table
+        for group_name, group_def in SUBSYSTEM_GROUPS.items():
+            items = grouped.get(group_name, {})
+            if not items:
+                continue
+
+            statuses = [
+                (v.get("status") if isinstance(v, dict) else "unknown")
+                for v in items.values()
+            ]
+            group_status = _worst_status(statuses)
+            border = _panel_border(group_status)
+
+            inner = Table(show_header=True, header_style="bold", box=None, expand=True)
+            inner.add_column("Component", style="cyan", no_wrap=True)
+            inner.add_column("Status", style="magenta")
+            inner.add_column("Details", style="green")
+
+            for key, value in items.items():
+                if isinstance(value, dict):
+                    s = value.get("status", "unknown")
+                    d = str(value.get("details", ""))
+                else:
+                    s = str(value)
+                    d = ""
+                display_name = key.replace("_", " ")
+                status_display = STATUS_STYLES.get(s, s)
+                inner.add_row(display_name, status_display, d)
+
+            console.print(
+                Panel(
+                    inner,
+                    title=f"[bold]{group_def['icon']} {group_name}[/bold]",
+                    border_style=border,
+                )
+            )
+
+        # Render any ungrouped items in a catch-all Panel
+        if ungrouped:
+            inner = Table(show_header=True, header_style="bold", box=None, expand=True)
+            inner.add_column("Component", style="cyan", no_wrap=True)
+            inner.add_column("Status", style="magenta")
+            inner.add_column("Details", style="green")
+
+            for key, value in ungrouped.items():
+                if isinstance(value, dict):
+                    s = value.get("status", "unknown")
+                    d = str(value.get("details", ""))
+                else:
+                    s = str(value)
+                    d = ""
+                display_name = key.replace("_", " ")
+                status_display = STATUS_STYLES.get(s, s)
+                inner.add_row(display_name, status_display, d)
+
+            console.print(
+                Panel(
+                    inner,
+                    title="[bold]Other[/bold]",
+                    border_style="white",
+                )
+            )
+
     except Exception as e:
         console.print(f"[red]Error:[/red] Failed to run health check: {str(e)}")
         raise typer.Exit(code=1)
