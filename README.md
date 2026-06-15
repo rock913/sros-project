@@ -1,326 +1,144 @@
-# SROS - Scientific Research Operating System
+# SROS — Scientific Research Operating System
 
-**Version 3.0 (WIP)** - *Skill-First Headless Lab for AI4S*
+**V4.0-dev** | Python 3.8+ | MIT | 138 tests
 
-This branch is the start of the V3.0 line: **IDE-as-UI + CLI Skills + Thin MCP Gateway**.
-
-Authoritative V3.0 docs:
-
-- `doc/SROS_V3.0.md` (single source of truth)
-- `plans/sros_v30_implementation_plan.md` (Golden Thread + TDD)
-
-SROS is an AI-native research operating system that transforms academic writing through intelligent gap detection, multi-perspective analysis, and seamless citation management.
-
-## 🚀 Quick Start
-
-### Installation
-```bash
-pip install -e "./[test]"
-```
-
-> Tip: If you prefer a regular install, build/publish the package and then use `pip install sros`.
-
-### Initialize Project
-```bash
-sros init my-research-paper
-cd my-research-paper
-
-# strongly recommended: bind this workspace for all skills
-export SROS_WORKSPACE_DIR="$PWD"
-```
-
-Optional (V3 direction): use the skill-first CLI directly:
-
-```bash
-sros-skill --help
-sros-skill manuscript find-gaps --file draft.md --raw
-```
-
-### Start Services
-```bash
-sros start -w . -p 8000
-```
-
-If port 8000 is occupied, use:
-```bash
-sros start -w . --auto-port
-```
-
-If port 8000 is occupied by a stuck process:
-
-```bash
-sros status
-
-# preferred: stop the gateway if this workspace owns it
-sros stop -w .
-
-# escape hatch: if there is no .sros/gateway.pid but you confirm the port owner is SROS
-sros stop --kill-port-owner -p 8000
-```
-
-### Begin Writing
-Open the project directory in VS Code with Roo Code extension — the MCP connection is auto-configured via `.roo/mcp.json`.
-
-V3 recommended “visualization”: open `draft.md` in VS Code and keep Markdown preview visible; treat file growth + figures/ outputs as the UI.
-
-### Verify Locally
-
-- Health: `curl -s http://localhost:8000/health`
-- SSE stream (MCP transport; should start with an `event: endpoint` frame): `curl -N http://localhost:8000/sse`
-
-### Data → Figure → Provenance (skill-first, no gateway)
-
-The key rule: to get DuckDB provenance, you must run scripts via `sros-skill data run-script` (do not run raw `python scripts/...`).
-
-```bash
-# preview a dataset
-sros-skill --raw data preview --file data/raw/sample.csv
-
-# run a script that writes into figures/
-sros-skill --raw data run-script --script scripts/plot.py --dataset data/raw/sample.csv
-
-# verify provenance
-python - <<'PY'
-import duckdb
-con = duckdb.connect('.sros/graph.db')
-print(con.execute("SELECT source,target,relationship FROM edges WHERE relationship in ('GENERATES','ANALYZES')").df())
-PY
-```
-
-Production verification (end-to-end MCP initialize → tools/list → tools/call):
-
-```bash
-python scripts/verify_production.py --port 8000 --query "transformer attention"
-```
-
-This writes a machine-readable report to `logs/production_verification.json`.
-
-For the authoritative V3 execution contract and milestones, see:
-
-- `doc/SROS_V3.0.md`
-- `plans/sros_v30_implementation_plan.md`
-
-## ✨ Key Features
-
-### 1. **Draft-Driven Discovery**
-- Gap analysis identifies evidence needs, elaboration opportunities, and citation gaps
-- Real-time outline generation and structure validation
-- Incremental writing with intelligent content insertion
-
-### 2. **Multi-Perspective Analysis (Co-STORM)**
-- Generate diverse research perspectives on any topic
-- Critical analysis and counter-argument identification (CiTO logic)
-- Federated search across multiple academic databases
-
-### 3. **Knowledge Graph Management**
-- Persistent DuckDB storage for research relationships
-- Citation mapping and reference tracking
-- Live knowledge graph visualization
-
-### 4. **Seamless Integration**
-- MCP (Model Context Protocol) compliant
-- Roo Code integration ready
-- Cross-platform compatibility
-
-## 🛠️ Command Line Interface
-
-V3 adds a second CLI surface:
-
-- `sros` stays as the **workspace + gateway** CLI.
-- `sros-skill` is the **skill-first** CLI for agents/pipes.
-
-### `sros-skill` (V3)
-
-Rules:
-
-- Default output is human-friendly.
-- `--raw` prints pure JSON to stdout (for Claude Code / jq / pipes).
-
-Examples:
-
-```bash
-# list gaps as JSON
-sros-skill --raw manuscript find-gaps --file draft.md
-
-# get outline
-sros-skill --raw manuscript outline --file draft.md
-
-# insert markdown (repeat --cite as needed)
-sros-skill --raw manuscript insert --target "heading:Introduction" --content "..." --cite doe2021 --file draft.md
-```
-
-### `sros init <project_name>`
-Creates a new research project with proper directory structure:
-```
-my-paper/
-├── .roo/mcp.json          # Auto-configured for Roo Code
-├── .sros/graph.db         # Knowledge graph database
-├── draft.md              # Main manuscript (single source of truth)
-├── ideas.md              # Research notes
-├── materials/            # Research documents
-└── references/           # Citations
-```
-
-### `sros start`
-Launches the MCP gateway and all services on port 8000:
-- **SSE Endpoint**: `http://localhost:8000/sse`
-- **Health Check**: `http://localhost:8000/health`
-- **Tools List**: `http://localhost:8000/tools`
-
-The gateway supports MCP JSON-RPC over HTTP POST on the same `/sse` endpoint:
-- `initialize`
-- `tools/list`
-- `tools/call`
-
-Roo Code compatible mode:
-- `GET /sse` for the event-stream
-- `POST /messages` for JSON-RPC (reference MCP SSE transport posts to the endpoint returned by the initial `event: endpoint` frame)
-- Also accepts `POST /sse` for backward compatibility
-
-### `sros doctor`
-Comprehensive system health check covering:
-- Python environment and dependencies
-- Port availability
-- Database integrity
-- Service connectivity
-
-### `sros status`
-Quick project status overview showing workspace files and service status.
-
-## 🔧 Available MCP Tools
-
-### Manuscript Tools (`mcp-manuscript`)
-- `find_gaps(file_path)` - Identify research gaps and TODOs
-- `get_outline_tree(file_path)` - Generate document structure
-- `insert_section(target, content, citations, file_path)` - Add content with citations
-- `patch_draft(patches, file_path)` - Batch content updates
-
-`insert_section.target` (deterministic minimal contract):
-
-- `"append"` / `"end"` / `""`: append to end of file
-- `"heading:<Title>"`: insert right after the first matching markdown heading line
-- `"heading-<line_no>"`: insert after a specific heading line number (matches ids from `get_outline_tree`, e.g. `heading-12`)
-- `"line:<n>"` or `"Line <n>"`: insert after line *n*
-
-Important: `file_path` is **workspace-relative** (e.g. `draft.md`, `notes/draft.md`).
-Absolute paths and path traversal (like `../x`) are rejected for safety.
-
-### MCP JSON-RPC Examples
-
-List tools:
-```bash
-curl -s http://localhost:8000/sse \
-	-H 'Content-Type: application/json' \
-	-d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
-
-Call a tool (workspace-relative path):
-```bash
-curl -s http://localhost:8000/sse \
-	-H 'Content-Type: application/json' \
-	-d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"manuscript.find_gaps","arguments":{"file_path":"draft.md"}}}'
-```
-
-Query citation map (section ids are created by `insert_section` when citations are provided):
-
-- Convention: `draft_section:<file_path>#heading-<line_no>` (example: `draft_section:draft.md#heading-12`)
-
-```bash
-curl -s http://localhost:8000/sse \
-	-H 'Content-Type: application/json' \
-	-d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memory.get_citation_map","arguments":{"section_id":"draft_section:draft.md#heading-12"}}}'
-```
-
-### Scholar Tools (`mcp-scholar`)
-- `brainstorm_perspectives(query)` - Multi-perspective research generation
-- `find_critiques(paper_id)` - Critical analysis and counter-arguments
-- `federated_search(query, max_results, filters)` - Cross-database search
-
-Scholar backends:
-
-- Default (offline + deterministic): `SROS_SCHOLAR_BACKEND=mock`
-- Real OpenAlex backend (network): `SROS_SCHOLAR_BACKEND=openalex` and set `OPENALEX_EMAIL`
-- Optional fallback when OpenAlex errors: `SROS_SCHOLAR_FALLBACK=mock`
-
-### Memory Tools (`mcp-memory`)
-- `store_knowledge(nodes, edges)` - Persist research relationships
-- `query_knowledge(query, limit)` - Search knowledge graph
-- `get_citation_map(section_id)` - Query citation edges for a draft section
-
-### Zotero Tools (`mcp-zotero`)
-- `add_citation(citekey, title, authors, year, journal, url, bibtex)` - Add reference
-- `get_citation(citekey)` - Retrieve citation details
-- `search_citations(query)` - Find references
-
-## 🏗️ Architecture
-
-SROS follows a clean architecture pattern:
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Domain        │    │   Application   │    │   Infrastructure│
-│   Layer         │◄──►│   Layer         │◄──►│   Layer         │
-│                 │    │                 │    │                 │
-│ • Protocols     │    │ • MCP Servers   │    │ • FastAPI       │
-│ • Pydantic      │    │ • CLI Commands  │    │ • DuckDB        │
-│ • Models        │    │ • Gateways      │    │ • Typer         │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-- **Domain**: Pure contracts and data structures (no I/O)
-- **Application**: Business logic and MCP service implementations
-- **Infrastructure**: External interfaces and persistence
-
-## 🧭 Development (V3 Golden Thread)
-
-The fastest local loop is: **edit workspace files → run a skill → observe draft/figures changes → repeat**.
-
-### Workspace env
-
-Most skills/tools operate on workspace-relative paths and rely on:
-
-```bash
-export SROS_WORKSPACE_DIR="$PWD"
-```
-
-### Skill-first loop (no gateway)
-
-```bash
-sros-skill --raw manuscript find-gaps --file draft.md
-sros-skill --raw manuscript outline --file draft.md
-sros-skill --raw manuscript insert --target "append" --content "Hello" --file draft.md
-```
-
-### Gateway loop (for Roo / MCP clients)
-
-```bash
-sros start -w . -p 8000
-curl -s http://localhost:8000/health
-```
-
-## 🧪 Testing
-
-Run the test suite:
-```bash
-python -m pytest -q
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🆘 Support
-
-For issues and questions, please open an issue on GitHub.
+> AI-native research OS: an MCP server fleet that gives LLM agents the ability to write manuscripts, search literature, ingest data, and schedule HPC jobs — as naturally as an OS provides system calls.
 
 ---
 
-**SROS V2.3.2** - *Draft is State, CLI is Interface*
+## Quick Start
+
+```bash
+pip install -e ".[test]"
+sros init my-paper && cd my-paper
+export SROS_WORKSPACE_DIR="$PWD"
+sros start -w . -p 8000
+curl http://localhost:8000/health
+```
+
+Open in VS Code with Roo Code — MCP auto-configured via `.roo/mcp.json`.
+
+---
+
+## What is SROS?
+
+SROS turns research infrastructure into MCP tools. It doesn't replace domain tools (fMRIPrep, graphmri, Zotero) — it orchestrates them through a unified protocol.
+
+| Your agent wants to... | SROS tool |
+|---|---|
+| Write a paper section | `manuscript.insert_section` |
+| Search literature | `scholar.federated_search` |
+| Ingest neuroimaging data | `db.ingest` |
+| Query subject demographics | `db.query` |
+| Submit an fMRIPrep job | `hpc.submit` |
+| Store facts as a graph | `memory.store_knowledge` |
+| Check system health | `sros doctor` |
+
+**Core philosophy**: IDE-as-UI, Skill-First CLI, Thin Gateway (zero business logic in gateway).
+
+---
+
+## CLI
+
+Two surfaces: `sros` (workspace ops) and `sros-skill` (tool execution). All accept `--raw` for JSON output.
+
+```bash
+# Workspace
+sros init <name>            # Bootstrap workspace
+sros start [-w .] [-p 8000]  # Launch MCP gateway
+sros stop [-w .]             # Graceful shutdown
+sros doctor                  # Full health check
+sros verify [--port 8000]    # E2E MCP smoke test
+
+# Tools (sample)
+sros-skill manuscript find-gaps --file draft.md
+sros-skill --raw db ingest --source /data/SXMU --bids-dir Bids_data
+sros-skill --raw db query --sql "SELECT * FROM subjects WHERE group='dTMS'"
+sros-skill hpc submit --script jobs/fmriprep.slurm
+```
+
+Run `sros-skill --help` for the full module tree.
+
+---
+
+## MCP Tools
+
+All callable via JSON-RPC at `http://localhost:8000/sse`.
+
+### Manuscript & Scholar
+`find_gaps` · `get_outline_tree` · `insert_section` · `refactor_section` · `patch_draft` · `get_file_sha256` · `federated_search` · `search` · `zotero_sync` · `brainstorm_perspectives` · `find_critiques`
+
+### Memory, Data & HPC
+`store_knowledge` · `query_knowledge` · `get_citation_map` · `db.ingest` · `db.query` · `hpc.submit` · `hpc.status` · `hpc.cancel` · `hpc.list` · `hpc.logs` · `hpc.generate`
+
+### Neuro, Plugins & Tasks
+`neuro.validate` · `neuro.generate_graphmri` · `neuro.generate_fmriprep` · `plugins.list` · `plugins.run` · `tasks.run_plugin_async` · `tasks.get` · `tasks.list` · `tasks.wait`
+
+Full tool schemas (inputSchema + descriptions): see `doc/PRD_SXMU_Data_Ingestion_HPC.md`.
+
+---
+
+## Architecture
+
+```
+AI Agent (Claude Code / Roo Code)
+       │ MCP over SSE
+       ▼
+SROS Gateway (Thin: FastAPI + SSE, no business logic)
+       │ dispatch_tool()
+       ▼
+Skill RPC (~50 tools → handlers)
+       │
+  ┌────┼────┬─────┬─────┬─────┬─────┐
+  ▼    ▼     ▼     ▼     ▼     ▼     ▼
+Manu  Sch   Mem   Data  HPC   Neuro Plugins
+script olar  ory   +DB               +Tasks
+       │
+       ▼
+  DuckDB · Subprocess · Slurm · SSH
+```
+
+**Rules**: Thin Gateway, Skill-First CLI, workspace-relative paths, TDD mandatory.
+
+---
+
+## ARC Code-Wiki
+
+Auto-generated architecture graph that AI agents read before modifying code:
+
+```bash
+make update-wiki    # Compile src/sros/ → docs/code_wiki/
+make check-wiki     # CI guard: exits 1 if wiki is stale
+make lint           # flake8 + mypy + check-wiki
+sros doctor         # Health check: wiki freshness, contract validity
+```
+
+Contract: `arc_wiki.json` + `docs/code_schema.md` → `claw-code-ingest` → `docs/code_wiki/`.
+
+---
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+make test            # 138 tests
+make lint            # flake8 + mypy + check-wiki
+make update-wiki     # Refresh Code-Wiki after source changes
+```
+
+TDD: failing test → implementation → green bar → `make lint` → PR.
+
+---
+
+## Docs Index
+
+| Document | Purpose |
+|---|---|
+| `doc/SROS_V4.0.md` | Strategic PRD (WHY + WHAT) |
+| `doc/PRD_SXMU_Data_Ingestion_HPC.md` | Feature PRD (HOW: CLI + MCP schemas) |
+| `ROADMAP.md` | Progress (WHEN + STATUS) |
+| `CLAUDE.md` | Agent instructions |
+
+---
+
+**SROS V4.0-dev** — *Skill-First OS for AI4S | Data OS + HPC + DSL + Feishu Control Plane*

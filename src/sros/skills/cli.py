@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 
@@ -587,6 +588,330 @@ def data_run_script(
     _emit(res, raw=raw)
     if isinstance(res, dict) and res.get("ok") is False:
         raise typer.Exit(code=1)
+
+
+# ── DB sub-typer (V4.0: data ingestion + SQL query) ──────────────────────
+
+db_app = typer.Typer(add_completion=False, help="DuckDB data ingestion and query")
+app.add_typer(db_app, name="db")
+
+
+@db_app.command("ingest")
+def db_ingest(
+    ctx: typer.Context,
+    source: str = typer.Option(..., "--source", help="Root source directory"),
+    bids_dir: Optional[str] = typer.Option(None, "--bids-dir", help="BIDS directory relative to source"),
+    participants: Optional[str] = typer.Option(None, "--participants", help="participants.tsv path relative to source"),
+    clinical: Optional[str] = typer.Option(None, "--clinical", help="Clinical Excel path relative to source"),
+    db_path: str = typer.Option("sxmu.duckdb", "--db", help="Target DuckDB file path"),
+    schema: Optional[str] = typer.Option(None, "--schema", help="Path to schema.sql (default: config/duckdb/schema.sql)"),
+):
+    from sros.servers.db.handler import DBHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = DBHandler(db_path)
+        try:
+            if not raw:
+                console.print(f"[dim]Ingesting from {source}...[/dim]")
+            with console.status("[bold green]Ingesting data...[/bold green]", spinner="dots"):
+                res = handler.ingest(
+                    source_dir=source,
+                    bids_dir=bids_dir,
+                    participants=participants,
+                    clinical=clinical,
+                    schema_path=schema,
+                )
+        finally:
+            handler.close()
+
+        if not raw and isinstance(res, dict) and res.get("ok"):
+            summary = Table(show_header=True, header_style="bold", box=None, expand=True)
+            summary.add_column("Metric", style="cyan", no_wrap=True)
+            summary.add_column("Count", style="green", justify="right")
+            for key, value in res.items():
+                if key == "ok":
+                    continue
+                summary.add_row(key.replace("_", " ").title(), str(value))
+            console.print(
+                Panel(
+                    summary,
+                    title="[bold]Ingest Complete[/bold]",
+                    border_style="green",
+                )
+            )
+
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "db.ingest", "source": source})
+
+
+@db_app.command("query")
+def db_query(
+    ctx: typer.Context,
+    sql: str = typer.Option(..., "--sql", help="SELECT SQL query"),
+    limit: int = typer.Option(100, "--limit", help="Maximum rows to return"),
+    offset: int = typer.Option(0, "--offset", help="Row offset"),
+    db_path: str = typer.Option("sxmu.duckdb", "--db", help="DuckDB file path"),
+    params_json: Optional[str] = typer.Option(None, "--params", help="JSON array of query params"),
+):
+    from sros.servers.db.handler import DBHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        params = None
+        if params_json:
+            params = json.loads(params_json)
+        handler = DBHandler(db_path)
+        try:
+            res = handler.query(sql=sql, params=params, limit=limit, offset=offset)
+        finally:
+            handler.close()
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "db.query", "sql": sql})
+
+
+# ── HPC sub-typer (V4.0: Slurm job management) ───────────────────────────
+
+hpc_app = typer.Typer(add_completion=False, help="HPC Slurm job management")
+app.add_typer(hpc_app, name="hpc")
+
+
+@hpc_app.command("submit")
+def hpc_submit(
+    ctx: typer.Context,
+    script: str = typer.Option(..., "--script", help="Path to .slurm script"),
+    array_size: Optional[int] = typer.Option(None, "--array-size", help="Job array size (1-N)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print sbatch command without executing"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = HPCHandler(dry_run=dry_run)
+        res = handler.submit(script_path=script, array_size=array_size)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.submit", "script": script})
+
+
+@hpc_app.command("status")
+def hpc_status(
+    ctx: typer.Context,
+    job_id: str = typer.Option(..., "--job-id", help="Slurm job ID"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Mock squeue response"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = HPCHandler(dry_run=dry_run)
+        res = handler.status(job_id=job_id)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.status", "job_id": job_id})
+
+
+@hpc_app.command("cancel")
+def hpc_cancel(
+    ctx: typer.Context,
+    job_id: str = typer.Option(..., "--job-id", help="Slurm job ID"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Don't actually cancel"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = HPCHandler(dry_run=dry_run)
+        res = handler.cancel(job_id=job_id)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.cancel", "job_id": job_id})
+
+
+@hpc_app.command("list")
+def hpc_list(
+    ctx: typer.Context,
+    user: Optional[str] = typer.Option(None, "--user", help="Filter by user (default: current)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Mock squeue response"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = HPCHandler(dry_run=dry_run)
+        res = handler.list_jobs(user=user)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.list"})
+
+
+@hpc_app.command("logs")
+def hpc_logs(
+    ctx: typer.Context,
+    job_id: str = typer.Option(..., "--job-id", help="Slurm job ID"),
+    log_dir: str = typer.Option(".", "--log-dir", help="Directory containing .out/.err files"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        handler = HPCHandler()
+        res = handler.logs(job_id=job_id, log_dir=log_dir)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.logs", "job_id": job_id})
+
+
+@hpc_app.command("generate")
+def hpc_generate(
+    ctx: typer.Context,
+    template: str = typer.Option(..., "--template", help="Path to Slurm template file"),
+    subject: str = typer.Option(..., "--subject", help="Subject ID (replaces {SUBJECT})"),
+    output_dir: str = typer.Option(..., "--output-dir", help="Output directory for generated scripts"),
+    substitutions_json: Optional[str] = typer.Option(None, "--substitutions", help="JSON object of extra substitutions"),
+):
+    from sros.servers.hpc.handler import HPCHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        subs = {}
+        if substitutions_json:
+            subs = json.loads(substitutions_json)
+        handler = HPCHandler(dry_run=True)
+        res = handler.generate_job_script(
+            template_path=template,
+            subject_id=subject,
+            output_dir=output_dir,
+            substitutions=subs,
+        )
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "hpc.generate", "template": template, "subject": subject})
+
+
+neuro_app = typer.Typer(add_completion=False, help="Neuroimaging: BIDS validation, graphmri scripts")
+app.add_typer(neuro_app, name="neuro")
+
+
+@neuro_app.command("validate")
+def neuro_validate(
+    ctx: typer.Context,
+    bids_dir: str = typer.Option(..., "--bids-dir", help="Path to BIDS root directory"),
+    use_validator: bool = typer.Option(False, "--use-validator", help="Run bids-validator if installed"),
+):
+    from sros.servers.neuro.handler import NeuroHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        res = NeuroHandler().validate_bids(bids_dir, use_validator=use_validator)
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "neuro.validate", "bids_dir": bids_dir})
+
+
+@neuro_app.command("generate-graphmri")
+def neuro_generate_graphmri(
+    ctx: typer.Context,
+    subject_id: str = typer.Option(..., "--subject", "-s", help="Subject ID (e.g. sub-001)"),
+    bids_dir: str = typer.Option(..., "--bids-dir", help="Path to BIDS root directory"),
+    output_dir: str = typer.Option(..., "--output-dir", "-o", help="Output directory for generated scripts"),
+    config_json: Optional[str] = typer.Option(None, "--config", help="JSON object for graphmri config overrides"),
+    matrices_json: Optional[str] = typer.Option(None, "--matrices", help="JSON array of edge weight types"),
+):
+    from sros.servers.neuro.handler import NeuroHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        config = None
+        if config_json:
+            config = json.loads(config_json)
+        matrices = None
+        if matrices_json:
+            matrices = json.loads(matrices_json)
+        res = NeuroHandler().generate_graphmri_script(
+            subject_id=subject_id,
+            bids_dir=bids_dir,
+            output_dir=output_dir,
+            config=config,
+            connectivity_matrices=matrices,
+        )
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "neuro.generate-graphmri", "subject": subject_id})
+
+
+@neuro_app.command("generate-fmriprep")
+def neuro_generate_fmriprep(
+    ctx: typer.Context,
+    subject_ids_json: str = typer.Option(..., "--subjects", help="JSON array of subject IDs"),
+    bids_dir: str = typer.Option(..., "--bids-dir", help="Path to BIDS root directory"),
+    output_dir: str = typer.Option(..., "--output-dir", "-o", help="Output directory for generated scripts"),
+    work_dir: Optional[str] = typer.Option(None, "--work-dir", help="fMRIPrep working directory"),
+    fs_license: Optional[str] = typer.Option(None, "--fs-license", help="FreeSurfer license file path"),
+    template: Optional[str] = typer.Option(None, "--template", help="Custom Slurm template path"),
+):
+    from sros.servers.neuro.handler import NeuroHandler
+
+    raw = bool((ctx.obj or {}).get("raw"))
+    try:
+        subject_ids = json.loads(subject_ids_json)
+        res = NeuroHandler().generate_fmriprep_batch(
+            subject_ids=subject_ids,
+            bids_dir=bids_dir,
+            output_dir=output_dir,
+            work_dir=work_dir,
+            fs_license=fs_license,
+            template=template,
+        )
+        _emit(res, raw=raw)
+        if isinstance(res, dict) and res.get("ok") is False:
+            raise typer.Exit(code=1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        _fail(str(e), raw=raw, details={"tool": "neuro.generate-fmriprep"})
 
 
 plugins_app = typer.Typer(add_completion=False, help="Workspace plugins (.sros/plugins)")

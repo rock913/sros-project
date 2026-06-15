@@ -47,6 +47,20 @@ STATIC_TOOLS = {
     "memory.store_knowledge",
     "memory.query_knowledge",
     "memory.get_citation_map",
+    # V4 Phase 2 — DB (Data Ingestion + Query)
+    "db.ingest",
+    "db.query",
+    # V4 Phase 2 — HPC (Slurm Management)
+    "hpc.generate",
+    "hpc.submit",
+    "hpc.status",
+    "hpc.cancel",
+    "hpc.list",
+    "hpc.logs",
+    # V4 Phase 3 — Neuro (BIDS + graphmri)
+    "neuro.validate",
+    "neuro.generate_graphmri",
+    "neuro.generate_fmriprep",
 }
 
 class SROSGateway:
@@ -589,7 +603,167 @@ class SROSGateway:
                 }
         except Exception:
             pass
-        
+
+        # V4 Phase 2: DB tools
+        tool_schemas.update({
+            "db.ingest": {
+                "name": "db.ingest",
+                "description": "Ingest BIDS directory, participants TSV, and clinical Excel into DuckDB",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "source": {"type": "string", "description": "Root source directory"},
+                        "bids_dir": {"type": "string", "description": "BIDS directory relative to source"},
+                        "participants": {"type": "string", "description": "participants.tsv path relative to source"},
+                        "clinical": {"type": "string", "description": "Clinical Excel path relative to source"},
+                        "db_path": {"type": "string", "description": "Target DuckDB file path", "default": "sxmu.duckdb"},
+                        "schema": {"type": "string", "description": "Path to schema.sql"},
+                    },
+                    "required": ["source"],
+                    "additionalProperties": False,
+                },
+            },
+            "db.query": {
+                "name": "db.query",
+                "description": "Execute a SELECT SQL query against a DuckDB database and return JSON results",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "sql": {"type": "string", "description": "SELECT SQL query"},
+                        "params": {"type": "array", "description": "Query parameter values"},
+                        "limit": {"type": "integer", "default": 100},
+                        "offset": {"type": "integer", "default": 0},
+                        "db_path": {"type": "string", "default": "sxmu.duckdb"},
+                    },
+                    "required": ["sql"],
+                    "additionalProperties": False,
+                },
+            },
+            "hpc.submit": {
+                "name": "hpc.submit",
+                "description": "Submit a Slurm job via sbatch",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "script_path": {"type": "string", "description": "Path to the .slurm script"},
+                        "array_size": {"type": "integer", "description": "Number of array jobs"},
+                    },
+                    "required": ["script_path"],
+                    "additionalProperties": False,
+                },
+            },
+            "hpc.status": {
+                "name": "hpc.status",
+                "description": "Query Slurm job status via squeue",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "job_id": {"type": "string", "description": "Slurm job ID"},
+                    },
+                    "required": ["job_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "hpc.cancel": {
+                "name": "hpc.cancel",
+                "description": "Cancel a Slurm job via scancel",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "job_id": {"type": "string", "description": "Slurm job ID"},
+                    },
+                    "required": ["job_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "hpc.list": {
+                "name": "hpc.list",
+                "description": "List Slurm jobs for the current user via squeue",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+            },
+            "hpc.logs": {
+                "name": "hpc.logs",
+                "description": "Get stdout/stderr logs for a Slurm job",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "job_id": {"type": "string", "description": "Slurm job ID"},
+                    },
+                    "required": ["job_id"],
+                    "additionalProperties": False,
+                },
+            },
+        })
+
+        # V4 Phase 2–3: HPC generate + Neuro tools
+        tool_schemas.update({
+            "hpc.generate": {
+                "name": "hpc.generate",
+                "description": "Generate a Slurm job script from a template with subject-specific substitutions",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "template": {"type": "string", "description": "Path or name of the Slurm template"},
+                        "subject": {"type": "string", "description": "Subject ID for variable substitution"},
+                        "output_dir": {"type": "string", "default": ".", "description": "Output directory for generated script"},
+                        "substitutions": {"type": "object", "description": "Additional template variable substitutions"},
+                    },
+                    "required": ["template", "subject"],
+                    "additionalProperties": False,
+                },
+            },
+            "neuro.validate": {
+                "name": "neuro.validate",
+                "description": "Validate BIDS directory structure for neuroimaging data",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "bids_dir": {"type": "string", "description": "Path to BIDS directory to validate"},
+                        "use_validator": {"type": "boolean", "default": False, "description": "Use external BIDS validator if available"},
+                    },
+                    "required": ["bids_dir"],
+                    "additionalProperties": False,
+                },
+            },
+            "neuro.generate_graphmri": {
+                "name": "neuro.generate_graphmri",
+                "description": "Generate a graphmri connectivity analysis script for a subject",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "subject_id": {"type": "string", "description": "Subject ID"},
+                        "bids_dir": {"type": "string", "description": "Path to BIDS directory"},
+                        "output_dir": {"type": "string", "description": "Output directory for generated scripts"},
+                        "config": {"type": "object", "description": "GraphMRI configuration overrides"},
+                        "connectivity_matrices": {"type": "array", "description": "Connectivity matrices to compute"},
+                    },
+                    "required": ["subject_id", "bids_dir", "output_dir"],
+                    "additionalProperties": False,
+                },
+            },
+            "neuro.generate_fmriprep": {
+                "name": "neuro.generate_fmriprep",
+                "description": "Generate fMRIPrep batch processing scripts for subjects",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "subject_ids": {"type": "array", "items": {"type": "string"}, "description": "List of subject IDs to process"},
+                        "bids_dir": {"type": "string", "description": "Path to BIDS directory"},
+                        "output_dir": {"type": "string", "description": "Output directory for fMRIPrep results"},
+                        "work_dir": {"type": "string", "description": "Working directory for fMRIPrep"},
+                        "fs_license": {"type": "string", "description": "FreeSurfer license path"},
+                        "template": {"type": "string", "description": "Slurm template name"},
+                    },
+                    "required": ["subject_ids", "bids_dir", "output_dir"],
+                    "additionalProperties": False,
+                },
+            },
+        })
+
         # Filter to only include tools that actually exist
         for tool_name, schema in tool_schemas.items():
             if tool_name in self.TOOLS:
@@ -600,6 +774,11 @@ class SROSGateway:
     def _setup_routes(self):
         """设置路由"""
         try:
+            # Register webhook router for Feishu control plane
+            from sros.gateway.webhook import router as webhook_router
+
+            self.app.include_router(webhook_router)
+
             @self.app.on_event("startup")
             async def _startup():
                 asyncio.create_task(self._pump_notifications())

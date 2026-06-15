@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sros-sdk"
+version = "0.1.0"
+description = "SROS SDK: AI4S DSL — Fluent API for brain network analysis, GNN training, and scientific computing"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "SROS Team", email = "sros@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=0.10.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+torch = [
+    "torch>=2.0",
+]
+gnn = [
+    "torch>=2.0",
+    "torch-geometric>=2.3",
+]
+dspy = [
+    "dspy-ai>=2.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+all = [
+    "sros-sdk[torch,gnn,dspy,dev]",
+]
+
+[project.scripts]
+sros-sdk = "sros.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sros"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
