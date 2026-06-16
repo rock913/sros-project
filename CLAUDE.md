@@ -91,3 +91,30 @@ make update-wiki       → 一键刷新图谱
    - PR 被 Squash and Merge 后，远程分支会自动删除。
    - 本地执行 `git fetch --prune` 清理已删除的远程分支引用。
    - 本地分支可手动删除：`git branch -d <type>/<desc>`。
+
+## Contract-First Development (Contract-First 契约优先)
+
+> 来源：`conventions/devx-rules.md` §8 | Fable 5 架构哲学
+
+### 本项目的三层契约
+
+**Interface Contract**:
+- MCP Gateway: JSON-RPC 2.0 `{jsonrpc, method, params, id}` — 所有 tool 通过此契约暴露
+- Skill CLI: `sros-skill --raw` 输出纯 JSON，stderr 为日志
+- 新 MCP tool 必须定义 `inputSchema` (JSON Schema) + 更新 `contracts/mcp/sros_tools.json`
+
+**Behavior Contract**:
+- 每个核心模块 ≥ 1 个 pytest (当前基线: 163 tests)
+- 测试命名: `test_<module>_<scenario>`
+- TDD 强制: 先写 failing test → 实现 → pytest 绿灯
+
+**Cross-System Contract**:
+- ARC 契约: `arc_wiki.json` + `code_schema.md` 版本化
+- Hermes 契约: `docs/mcp_mount_spec.md` 定义的 MCP tool schema
+- DuckDB schema 变更 → 更新 `contracts/duckdb/sros_schema.sql`
+
+### Prompt 编写规范
+- Input/Output/Error 三要素必填
+- 禁止 >3 步的 SOP 流程
+- Contract Spec 优先于实现细节
+- Prompt 风格: 硬核结构化指令 (DeepSeek v4 Pro 适配)
