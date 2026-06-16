@@ -1,0 +1,290 @@
+# other — Code-Wiki 模块上下文
+
+> 由 `claw-code-ingest` 自动生成。本文件提供本模块的核心概念与实体列表，供 AI Agent 快速理解架构。
+
+**总计**: 108 个概念, 168 个实体
+
+## 核心概念
+
+- **[[CLI Routing]]**: Uses Typer to organize commands into groups (manuscript, ext, rag, scholar, memory, rpc, data, db, hpc, plugins, tasks), each delegating to a server handler.
+- **[[Citation validation]]**: Validates that all citekeys exist in a DuckDB-managed Zotero citations table before proceeding with operations.
+- **[[Data Ingestion Pipeline]]**: Orchestrates ingestion from multiple sources (BIDS, participants TSV, clinical Excel) into DuckDB tables, with schema initialization and error handling.
+- **[[Data Modeling]]**: Uses Pydantic BaseModel to define structured data with validation and serialization.
+- **[[Deterministic external tool wrapper]]**: 对外部API（如HTTP请求）进行封装，确保行为可预测且可通过monkeypatch进行离线测试
+- **[[Dry-Run Mode]]**: Simulate Slurm commands without actual execution for testing/environments without Slurm.
+- **[[Dry-Run 模式]]**: 模拟执行模式，不实际提交命令，用于测试与无 Slurm 环境。
+- **[[DuckDB持久化]]**: 使用 DuckDB 嵌入式数据库将知识图谱持久化到本地文件，支持 SQL 查询。
+- **[[Environment Configuration]]**: Loading environment variables from .env file and managing configuration dependencies for the CLI commands.
+- **[[Execution Sandbox]]**: 在子进程中执行用户脚本，设置工作目录、环境变量（MPLBACKEND=Agg 强制无头模式）和超时（5 分钟），隔离副作用。
+- **[[Expose main components]]**: SROS 包入口，定义包元数据并暴露 CLI 主入口
+- **[[External RAG Services]]**: External web scraping and RAG (Retrieval-Augmented Generation) services, including web scraping with timeout, building indices from sources, and querying with top-k results.
+- **[[Federated Search]]**: Pattern for querying multiple external sources (e.g., OpenAlex) in a unified way, with explicit opt-in for network backends.
+- **[[Figure reference indexing]]**: Scans Markdown files for image links, associating each figure with the nearest preceding heading and storing Figure-REFERENCED_IN->draft_section edges in a knowledge graph.
+- **[[Gateway Lifecycle Management]]**: Managing the start, stop, restart, and health check of the SROS gateway server, including port detection and process management.
+- **[[Gateway Process Lifecycle]]**: Management of the gateway process: start, stop, restart, status, and health check via CLI.
+- **[[Global Singleton]]**: 通过 get_task_manager() 提供的单一全局 TaskManager 实例，确保整个应用共享同一任务存储。
+- **[[Health State]]**: Shared mutable state holding overall health status, service-specific statuses, and timestamp, used by both REST /health endpoint and SSE streams.
+- **[[Knowledge Graph Integration]]**: The pattern of registering execution artifacts (scripts, datasets, figures) into a central knowledge graph via MemoryHandler.
+- **[[Knowledge Graph Model]]**: Data model consisting of nodes (with id, type, title, content) and edges (with source, target, relationship, confidence) representing structured knowledge.
+- **[[Knowledge Graph Registry]]**: 每次脚本执行后，检测新生成或修改的图形，并将脚本、数据集、图形节点及其关系（ANALYZES、GENERATES）存储到知识图谱中，实现可追溯性。
+- **[[Long-running Task]]**: Tasks run in-process in a separate thread; completion may be broadcast via SSE as a JSON-RPC notification.
+- **[[MCP Server]]**: Model Context Protocol server providing tools over stdin/stdout or SSE.
+- **[[MCP Server Integration]]**: Updating .roo/mcp.json and .clauderc configuration files to point to the SROS gateway MCP server.
+- **[[MCP Tool]]**: MCP 工具模式，通过装饰器 @server.tool 注册异步函数，返回 CallToolResult。
+- **[[MCP服务器]]**: 基于MCP协议的服务器，通过stdin/stdout与客户端通信，提供工具调用接口
+- **[[MCP服务器模式]]**: 基于MCP协议的工具服务器，通过stdin/stdout通信暴露工具接口
+- **[[Manuscript Service]]**: Operations for manuscript editing and analysis, including gap finding, outline retrieval, SHA256 checks, figure reference indexing, section insertion, patching, and refactoring, all via `ManuscriptHandler`.
+- **[[Notifier Pattern]]**: 用户可通过 set_notifier 注册回调，在任务完成（成功/失败）时异步接收事件通知。
+- **[[OOM Retry]]**: Automatic retry with increased memory upon Out-Of-Memory detection in job stderr.
+- **[[OOM 自动重试]]**: 在作业因内存不足失败时自动递增内存重试，通过 _oom_retry_count 和 _oom_retry_mem 字典跟踪重试次数与内存增量。
+- **[[OpenAlex API]]**: OpenAlex提供的开放学术数据API，用于搜索学术作品。本模块通过`requests`库同步调用其`/works`端点。
+- **[[Output Formatting]]**: The _emit function switches between JSON table (human-friendly) and raw JSON output based on the --raw flag, enabling machine-readable responses.
+- **[[PID文件生命周期管理]]**: 通过写入、读取和删除PID文件来管理网关进程的生命周期，确保进程记录的准确性。
+- **[[PID文件管理]]**: 使用JSON格式的PID文件来追踪网关进程的PID、端口和启动时间，支持读写删除。
+- **[[Persistence Pattern]]**: Using DuckDB for local file-based storage with auto-created directory structure and schema initialization.
+- **[[Plugin Lifecycle]]**: Contracts for plugin discovery, parsing, loading, and execution without executing untrusted metadata.
+- **[[Plugin Metadata Protocol]]**: Convention that plugins define SKILL_NAME, SKILL_DESCRIPTION, SKILL_INPUT_SCHEMA as module-level variables, extracted statically via AST before execution.
+- **[[Plugin System]]**: A dynamic plugin loading mechanism via `plugin_loader`, supporting both batch listing (`plugins.list`) and single execution (`plugins.run` or `plugin.<name>`) with custom arguments.
+- **[[Polling-based Wait]]**: The wait_task method polls get_task in a loop until the task state is 'succeeded' or 'failed' or a timeout occurs.
+- **[[Pydantic v2 note Recursive models need to be rebuilt after module loading]]**: 定义用于手稿分析的数据模型，包括内容短板分析和提纲节点结构。
+- **[[Python包结构]]**: 通过__init__.py文件将目录标记为Python包，便于模块导入。
+- **[[Raw vs Human Output]]**: Commands support a --raw flag to output pure JSON. Without it, results are printed as Rich tables or formatted objects. Errors are also reported in uniform JSON or console messages.
+- **[[Reflection Call]]**: Delegation of tool invocation to SkillReflector (dynamic binding of tool name to implementation).
+- **[[Reflection Gateway Input]]**: When invoked via gateway reflection, arguments can be read from stdin as JSON, enabling programmatic invocation without direct command-line arguments.
+- **[[Reflection-based RPC]]**: 通过反射直接调用技能模块中的函数，无需网关业务逻辑或子进程
+- **[[SSE Hub]]**: 基于 SSE (Server-Sent Events) 的网关架构，通过异步队列广播通知到所有连接的会话。
+- **[[SSE Transport]]**: Server-Sent Events based session management for bidirectional JSON-RPC communication with clients.
+- **[[Safe Plugin Loading]]**: Plugin files are loaded from a fixed .sros/plugins directory under the workspace, with path traversal protection and metadata validation.
+- **[[Schema Migration]]**: 对老旧 DuckDB 数据表进行最佳努力的列添加迁移，确保新代码能正常查询和索引
+- **[[Scholarly Research Protocol]]**: 定义学术研究流程中的核心抽象接口，包括视角生成、批判性分析和多源搜索
+- **[[Secure Script Execution]]**: Isolated execution of user scripts with enforced headless matplotlib backend, timeout, and environment hardening.
+- **[[Skill-based CLI V3]]**: The CLI is organized as a set of skills (subcommands) that can be executed directly or via reflection. Commands delegate to server-side handlers and output results in raw JSON or human-friendly tables.
+- **[[Slurm State Model]]**: States recognized by Slurm: PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, TIMEOUT, etc.
+- **[[Slurm 作业管理]]**: 通过 sbatch、squeue、scancel 等命令管理 HPC 作业的生命周期，包括提交、状态查询、取消与列表。
+- **[[Task Management]]**: 管理长期运行的任务（如插件执行），支持异步启动、状态查询和等待完成。任务通过线程运行在进程内。
+- **[[Thin Reflector]]**: 网关作为轻量反射器，实际工具调用委托给 SkillReflector 处理，网关只负责路由和会话管理。
+- **[[Thread-Bridge Notification]]**: Mechanism to bridge task completion events from threaded tasks to async SSE broadcast via a queue.
+- **[[Token Matching Retrieval]]**: Phase-1 retrieval algorithm scoring chunks by counting overlapping query tokens (lowercased, length>=2), without embeddings or vector search.
+- **[[Tool Dispatch Pattern]]**: A centralized routing mechanism where a single function maps tool names (e.g., 'plugins.list', 'tasks.run_plugin_async') to specific handler implementations, enabling thin gateways and dynamic extensibility.
+- **[[Tool Registry]]**: Central registry of available tools (static + plugin dynamic), refreshed periodically, used for MCP tool listing and dispatch.
+- **[[Workspace Initialization]]**: Process of setting up a new SROS workspace with project structure, configuration, and optional Roo mode and Claude integration.
+- **[[Workspace Layout Convention]]**: Plugins are stored under <workspace>/.sros/plugins/ directory, identified by filename stem.
+- **[[Workspace-Relative Path Resolution]]**: All file paths are resolved relative to the SROS_WORKSPACE_DIR environment variable, with strict validation to prevent directory traversal.
+- **[[Workspace-Relative Path Validation]]**: All file paths must be relative to SROS_WORKSPACE_DIR and resolved within that root; prevents directory traversal.
+- **[[Workspace-relative path resolution]]**: Enforces that all file paths are relative to the SROS_WORKSPACE_DIR environment variable and prevents path traversal attacks.
+- **[[__main__]]**: 该文件是cogni-sa-ros包的命令行入口，负责启动CLI应用。
+- **[[config]]**: Gateway 配置类，从环境变量读取系统运行参数
+- **[[memory_models]]**: 定义知识图谱中关系边的数据模型
+- **[[process_manager]]**: 提供进程启动和端口检查工具
+- **[[乐观并发控制]]**: 通过 expected_sha256 参数实现写入操作的乐观锁，避免并发覆盖
+- **[[任务生命周期]]**: 任务经过 queued -> running -> succeeded/failed 状态转换，通过锁保证线程安全。
+- **[[健康报告]]**: 统一的多维度健康检查结果，包含状态、详情和时间戳，用于监控系统组件可用性
+- **[[健康检查]]**: 对系统各组件进行状态检查并生成结构化报告的模式，每个组件返回status(healthy/unhealthy/warning)和details。
+- **[[内存协议契约]]**: MemoryProtocol规定了知识存储和检索的接口，实现类需提供store_knowledge、query_knowledge和get_citation_map方法。
+- **[[协议接口]]**: 使用Python typing.Protocol定义的结构化接口契约，要求实现类必须提供add_citation、get_citation和search_citations方法
+- **[[协议约定]]**: 使用 typing.Protocol 定义接口契约，任何实现类必须实现 add_citation、get_citation、search_citations 方法。
+- **[[可测试性设计]]**: 通过 monkeypatching requests 实现离线测试，行为确定
+- **[[后端切换策略]]**: 通过环境变量 SROS_SCHOLAR_BACKEND 选择实际后端（openalex）或 mock 模式，并支持 fallback 到 mock。用于测试和离线稳定性。
+- **[[后端选择与回退策略]]**: 通过环境变量 SROS_SCHOLAR_BACKEND 选择后端（openalex 或 mock），当 openalex 失败时可回退到 mock。
+- **[[在线离线策略]]**: 默认保持离线友好，网络后端需显式启用。
+- **[[外部工具封装]]**: 将外部工具调用封装为无副作用的静态方法，便于测试和替换
+- **[[工具注册模式]]**: 通过装饰器@server.tool注册具体工具函数，每个工具处理特定领域操作
+- **[[延迟导入以满足性能要求]]**: 定义 Zotero MCP 服务器的创建与启动，封装了 Zotero 服务的工具接口。
+- **[[懒加载服务初始化]]**: 通过get_scholar_service延迟加载具体实现，避免启动时加载所有依赖
+- **[[持久化存储]]**: 使用 DuckDB 存储引用数据，支持插入、查询和搜索操作
+- **[[数据摄取工作流]]**: 将 BIDS 目录、参与者 TSV 和 Excel 临床数据导入 DuckDB 数据库的协调流程，包括模式初始化和多个摄取步骤。
+- **[[数据模型]]**: 使用Pydantic BaseModel定义结构化数据，提供验证和序列化能力
+- **[[数据模型定义]]**: 使用Pydantic BaseModel定义结构化数据类，提供类型验证和序列化功能。
+- **[[模型上下文协议MCP服务器]]**: 基于MCP协议构建的服务器，通过工具暴露知识存储与查询功能，使用标准输入输出通信
+- **[[环境变量覆盖]]**: 配置项支持通过环境变量（如SROS_PORT）进行覆盖，实现运行时配置化。
+- **[[知识图谱存储协议]]**: 定义知识节点和关系的存储、查询及引用映射的标准接口
+- **[[知识图谱模式]]**: 定义节点（nodes）和边（edges）的表结构，节点包含 id、type、title、content 等字段，边包含 source、target、relationship、confidence 等字段。
+- **[[知识图谱边类型枚举]]**: 预定义的关系类型集合，包括 CITE、REFERENCE、RELATED_TO、CONTRADICTS。
+- **[[研究协议模式]]**: 定义了学术研究流程中三个核心操作的接口规范：视角生成、批判查找和联邦搜索
+- **[[端口占用探测]]**: 通过psutil或系统调用探测指定TCP端口上监听进程的PID和名称。
+- **[[端口扫描]]**: 通过尝试连接指定范围内的端口，找到第一个未被占用的端口号
+- **[[端口探测]]**: 通过顺序尝试和检查端口占用来发现可用端口，是一种简单的资源发现模式。
+- **[[结构化返回]]**: insert_section 和 patch_draft 返回包含操作结果的字典，而非直接抛出异常
+- **[[联邦搜索]]**: 聚合多个学术数据库（目前仅 OpenAlex 作为真实后端）的搜索结果，默认返回 mock 数据。
+- **[[资源清理]]**: 清理僵尸PID文件并终止失控进程，确保网关状态一致。
+- **[[进程健康检查]]**: 通过psutil或POSIX信号检查进程是否存活，用于判断PID文件是否有效。
+- **[[进程内RPC]]**: 通过直接调用同一进程内的 dispatch_tool 函数实现工具调用，避免网络或进程开销。
+- **[[进程存活检查与僵尸回收]]**: 检查PID对应的进程是否存活，并可清理指向已经不存在的进程的僵尸PID文件。
+- **[[递归数据模型]]**: 使用Pydantic v2的递归模型定义树形结构，需要在模块加载后调用model_rebuild()。
+- **[[通知机制]]**: 可配置的回调函数，在任务完成时异步调用，通知必须快速且不抛出异常。
+- **[[重试与退避策略]]**: 在调用OpenAlex API时，采用指数退避策略处理临时错误（如429或5xx状态码），提高请求可靠性。
+- **[[重试与限速策略]]**: 在 HTTP 请求中实现指数退避重试，以应对限速（429）和服务器错误（5xx），使用环境变量配置延迟和重试次数。
+
+## 关键实体
+
+- **[[Backend]]** (`entity`): 搜索后端的统一接口规范。
+- **[[Citation]]** (`entity`): 来自zotero_models，表示引用信息
+- **[[DBHandler]]** (`entity`): 日志数据库处理器，负责将日志记录写入数据库。
+- **[[DataHandler]]** (`entity`): 提供数据预览和脚本执行能力。入参：file_path(str) 或 script_path(str)、dataset_paths(List[str] 可选)。出参：Dictionary 包含 ok 标志、错误信息或执行结果。副作用：运行外部脚本、写入文件系统（创建 figures 目录）、调用 MemoryHandler.store_knowledge 修改知识图谱。
+- **[[ExtHandler]]** (`entity`): 静态工具类，封装外部工具调用，目前提供web_scrape方法。入参：url (str), timeout_s (float 可选)；出参：Dict[str, Any] 包含ok (bool), error (str), url (str), title (str 可选), text (str) 等字段
+- **[[GapAnalysisResult]]** (`entity`): 来自manuscript_models，表示差距分析结果
+- **[[GatewayConfig]]** (`entity`): 网关配置类，包含端口（port）、主机（host）、SSE端点（sse_endpoint）、MCP服务器列表（mcp_servers）和工作区目录（workspace_dir）等配置项。初始化时从环境变量读取覆盖值，若未设置则使用类默认值。
+- **[[HPCHandler]]** (`entity`): HPCHandler is the main class for HPC resource handling.
+- **[[HealthChecker]]** (`entity`): 健康检查器，初始化health_data字典（status, timestamp, services, errors）。核心方法generate_report()生成完整报告，内部调用多种检查逻辑，无参数，返回Dict[str, Any]。
+- **[[KnowledgeEdge]]** (`entity`): 来自schemas模块的类，表示知识图谱中的一条边（关系），用于方法参数和返回值。
+- **[[ManuscriptHandler]]** (`entity`): 处理稿件的核心类，在 .handler 模块中定义，具体职责待查看实现。
+- **[[ManuscriptProtocol]]** (`entity`): 协议类，定义稿件操作的标准接口。包含查找待办项、获取大纲、增量写入和批量更新等方法。所有方法以文件路径和可选的预期SHA256哈希为参数，返回结构化结果。
+- **[[MemoryHandler]]** (`entity`): 来自 sros.servers.memory.handler，提供 store_knowledge 方法用于持久化知识图谱节点和边。入参：节点列表和边列表。出参：布尔值表示成功或失败。
+- **[[MemoryHandler__del__]]** (`entity`): Closes the DuckDB connection to release resources.
+- **[[MemoryHandler__init__]]** (`entity`): Connects to DuckDB database at workspace directory, creates directory if needed, and initializes schema.
+- **[[MemoryHandlerget_citation_map]]** (`entity`): Retrieves edges where source or target matches the given section_id, ordered by confidence descending.
+- **[[MemoryHandlerquery_knowledge]]** (`entity`): Performs case-insensitive LIKE search on title and content fields, returns matching nodes ordered by creation date.
+- **[[MemoryHandlerstore_knowledge]]** (`entity`): Stores a list of node dicts and edge KnowledgeEdge objects into the database using UPSERT.
+- **[[MemoryProtocol]]** (`entity`): 一个typing.Protocol，定义了知识图谱接口。方法包括：store_knowledge(nodes: List[Dict], edges: List[KnowledgeEdge]) -> bool，用于存储知识节点和关系；query_knowledge(query: str, limit: int=10) -> List[Dict]，用于查询知识图谱；get_citation_map(section_id: str) -> List[KnowledgeEdge]，用于获取特定章节的引用关系图。
+- **[[Notifier]]** (`entity`): 通知回调类型，接受一个字典参数，返回 None。
+- **[[OpenAlexBackend]]** (`entity`): Implements a search backend that queries the OpenAlex API. Requires explicit enabling to perform network calls.
+- **[[OutlineNode]]** (`entity`): 来自manuscript_models，表示大纲节点
+- **[[PluginInfo]]** (`entity`): Frozen dataclass holding plugin metadata: name (id), description, path, optional display_name and input_schema.
+- **[[PluginLoadError]]** (`entity`): Custom exception (inherits RuntimeError) for plugin loading errors.
+- **[[PortOwner]]** (`entity`): 不可变数据类，封装端口占用进程的PID和名称。
+- **[[RagChunk]]** (`entity`): Immutable dataclass representing a retrieved chunk with fields: chunk_id (str), source_path (str), text (str), score (float).
+- **[[RagHandler]]** (`entity`): Main RAG handler providing build() and query() methods. Manages DuckDB persistence for document chunks. Side effects: creates DuckDB database file at <workspace>/.sros/graph.db, reads files from workspace, performs web scraping via ExtHandler.
+- **[[RagHandler_chunk_text]]** (`entity`): Splits text into chunks by double newlines (paragraphs), with 1200-char max; longer blocks are split into 900-char segments. Returns list of strings.
+- **[[RagHandler_ensure_schema]]** (`entity`): Creates document_chunks table and index on source_path if not exist. Side effect: modifies DuckDB schema.
+- **[[RagHandler_iter_files]]** (`entity`): Generator yielding (relative_path, Path) for each file in given sources. Supports directories and individual files; filters by extension .md/.txt/.bib. Validates path is within workspace.
+- **[[RagHandlerbuild]]** (`entity`): 构建RAG索引：接收sources参数（文件或目录列表），扫描匹配的文件（.md/.txt/.bib），提取文本中的URL并抓取内容，将文本分块后插入DuckDB。返回统计信息（扫描文件数、插入块数等）。
+- **[[RagHandlerquery]]** (`entity`): 执行查询：接收query和top_k参数，从DuckDB中读取所有块，基于词法匹配（查询词与块文本中的词）计算分数，按分数降序返回top_k个RagChunk。
+- **[[ResearchPerspective]]** (`entity`): 来自scholar_models，表示研究视角
+- **[[SROSGateway]]** (`entity`): Main gateway class implementing MCP SSE Hub. Manages SSE sessions, tool registry (TOOLS), and routes. Starts Async pumps for notifications.
+- **[[SROSGateway__init__]]** (`entity`): 初始化网关：解析配置、创建 FastAPI 应用、初始化 SSE 会话字典、创建 SkillReflector、注册工具、设置路由。副作用：连接任务管理器通知。
+- **[[SROSGatewaydispatch_jsonrpc]]** (`entity`): （未在代码中完全展示）处理 JSON-RPC 请求的分发。
+- **[[SROSGatewaymcp_list_tools]]** (`entity`): 返回 MCP 工具定义列表，包含每个工具的 inputSchema。无入参。出参：List[Dict] 工具定义。
+- **[[SROSGatewaystart]]** (`entity`): （未在代码中完全展示）启动网关服务。
+- **[[SSEHandler]]** (`entity`): Manages shared health state for the gateway. __init__(config: GatewayConfig) initializes health_data with default status; update_health(service_name: str, status: str) updates a service's status and records wall-clock timestamp; get_health_info() returns the full health_data dict.
+- **[[STATIC_TOOLS]]** (`entity`): Dictionary defining static tool names grouped by domain (manuscript, ext, rag, scholar, memory, db, hpc).
+- **[[ScholarHandler]]** (`entity`): 核心处理器类，负责学术搜索相关逻辑，导入自 .handler 模块。
+- **[[ScholarProtocol]]** (`entity`): 学术研究协议接口，包含三个抽象方法：brainstorm_perspectives(查询字符串→研究视角列表)、find_critiques(论文ID→质疑文献列表)、federated_search(搜索查询→结果列表)
+- **[[SearchQuery]]** (`entity`): 来自scholar_models，表示搜索查询
+- **[[SkillCallResult]]** (`entity`): 封装技能调用的结果，包含 ok 布尔标志和 value（成功时返回结果，失败时返回错误信息字典）。
+- **[[SkillReflector]]** (`entity`): Reflector that dynamically resolves tool names to actual skill implementations. Used by SROSGateway for tool calls.
+- **[[TaskManager]]** (`entity`): 管理任务的容器，提供启动、获取、列出方法，内部使用锁和线程执行任务。
+- **[[TaskRecord]]** (`entity`): 数据类，记录任务的 id、状态、种类、名称、参数、时间戳、结果和错误。
+- **[[TaskRecordstate]]** (`entity`): TaskRecord 的 state 字段，类型为 TaskState。
+- **[[TaskState]]** (`entity`): 任务状态类型定义，可能的值为 'queued', 'running', 'succeeded', 'failed'。
+- **[[TasksHandler]]** (`entity`): 任务API的入口，提供运行插件任务、获取任务状态、列出所有任务和等待任务完成的方法。所有方法返回包含 ok 标志和结果或错误信息的字典。
+- **[[ZoteroHandler]]** (`entity`): Zotero API处理类，从.handler模块导入
+- **[[ZoteroProtocol]]** (`entity`): 协议类，定义Zotero引文管理的基本操作接口。方法包括：add_citation(citation: Citation) -> bool，添加引用并返回成功状态；get_citation(citekey: str) -> Citation，根据citekey获取引用；search_citations(query: str) -> List[Citation]，搜索引用并返回列表
+- **[[__del__]]** (`entity`): 析构函数：关闭 DuckDB 连接，释放资源。副作用：关闭连接。
+- **[[__init__]]** (`entity`): Constructor, takes a db_path (string or Path). Creates parent directories and opens DuckDB connection.
+- **[[__init__py]]** (`entity`): SROS 包的根模块，定义了版本、作者、描述等元数据，并导出了 cli 模块的 app 对象。
+- **[[_abstract_from_inverted_index]]** (`entity`): 静态方法：将OpenAlex返回的倒排索引抽象字段转换为普通字符串。反转哈希表中的词和位置，按位置排序后拼接。输入为倒排索引字典，输出字符串。
+- **[[_chunk_text]]** (`entity`): 私有函数，将文本按段落分割（或用固定步长900字符），返回块列表。
+- **[[_get_env_float]]** (`entity`): 工具函数：按顺序尝试多个环境变量名，返回第一个有效的浮点数值，否则返回默认值。
+- **[[_get_env_int]]** (`entity`): 工具函数：按顺序尝试多个环境变量名，返回第一个有效的整数值，否则返回默认值。
+- **[[_get_json_with_retry]]** (`entity`): 使用指数退避重试策略发送GET请求并解析JSON。最多重试max_retries次，两次重试间休眠当前退避时间（第一次0.75s，之后翻倍）。成功返回响应JSON，失败抛出RuntimeError。副作用：网络I/O。
+- **[[_ingest_bids]]** (`entity`): 遍历 BIDS 目录树并填充 mri_scans 表。返回插入的记录数。副作用：对 mri_scans 表执行 INSERT OR REPLACE。
+- **[[_ingest_clinical]]** (`entity`): 解析临床 Excel 文件并填充 clinical_data 表。返回插入的行数。副作用：对 clinical_data 表执行 INSERT OR REPLACE。
+- **[[_ingest_participants]]** (`entity`): 解析 participants.tsv 并填充 subjects 表。返回插入的行数。副作用：对 subjects 表执行 INSERT OR REPLACE。
+- **[[_iter_files]]** (`entity`): 私有迭代器函数，根据sources列表生成(相对路径, Path对象)元组，过滤文件后缀为.md/.txt/.bib。
+- **[[_resolve_ws_path]]** (`entity`): 将相对路径解析为工作区内的绝对路径，防止路径遍历攻击。
+- **[[_run]]** (`entity`): Run a shell command with timeout (default 30s), return standardized result dict. Dry-run support.
+- **[[_serialize_rows]]** (`entity`): 将 DuckDB 结果行转换为 JSON 可序列化列表。处理日期时间、字节等类型。
+- **[[_transform_work]]** (`entity`): 静态方法：将单个work记录转换为统一格式的字典。提取authors、venue（先primary_location后best_oa_location）、abstract、url等字段，并添加source='openalex'。
+- **[[_validate_citekeys_exist]]** (`entity`): Private method. Queries DuckDB `citations` table for missing citekeys, raises ValueError if any are absent. Requires .sros/graph.db in workspace.
+- **[[_workspace_root]]** (`entity`): 从环境变量SROS_WORKSPACE_DIR读取工作区根目录，若未设置则抛出ValueError。
+- **[[add_citation]]** (`entity`): 插入或替换一条引用记录。入参：Citation 对象；出参：布尔值表示成功与否。副作用：对 citations 表执行 INSERT OR REPLACE。
+- **[[add_citation_tool]]** (`entity`): MCP 工具，接收 citekey、title、authors、year、journal、url、bibtex 参数，调用 ZoteroProtocol.add_citation 添加引用，返回 CallToolResult
+- **[[app]]** (`entity`): CLI 主入口，由 cli 模块暴露的 app 实例提供命令行交互功能。
+- **[[brainstorm_perspectives]]** (`entity`): Co-STORM核心方法，根据查询生成多个研究视角，输入query(str)，输出List[ResearchPerspective]
+- **[[brainstorm_perspectives_tool]]** (`entity`): MCP tool，接收query字符串，调用ScholarProtocol.brainstorm_perspectives生成多维研究视角，返回JSON序列化的ResearchPerspective列表。
+- **[[build]]** (`entity`): Scans provided source files/directories (only .md, .txt, .bib) and embedded URLs, chunks text via paragraph splitting, inserts chunks into DuckDB with deduplication. Returns {ok, db_path, scanned_files, inserted, chunk_count}.
+- **[[call]]** (`entity`): 执行技能调用，接收 tool_name (str) 和 arguments (Dict[str, Any])，返回 SkillCallResult；内部调用 sros.skills.rpc.dispatch_tool。
+- **[[cancel]]** (`entity`): Cancel a job via scancel. Returns cancellation status.
+- **[[check_oom]]** (`entity`): Check if job stderr contains OOM patterns. Uses local OOM_PATTERNS list.
+- **[[cleanup_zombie_pid_file]]** (`entity`): 清理指向已不存在进程的PID文件。入参: workspace_dir，出参: bool（是否清理了僵尸文件）。
+- **[[close]]** (`entity`): Closes the DuckDB connection. No arguments, no return.
+- **[[create_app]]** (`entity`): Factory function to create a FastAPI application instance with SROSGateway routes.
+- **[[create_manuscript_server]]** (`entity`): 创建稿件 MCP 服务器的工厂函数，在 .server 模块中定义，具体入参和出参待查看实现。
+- **[[create_memory_server]]** (`entity`): 创建内存MCP服务器的工厂函数，具体实现在.server模块
+- **[[create_scholar_server]]** (`entity`): 工厂函数，用于创建 scholar MCP 服务器实例，导入自 .server 模块。
+- **[[create_zotero_server]]** (`entity`): 创建Zotero MCP服务器的工厂函数，从.server模块导入
+- **[[detect_free_port]]** (`entity`): 检测指定范围内第一个可用的端口号。开始端口start_port（默认8000），最大检测数量max_ports（默认100）。返回可用端口号或None
+- **[[discover_plugins]]** (`entity`): Imported from sros.utils.plugin_loader; returns a list of discovered plugin metadata objects (name, display_name, description, path, input_schema).
+- **[[dispatch_jsonrpc]]** (`entity`): Dispatches incoming JSON-RPC requests to the appropriate tool or method. Not explicitly shown but implied by route setup.
+- **[[dispatch_tool]]** (`entity`): Main dispatcher that routes a tool name (string) and arguments (dict) to the appropriate server handler. Returns the handler's result. Performs validation of required arguments and imports handlers lazily.
+- **[[doctor]]** (`entity`): Runs diagnostics on the current environment (Python version, dependencies, environment variables) and displays results in a table.
+- **[[federated_search]]** (`entity`): 联邦搜索多个学术数据库，输入SearchQuery，输出List[Dict]
+- **[[federated_search_tool]]** (`entity`): MCP tool，接收query、max_results、filters，构造SearchQuery，调用ScholarProtocol.federated_search执行联邦搜索，返回JSON结果。
+- **[[find_critiques]]** (`entity`): CiTO逻辑实现，根据论文ID查找反驳或质疑类文献，输入paper_id(str)，输出List[Dict]
+- **[[find_critiques_tool]]** (`entity`): MCP tool，接收paper_id字符串，调用ScholarProtocol.find_critiques查找反驳/质疑文献，返回JSON结果。
+- **[[find_gaps]]** (`entity`): 基于规则识别稿件中的待办项。入参：file_path (str) 文件路径；出参：List[GapAnalysisResult] 待办项列表。
+- **[[find_gaps_tool]]** (`entity`): MCP tool: receives file_path, calls service.find_gaps, returns JSON serialized list of GapAnalysisResult.
+- **[[find_port_owner]]** (`entity`): 查找监听指定TCP端口的进程。入参: port，出参: PortOwner。依赖psutil。
+- **[[generate_report]]** (`entity`): 生成完整的健康报告，无参数，返回Dict[str, Any]。包含workspace、python_environment、dependencies、port_availability、database_integrity及ARC Code-Wiki相关检查。
+- **[[get_citation]]** (`entity`): 根据 citekey 查询单条引用。入参：字符串 citekey；出参：Citation 对象，未找到时抛出 ValueError。副作用：仅读取数据。
+- **[[get_citation_map]]** (`entity`): 根据章节ID返回该章节的引用关系边列表
+- **[[get_citation_map_tool]]** (`entity`): MCP工具：接收章节ID（section_id: str），调用MemoryProtocol.get_citation_map获取边列表，返回序列化后的JSON
+- **[[get_citation_tool]]** (`entity`): MCP 工具，接收 citekey 参数，调用 ZoteroProtocol.get_citation 获取引用，返回 CallToolResult
+- **[[get_file_sha256]]** (`entity`): 计算文件的SHA256哈希值。入参：file_path (str) 默认'draft.md'；出参：str 哈希值。
+- **[[get_health_info]]** (`entity`): Returns the current health_data dictionary.
+- **[[get_manuscript_service]]** (`entity`): 延迟加载并返回 ManuscriptHandler 实例，实现 ManuscriptProtocol；抛出 RuntimeError 失败。
+- **[[get_memory_service]]** (`entity`): 延迟加载并返回MemoryHandler实例（实现了MemoryProtocol），在初始化失败时抛出RuntimeError
+- **[[get_outline_tree]]** (`entity`): 返回稿件内容的树状结构（Markdown AST）。入参：file_path (str)；出参：OutlineNode 根节点。
+- **[[get_outline_tree_tool]]** (`entity`): MCP tool: receives file_path, calls service.get_outline_tree, returns JSON serialized OutlineNode.
+- **[[get_plugins_dir]]** (`entity`): Returns Path to .sros/plugins folder under workspace directory. Side-effect: calls get_workspace_dir if workspace_dir not provided.
+- **[[get_scholar_service]]** (`entity`): 延迟加载并返回ScholarProtocol实例，若失败则抛出RuntimeError。
+- **[[get_task]]** (`entity`): 根据 task_id 获取任务状态。入参：task_id（字符串）。出参：如果找到任务，返回包含 ok 和 task 字典的字典；否则返回包含 ok、error 和 task_id 的字典。
+- **[[get_task_manager]]** (`entity`): 返回全局唯一的 TaskManager 实例（单例模式）。
+- **[[get_workspace_dir]]** (`entity`): Reads SROS_WORKSPACE_DIR environment variable, raises PluginLoadError if unset.
+- **[[get_zotero_service]]** (`entity`): 延迟加载并返回 ZoteroHandler 实例，实现 ZoteroProtocol 接口；无参数，返回 ZoteroProtocol 对象；可能引发 RuntimeError
+- **[[index_figure_references]]** (`entity`): Parses a Markdown file for image links (e.g., ![alt](figures/foo.png)), creates draft_section nodes for each heading, Figure nodes for each figure, and REFERENCED_IN edges. Returns a dict with ok/error status and list of referenced figures.
+- **[[ingest]]** (`entity`): Main entry point for ingestion: accepts source_dir, bids_dir, participants, clinical, schema_path. Returns dict with counts per table or error. Side effects: database writes.
+- **[[init]]** (`entity`): Initializes a new SROS project: creates workspace structure, .sros directory, config, pid file, .env, and optionally updates Roo modes and Claude instructions. Parameters: project_name, target, gateway_url, server_key, with_roomodes.
+- **[[init_schema]]** (`entity`): Executes DDL from a SQL schema file. Optional schema_path parameter, returns dict with ok status and error message if failed.
+- **[[insert_section]]** (`entity`): 在指定位置插入带引用的章节内容。支持乐观并发控制。入参：target (str), content (str), citations (List[str]), file_path (str), expected_sha256 (Optional[str])；出参：Dict[str, Any] 操作结果。
+- **[[insert_section_tool]]** (`entity`): MCP tool: receives target, content, citations, file_path, expected_sha256; calls service.insert_section; returns JSON result dict.
+- **[[is_pid_alive]]** (`entity`): 检查PID对应的进程是否存在。入参: pid，出参: bool。依赖psutil或os.kill。
+- **[[is_port_in_use]]** (`entity`): 检查指定端口是否被占用。通过创建socket连接localhost:port，如果连接成功则返回True，否则返回False
+- **[[list_jobs]]** (`entity`): List jobs for a user (default: current user) via squeue -u. Returns list of jobs and count.
+- **[[list_tasks]]** (`entity`): 列出所有任务，按创建时间降序排列。入参：无。出参：包含 ok、tasks（列表）和 count（整数）的字典。
+- **[[load_plugin]]** (`entity`): Loads a named plugin by dynamic import from plugins directory, validates SKILL_NAME, extracts metadata from module attributes (with JSON schema fallback), returns (PluginInfo, module). Side-effect: module execution.
+- **[[logs]]** (`entity`): 获取作业日志（方法未实现）。入参: job_id (str)。返回: Dict。
+- **[[main]]** (`entity`): Async entry point: loads GatewayConfig, creates SROSGateway, and starts uvicorn server with SSE transport.
+- **[[manuscript_find_gaps]]** (`entity`): CLI command 'manuscript find-gaps'. Delegates to ManuscriptHandler.find_gaps(file_path). Side-effect: prints output.
+- **[[manuscript_get_file_sha256_compat]]** (`entity`): Compatibility alias for 'manuscript get-file-sha256', calls same handler as sha256. Side-effect: prints output.
+- **[[manuscript_get_outline_tree_compat]]** (`entity`): Compatibility alias for 'manuscript get-outline-tree', calls same handler as outline. Side-effect: prints output.
+- **[[manuscript_index_figures]]** (`entity`): CLI command 'manuscript index-figures'. Delegates to ManuscriptHandler.index_figures(file_path). Side-effect: prints output.
+- **[[manuscript_insert]]** (`entity`): CLI command 'manuscript insert'. Delegates to ManuscriptHandler.insert(target, content, position, citations, file_path, expected_sha256). Side-effect: prints output.
+- **[[manuscript_outline]]** (`entity`): CLI command 'manuscript outline'. Delegates to ManuscriptHandler.get_outline_tree(file_path). Side-effect: prints output.
+- **[[manuscript_refactor]]** (`entity`): Refactors a manuscript section with new content and citations. Input: target, content, citations, file_path, expected_sha256. Output: refactored manuscript.
+- **[[manuscript_sha256]]** (`entity`): CLI command 'manuscript sha256'. Delegates to ManuscriptHandler.get_file_sha256(file_path). Side-effect: prints output.
+- **[[mcp_list_tools]]** (`entity`): Returns MCP tool definitions with precise inputSchema. Refreshes tool registry, then builds and returns a list of tool objects.
+- **[[parse_plugin_metadata]]** (`entity`): Static analysis of a Python file via AST to extract SKILL_NAME, SKILL_DESCRIPTION, SKILL_INPUT_SCHEMA without executing code. Returns PluginInfo.
+- **[[patch_draft]]** (`entity`): 批量应用多个补丁来更新稿件内容。支持乐观并发控制。入参：patches (List[Dict]), file_path (str), expected_sha256 (Optional[str])；出参：Dict[str, Any] 操作结果。
+- **[[patch_draft_tool]]** (`entity`): MCP tool: receives patches list, file_path, expected_sha256; calls service.patch_draft; returns JSON result dict.
+- **[[pid_file_path]]** (`entity`): 计算PID文件的绝对路径。入参: workspace_dir (str|Path)，出参: Path。
+- **[[preview_csv]]** (`entity`): 预览 CSV 文件，返回统计摘要（行数、列数、列名、数据类型、样本行、空值计数）。入参：file_path(str)。出参：Dict 包含 ok 布尔值和 summary 或 error。副作用：读取文件。
+- **[[query]]** (`entity`): (Not shown in code but listed in AST HINTS) Executes SQL query against DuckDB. Expected to take SQL string and return rows.
+- **[[query_knowledge]]** (`entity`): 根据查询字符串和限制数量返回知识节点列表
+- **[[query_knowledge_tool]]** (`entity`): MCP工具：接收查询字符串（query: str）和可选限制数（limit: int=10），调用MemoryProtocol.query_knowledge返回结果JSON
+- **[[read_pid_file]]** (`entity`): 读取并解析PID文件，返回字典或None。入参: workspace_dir，出参: Optional[Dict]。
+- **[[remove_pid_file]]** (`entity`): 删除PID文件，忽略不存在的错误。入参: workspace_dir。副作用：删除文件。
+- **[[resolve_workspace_path]]** (`entity`): Resolves a workspace-relative file path, enforcing SROS_WORKSPACE_DIR and preventing traversal. Returns a Path object. Raises ValueError for invalid paths.
+- **[[restart]]** (`entity`): Stops the current gateway and starts a new one with updated parameters. Parameters: workspace_dir, port, auto_port, timeout_s.
+- **[[run_plugin]]** (`entity`): Imported from sros.utils.plugin_loader; executes a named plugin with given arguments and returns the result.
+- **[[run_plugin_async]]** (`entity`): 异步运行插件任务。入参：plugin（字符串）、args（字典）。出参：包含 ok 和 task_id 的字典。副作用：通过任务管理器启动新线程执行任务。
+- **[[run_script]]** (`entity`): 在子进程中执行 Python 脚本，检测新生成/修改的图形文件，使用 MemoryHandler 注册节点和边到知识图谱。入参：script_path(str)、dataset_paths(List[str] 可选)。出参：Dict 包含 ok 布尔值及执行详情（脚本路径、标准输出、标准错误、数据集列表、图形列表）。副作用：写入文件系统（创建 figures 目录）、调用 MemoryHandler.store_knowledge。
+- **[[search]]** (`entity`): 执行搜索：构造请求参数（包括search、per-page、select和mailto），调用_get_json_with_retry获取结果，遍历每条work调用_transform_work转换格式。返回转换后的结果列表。
+- **[[search_citations]]** (`entity`): 根据关键词对 title、journal、citekey 进行模糊搜索，按年份降序。入参：字符串查询词；出参：Citation 列表。副作用：仅读取数据。
+- **[[search_citations_tool]]** (`entity`): MCP 工具，接收 query 参数，调用 ZoteroProtocol.search_citations 搜索引用，返回 CallToolResult
+- **[[start]]** (`entity`): Starts the SROS gateway: validates workspace, loads env, detects free port, starts gateway process, updates MCP/Claude configs. Parameters: workspace_dir, port, auto_port, reload, update_mcp_json, mcp_host, server_key, update_clauderc.
+- **[[start_process]]** (`entity`): 启动一个子进程，返回Popen对象。入参：command(List[str])命令列表，cwd(Optional[str])工作目录。出参：subprocess.Popen对象。副作用：启动系统进程。
+- **[[status]]** (`entity`): Displays the current status of the SROS gateway process: PID, port, uptime from the PID file.
+- **[[stop]]** (`entity`): Stops the SROS gateway process gracefully with timeout, optionally killing port owners. Parameters: workspace_dir, timeout_s, port, kill_port_owner.
+- **[[store_knowledge]]** (`entity`): 存储知识节点和关系，输入节点列表和边列表，返回布尔值表示是否成功
+- **[[store_knowledge_tool]]** (`entity`): MCP工具：接收节点列表（nodes: List[Dict]）和边列表（edges: List[Dict]），转换为KnowledgeEdge对象后调用MemoryProtocol.store_knowledge存储，返回包含成功状态和计数的JSON
+- **[[submit]]** (`entity`): Submit a Slurm script via sbatch. Accepts script_path and optional array_size. Returns job_id or error. Side effect: updates _oom_retry_count/mem dicts.
+- **[[submit_with_oom_retry]]** (`entity`): Submit job and if OOM is detected, retry with increased memory. Uses _oom_retry_count and _oom_retry_mem dicts.
+- **[[update_health]]** (`entity`): Updates health status for a service and sets timestamp to current wall-clock time.
+- **[[validate_workspace_dir]]** (`entity`): Validates that a workspace directory is an SROS workspace by checking for .sros/config.yml. Returns the absolute path string.
+- **[[wait_task]]** (`entity`): 等待任务完成（状态为 succeeded 或 failed），支持超时和轮询间隔。入参：task_id（字符串）、timeout_s（浮点数，默认30.0）、poll_interval_s（浮点数，默认0.05）。出参：轮询到任务完成时返回 get_task 的结果；超时返回包含 ok、error 和 task_id 的字典。
+- **[[web_scrape]]** (`entity`): 静态方法，发送HTTP GET请求抓取网页内容，解析标题并去除HTML标签。入参：url, timeout_s；出参：同ExtHandler。副作用：网络请求（可monkeypatch）
+- **[[write_pid_file]]** (`entity`): 写入PID文件，包含pid、port和started_at。入参: workspace_dir, pid, port，出参: Optional[Path]。副作用：创建目录和文件。
+
+---
+_auto-generated by claw-code-ingest | module: other_

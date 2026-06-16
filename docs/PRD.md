@@ -208,7 +208,23 @@ SROS MCP Gateway 后续迭代中将增加遥测中间件，向 AgenticOps Dashbo
 
 ---
 
-## 7. 总结：系统哲学的升维
+## 7. MCP-to-OpenAI Adapter — 模型无关的协议翻译层 (V4.2)
+
+> 交付日期：2026-06-16 | 任务：MCP-Adapter ✅ | 测试：10 tests green
+
+SROS MCP Gateway 原生输出 JSON-RPC 格式。为使 DeepSeek v4 Pro 等 OpenAI 兼容 API 的模型也能调用 SROS 工具，新增协议翻译层：
+
+- `mcp_tools_to_openai()`: MCP tools/list → OpenAI Function Calling `[{type: "function", function: {name, description, parameters}}]`
+- `openai_tool_call_to_mcp()`: OpenAI tool_call 响应 → MCP tools/call 参数
+- `build_deepseek_request()`: 构建完整 DeepSeek API 请求体
+
+**Gateway 端点**:
+- `GET /api/v1/mcp/openai-tools` — 返回 OpenAI Function Calling 兼容格式的工具列表
+- `POST /api/v1/mcp/call-openai` — 接收 OpenAI tool_call，内部转换为 JSON-RPC 并分发
+
+**位置**: `src/sros/gateway/mcp_openai_adapter.py` | `tests/unit/test_mcp_openai_adapter.py` (10 tests)
+
+## 8. 总结：系统哲学的升维
 
 放弃开发内置 LangChain 路由的 Python 巨石应用。
 

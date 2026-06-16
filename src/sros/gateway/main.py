@@ -943,6 +943,54 @@ class SROSGateway:
 
                 await queue.put(json.dumps(response))
                 return {"ok": True}
+
+            # --- MCP-to-OpenAI Adapter endpoints ---
+            @self.app.get("/api/v1/mcp/openai-tools")
+            async def list_tools_openai():
+                """Return tools in OpenAI Function Calling format (for DeepSeek consumption)."""
+                from sros.gateway.mcp_openai_adapter import mcp_tools_to_openai
+
+                self._refresh_tools()
+                # Collect all tools as a flat list from the grouped dict
+                tools_flat = []
+                grouped = {
+                    "manuscript": [
+                        "find_gaps", "get_outline_tree", "index_figure_references",
+                        "insert_section", "patch_draft"
+                    ],
+                    "scholar": [
+                        "brainstorm_perspectives", "find_critiques", "federated_search"
+                    ],
+                    "memory": [
+                        "store_knowledge", "query_knowledge", "get_citation_map"
+                    ],
+                    "plugins": [p.split(".", 1)[1] for p in sorted(self.TOOLS) if p.startswith("plugin.")],
+                    "tasks": ["run_plugin_async", "get", "list", "wait"],
+                }
+                for category, names in grouped.items():
+                    for name in names:
+                        tools_flat.append({
+                            "name": name,
+                            "description": f"SROS {category} tool: {name}",
+                            "inputSchema": {"type": "object", "properties": {}},
+                        })
+                return {"tools": mcp_tools_to_openai(tools_flat)}
+
+            @self.app.post("/api/v1/mcp/call-openai")
+            async def call_tool_openai(request: Request):
+                """Accept OpenAI tool_call format and dispatch via JSON-RPC."""
+                from sros.gateway.mcp_openai_adapter import openai_tool_call_to_mcp
+
+                body = await request.json()
+                mcp_params = openai_tool_call_to_mcp(body)
+                # Build a JSON-RPC request and dispatch
+                jsonrpc_request = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": mcp_params["params"],
+                    "id": 1,
+                }
+                return self.dispatch_jsonrpc(jsonrpc_request)
         except Exception as e:
             raise RuntimeError(f"Failed to setup routes: {str(e)}") from e
     

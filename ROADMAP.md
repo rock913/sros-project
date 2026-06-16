@@ -37,6 +37,7 @@
 | S1–S7 | `db ingest/query` + `hpc-server` + Code-Wiki 契约/CI/Doctor/强制激活 | ✅ |
 | DSL-1–DSL-6 | sros-sdk 骨架 → BrainGraphDataset → GNNTrainer → DuckDB 连接器 → DSPy 断言 → E2E | ✅ |
 | FS-1 | 飞书 Webhook `POST /webhook/execute` + 字段翻译 + BackgroundTasks → GraphMRI-Lite | ✅ |
+| MCP-Adapter | MCP-to-OpenAI Function Calling 协议翻译层 (DeepSeek v4 Pro 适配) | ✅ |
 
 ---
 
