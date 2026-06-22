@@ -91,6 +91,7 @@ make update-wiki       → 一键刷新图谱
    - PR 被 Squash and Merge 后，远程分支会自动删除。
    - 本地执行 `git fetch --prune` 清理已删除的远程分支引用。
    - 本地分支可手动删除：`git branch -d <type>/<desc>`。
+<<<<<<< ours
 
 ## Contract-First Development (Contract-First 契约优先)
 
