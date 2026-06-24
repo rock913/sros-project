@@ -1,0 +1,106 @@
+{
+  "name": "omnineuro",
+  "version": "9.0.0",
+  "compatible_sros_version": ">=4.0",
+  "description": "Multi-modal neuroscience AI microservice — MRI, EEG, Omics processing engine for SROS federated ecosystem",
+  "tools": [
+    {
+      "name": "omnineuro.mri.fMRIPrep_submit",
+      "description": "Submit fMRIPrep preprocessing job for a BIDS dataset. Returns job_id for status tracking via SSE.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bids_dir": {"type": "string", "description": "Path to BIDS dataset root directory"},
+          "output_dir": {"type": "string", "description": "Output directory for derivatives"},
+          "subject_ids": {"type": "array", "items": {"type": "string"}, "description": "Optional: specific subjects to process"},
+          "nprocs": {"type": "integer", "default": 4},
+          "mem_mb": {"type": "integer", "default": 8000}
+        },
+        "required": ["bids_dir", "output_dir"]
+      },
+      "handler": "omnineuro mri preprocess --bids-dir {bids_dir} --output-dir {output_dir} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 3600000
+    },
+    {
+      "name": "omnineuro.mri.graph_construct",
+      "description": "Construct brain connectome from preprocessed timeseries using specified atlas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "timeseries_dir": {"type": "string", "description": "Path to preprocessed timeseries directory"},
+          "atlas": {"type": "string", "enum": ["AAL", "HarvardOxford", "Schaefer400", "Destrieux"]},
+          "connectome_kind": {"type": "string", "enum": ["correlation", "partial_correlation", "tangent"], "default": "tangent"},
+          "vectorize": {"type": "boolean", "default": true}
+        },
+        "required": ["timeseries_dir", "atlas"]
+      },
+      "handler": "omnineuro mri build-network --timeseries-dir {timeseries_dir} --atlas {atlas} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 600000
+    },
+    {
+      "name": "omnineuro.mri.gnn_predict",
+      "description": "Run GNN-based classification on connectome data. Supports GCN, GAT, BrainNetCNN.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "connectome": {"type": "string", "description": "Path to connectome matrix (.npy or .mat)"},
+          "labels": {"type": "string", "description": "Path to labels CSV file"},
+          "model": {"type": "string", "enum": ["gcn", "gat", "brainnetcnn"], "default": "gcn"}
+        },
+        "required": ["connectome", "labels"]
+      },
+      "handler": "omnineuro mri predict --connectome {connectome} --labels {labels} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 1800000
+    },
+    {
+      "name": "omnineuro.mri.brain_render",
+      "description": "Generate 3D brain visualization from connectome data.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "matrix": {"type": "string", "description": "Path to connectivity matrix"},
+          "atlas": {"type": "string", "description": "Atlas name for node labels"},
+          "view_mode": {"type": "string", "enum": ["glass", "surface", "connectome"], "default": "glass"}
+        },
+        "required": ["matrix", "atlas"]
+      },
+      "handler": "omnineuro mri visualize --matrix {matrix} --atlas {atlas} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 300000
+    },
+    {
+      "name": "omnineuro.eeg.artifact_removal",
+      "description": "Preprocess EEG data: resample, notch/bandpass filter, ICA, ICLabel, interpolate, re-reference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "eeg_dir": {"type": "string", "description": "Path to EEG dataset directory (EDF/BDF/FIF)"},
+          "freq_low": {"type": "number", "default": 0.1},
+          "freq_high": {"type": "number", "default": 80.0}
+        },
+        "required": ["eeg_dir"]
+      },
+      "handler": "omnineuro eeg preprocess --eeg-dir {eeg_dir} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 600000
+    },
+    {
+      "name": "omnineuro.eeg.source_localize",
+      "description": "EEG source localization: DICS, LCMV, MNE, dSPM, sLORETA, eLORETA.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "eeg_dir": {"type": "string", "description": "Path to preprocessed EEG directory"},
+          "source_type": {"type": "string", "enum": ["surface", "volume"], "default": "surface"}
+        },
+        "required": ["eeg_dir"]
+      },
+      "handler": "omnineuro eeg source-recon --eeg-dir {eeg_dir} --raw",
+      "handler_type": "cli",
+      "timeout_ms": 1200000
+    }
+  ]
+}

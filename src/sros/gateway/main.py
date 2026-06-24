@@ -90,6 +90,23 @@ class SROSGateway:
             except Exception as e:
                 logger.warning(f"Failed to wire task notifier: {e}")
 
+            # Ω4: Dynamic skill registration — load sub-app manifests at startup
+            self._dynamic_manifests: dict[str, "SubAppManifest"] = {}
+            self._dynamic_tools: list["ToolManifestItem"] = []
+            try:
+                from sros.gateway.manifest_loader import ManifestLoader
+                loader = ManifestLoader()
+                loader.set_static_tool_names(STATIC_TOOLS)
+                self._dynamic_manifests = loader.load_all()
+                self._dynamic_tools = loader.get_all_tools(self._dynamic_manifests)
+                if self._dynamic_tools:
+                    logger.info(
+                        "Dynamic tools registered: %d tools from %d sub-apps",
+                        len(self._dynamic_tools), len(self._dynamic_manifests),
+                    )
+            except Exception as e:
+                logger.warning("Failed to load dynamic manifests: %s", e)
+
             def _make_tool(tool_name: str):
                 def _call(**kwargs):
                     return self._reflector.call(tool_name, kwargs).value
@@ -97,6 +114,42 @@ class SROSGateway:
                 return _call
 
             self._make_tool = _make_tool
+
+            def _make_manifest_tool(dt: "ToolManifestItem"):
+                """Ω4: Create a callable for manifest-based dynamic tools.
+
+                Manifest tools are dispatched via subprocess (CLI handler).
+                The handler string uses {placeholder} substitution from kwargs.
+                """
+                import shlex
+                import subprocess
+
+                def _call(**kwargs):
+                    cmd = dt.handler
+                    for key, val in kwargs.items():
+                        cmd = cmd.replace(f"{{{key}}}", str(val))
+                    try:
+                        result = subprocess.run(
+                            shlex.split(cmd),
+                            capture_output=True,
+                            text=True,
+                            timeout=dt.timeout_ms / 1000,
+                        )
+                        return {
+                            "stdout": result.stdout,
+                            "stderr": result.stderr,
+                            "returncode": result.returncode,
+                        }
+                    except subprocess.TimeoutExpired:
+                        return {"error": f"Tool '{dt.name}' timed out after {dt.timeout_ms}ms"}
+                    except FileNotFoundError:
+                        return {"error": f"Handler not found: {cmd.split()[0]}"}
+                    except Exception as e:
+                        return {"error": str(e)}
+
+                return _call
+
+            self._make_manifest_tool = _make_manifest_tool
             self.TOOLS: Dict[str, Callable[..., Any]] = {}
             self._refresh_tools()
             
@@ -141,6 +194,10 @@ class SROSGateway:
         except Exception:
             # If workspace is not set, simply omit plugin tools.
             pass
+
+        # Ω4: Dynamic sub-app tools from manifest (e.g. omnineuro.*)
+        for dt in self._dynamic_tools:
+            tools[dt.name] = self._make_manifest_tool(dt)
 
         self.TOOLS = tools
 
@@ -764,11 +821,23 @@ class SROSGateway:
             },
         })
 
+        # Ω4: Dynamic sub-app tools from manifest — inject schemas from mcp_tools.json
+        for dt in self._dynamic_tools:
+            tool_schemas[dt.name] = {
+                "name": dt.name,
+                "description": dt.description,
+                "inputSchema": dt.inputSchema if dt.inputSchema else {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": True,
+                },
+            }
+
         # Filter to only include tools that actually exist
         for tool_name, schema in tool_schemas.items():
             if tool_name in self.TOOLS:
                 tools.append(schema)
-        
+
         return {"tools": tools}
     
     def _setup_routes(self):
